@@ -1,0 +1,23 @@
+# Owner: backbone (ALL)
+# Clarification necessity: TWO stones (gray "stone" and dark-red "stone2",
+# same class) are visible simultaneously, and the instruction says only
+# "the stone", so the planner must ask which one and consume the single
+# scripted response ("the gray one" -> the gray stone).
+id: smoke_5_clarification
+category: robustness_clarification
+instruction: "move the stone onto the red region"
+scene:
+  seed: 15
+  objects:
+    - {name: stone,  pos: [0.60, -0.15, 0.43]}
+    - {name: stone2, pos: [0.80, -0.02, 0.43]}
+    - {name: cube,   pos: [0.55,  0.12, 0.43]}
+  robot_init: {x: 0.0, y: 0.0, yaw: 0.0}
+clarification_responses: ["the gray one"]
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: true
+  events_required: [GRASP, PLACE]

@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+runs/
+.pytest_cache/
+# Upstream MuJoCo Menagerie checkout (fetched by scripts/fetch_menagerie.sh
+# at the revision pinned in assets/menagerie_revision.txt).
+assets/menagerie/

@@ -1,0 +1,22 @@
+# Owner: backbone (ALL)
+# SEARCH necessity: the robot starts rotated AWAY from the table
+# (yaw = 3.0 rad), so the target is outside the initial camera view and
+# the system must SEARCH (rotate/scan) before it can ground the stone.
+id: smoke_4_search
+category: robustness_search
+instruction: "move the stone onto the red region"
+scene:
+  seed: 14
+  objects:
+    - {name: stone,  pos: [0.60, -0.15, 0.43]}
+    - {name: cube,   pos: [0.60,  0.15, 0.43]}
+    - {name: bottle, pos: [0.90, -0.30, 0.465]}
+  robot_init: {x: 0.0, y: 0.0, yaw: 3.0}
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: true
+  clarification_required: false
+  events_required: [SEARCH, GRASP, PLACE]

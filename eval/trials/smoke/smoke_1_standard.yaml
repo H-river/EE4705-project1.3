@@ -1,0 +1,19 @@
+# Owner: backbone (ALL)
+id: smoke_1_standard
+category: standard
+instruction: "move the stone onto the red region"
+scene:
+  seed: 11
+  objects:
+    - {name: stone,  pos: [0.60, -0.15, 0.43]}
+    - {name: cube,   pos: [0.60,  0.15, 0.43]}
+    - {name: bottle, pos: [0.90, -0.30, 0.465]}
+  robot_init: {x: 0.0, y: 0.0, yaw: 0.0}
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required: [GRASP, PLACE]

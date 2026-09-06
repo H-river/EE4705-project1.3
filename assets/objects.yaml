@@ -1,0 +1,49 @@
+# Owner: backbone (ALL)
+# Canonical object vocabulary shared by perception (A) and planning (B).
+#
+# Keys under `objects`/`regions` are GROUND-TRUTH model IDs (MuJoCo body
+# names).  `class` is the normalized class name perception should emit
+# (defaults to the key).  `synonyms` are instruction phrases that refer to
+# this class.  `attributes` are default describable attributes.
+#
+# `size_xyz` metadata: FULL axis-aligned bounding-box extents in meters in
+# the object's canonical (rest) orientation.  Interpretation for non-box
+# shapes: it is the AABB of the shape, not the shape parameters — for an
+# ellipsoid, twice the semi-axes; for a z-aligned cylinder,
+# (diameter, diameter, height).  Consumers needing an inscribed size (e.g.
+# grasp width) must derive it from `shape` + `size_xyz` themselves.
+version: 1
+
+objects:
+  stone:
+    class: stone
+    synonyms: [stone, rock, pebble, gray stone, grey stone, gray rock]
+    attributes: {color: gray}
+    shape: ellipsoid
+    size_xyz: [0.060, 0.050, 0.050]
+  stone2:
+    class: stone
+    synonyms: [stone, rock, pebble, red stone, dark stone, dark red stone, reddish stone]
+    attributes: {color: dark_red}
+    shape: ellipsoid
+    size_xyz: [0.060, 0.050, 0.050]
+  cube:
+    class: cube
+    synonyms: [cube, block, box, blue cube, blue block]
+    attributes: {color: blue}
+    shape: box
+    size_xyz: [0.050, 0.050, 0.050]
+  bottle:
+    class: bottle
+    synonyms: [bottle, flask, green bottle]
+    attributes: {color: green}
+    shape: cylinder
+    size_xyz: [0.056, 0.056, 0.120]
+
+regions:
+  red_region:
+    class: red_region
+    synonyms: [red_region, red region, red area, red marker, red zone, red target, target region, red square]
+    attributes: {color: red}
+    shape: box
+    size_xyz: [0.160, 0.160, 0.003]
