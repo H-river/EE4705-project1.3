@@ -213,6 +213,8 @@ def plot(rows: list[dict], path: pathlib.Path) -> None:
                  "purple=IK solution collides, red x=IK failed")
     ax.set_aspect("equal")
     ax.grid(True, alpha=0.3)
+    ax.set_xlim(GRID_X[0] - 0.03, GRID_X[-1] + 0.03)
+    ax.set_ylim(GRID_Y[0] - 0.03, GRID_Y[-1] + 0.05)  # headroom for the top-row annotations
     ax = axes[1]
     xs = sorted({r["x"] for r in grid})
     ys = sorted({r["y"] for r in grid})
