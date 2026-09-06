@@ -34,7 +34,7 @@ acceptance cases fix the semantics):
   GRASP     target: LOCALIZED instance; requires simulated hand empty.
   MOVE_TO   params["pos"] finite 3-vector inside workspace bounds, OR a
             LOCALIZED region/instance target.  Allowed while holding.
-  PLACE     target: region instance (or region by instance id).  Requires
+  PLACE     target: LOCALIZED region instance, or region plus params["pos"]. Requires
             simulated holding.  Optional params["object"]: must equal the
             simulated held instance id.
   VERIFY    params["condition"] in {"object_visible", "object_in_region",
@@ -122,6 +122,13 @@ def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
         params = action.params or {}
         ref = _lookup(context, target)
 
+        # All supported waypoint overrides share the executor's finite
+        # coordinate contract; APPROACH/MOVE_TO validate theirs below.
+        if skill in (Skill.REACH, Skill.GRASP, Skill.PLACE) and params.get("pos") is not None:
+            p = _finite_vec3(params["pos"])
+            if p is None or not _in_workspace(p):
+                errors.append(PlanError("BAD_PARAM", i, f"{skill.value} pos must be a finite in-workspace 3-vector"))
+
         def ref_errors(*, need_located: bool, allow_unlocalized: bool = False) -> bool:
             """Append reference errors; return True when reference usable."""
             if target is None:
@@ -204,6 +211,10 @@ def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
                     errors.append(PlanError("BAD_PARAM", i, f"PLACE target {target!r} is not a region"))
                 elif ref.status is GroundStatus.AMBIGUOUS:
                     errors.append(PlanError("UNCERTAIN_REFERENCE", i, f"PLACE region {target!r} is ambiguous"))
+                elif ref.status is GroundStatus.NOT_FOUND:
+                    errors.append(PlanError("MISSING_REFERENCE", i, f"PLACE region {target!r} has no visual evidence"))
+                elif params.get("pos") is None and ref.status is not GroundStatus.LOCALIZED:
+                    errors.append(PlanError("UNLOCATED_REFERENCE", i, f"PLACE region {target!r} has no 3D position"))
             if held is not None:
                 held = None  # simulated release
 

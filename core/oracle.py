@@ -20,6 +20,7 @@ from typing import Optional
 import numpy as np
 
 from core.rendering import mujoco
+from core.placement import MAX_SUPPORT_OFFSET_M, position_in_region
 from core.types import SceneDescription
 from core.world import MANIPULABLE_BODIES, RegionBounds, SimWorld
 
@@ -38,7 +39,7 @@ AMBIGUITY_MARGIN = 0.10
 # Placement: object center must lie inside the region's x/y bounds and rest
 # within [support_z - 0.005, support_z + REGION_MAX_HEIGHT] (e.g. on top of
 # another object still counts as "in the region" only up to this height).
-REGION_MAX_HEIGHT = 0.12
+REGION_MAX_HEIGHT = MAX_SUPPORT_OFFSET_M
 
 # Stability: maintained over the whole interval, sampled every SAMPLE_DT.
 STABILITY_DURATION_S = 2.0
@@ -96,11 +97,7 @@ class EvalOracle:
     def object_in_region(self, gt_id: str, region: str = "red_region") -> bool:
         b = self.region_bounds(region)
         p = self.object_pos(gt_id)
-        return (
-            abs(p[0] - b.center_xy[0]) <= b.half_extents_xy[0]
-            and abs(p[1] - b.center_xy[1]) <= b.half_extents_xy[1]
-            and (b.support_z - 0.005) <= p[2] <= (b.support_z + REGION_MAX_HEIGHT)
-        )
+        return position_in_region(p, (*b.center_xy, b.support_z), b.half_extents_xy)
 
     # ---------------------------------------------------------- visibility / gt bboxes
 

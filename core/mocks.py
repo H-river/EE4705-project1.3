@@ -32,6 +32,8 @@ from core.types import (
     Skill,
 )
 from core.g1 import approach_base_pose
+from core.action_targets import TRANSPORT_CLEARANCE_M, TargetResolutionError, resolve_action_position
+from core.verification import verify_placement
 from core.vocab import Vocab
 from core.world import SimWorld
 
@@ -103,6 +105,7 @@ class GTPerception(Perception):
             kind=kind,
             frame_id=frame_id,
             attributes=dict(entry.attributes) if entry else {},
+            region_half_extents_xy=tuple(b.half_extents_xy) if kind == "region" else None,
         )
 
     def describe(self, obs: Observation, query: Optional[str] = None) -> SceneDescription:
@@ -194,7 +197,7 @@ class RulePlanner(Planner):
         region_inst = next((r for r in scene.regions if r.name == region_cls), None)
         return cls, candidates, region_cls, region_inst
 
-    _CARRY_HEIGHT = 0.18
+    _CARRY_HEIGHT = TRANSPORT_CLEARANCE_M
 
     @classmethod
     def _grasp_actions(cls, target: GroundedObject) -> list[Action]:
@@ -330,7 +333,17 @@ class TeleportExecutor(Executor):
     def execute(self, action: Action, env: RobotEnvProtocol, perception: Perception) -> ExecutionResult:
         skill = action.skill
         params = action.params or {}
-        pos = params.get("pos")
+        pos = None
+        if skill in (Skill.APPROACH, Skill.REACH, Skill.GRASP, Skill.MOVE_TO, Skill.PLACE):
+            try:
+                scene = (perception.describe(env.get_obs()) if params.get("pos") is None
+                         else SceneDescription())
+            except Exception as exc:
+                return self._result(action, env, False, ErrorCode.PERCEPTION_ERROR, detail=str(exc))
+            try:
+                pos = resolve_action_position(action, scene)
+            except TargetResolutionError as exc:
+                return self._result(action, env, False, exc.error_code, detail=str(exc))
 
         if skill is Skill.APPROACH:
             if pos is None:
@@ -396,6 +409,7 @@ class TeleportExecutor(Executor):
             return self._verify(action, env, perception)
 
         if skill is Skill.STOP:
+            env.stop_motion()
             return self._result(action, env, True)
 
         return self._result(action, env, False, ErrorCode.INVALID_ACTION)
@@ -444,14 +458,9 @@ class TeleportExecutor(Executor):
             ok = scene.find(action.target or "") is not None
             return self._result(action, env, ok, ErrorCode.NONE if ok else ErrorCode.VERIFY_FAILED)
         if condition == "object_in_region":
-            scene = perception.describe(obs)
-            obj = scene.find((action.params or {}).get("object", ""))
-            region = scene.find((action.params or {}).get("region", ""))
-            if obj is None or region is None or obj.pos_world is None or region.pos_world is None:
-                return self._result(action, env, False, ErrorCode.VERIFY_FAILED, detail="not grounded")
-            dx = abs(obj.pos_world[0] - region.pos_world[0])
-            dy = abs(obj.pos_world[1] - region.pos_world[1])
-            ok = dx <= 0.11 and dy <= 0.11
-            return self._result(action, env, ok, ErrorCode.NONE if ok else ErrorCode.VERIFY_FAILED,
-                                dx=dx, dy=dy)
+            params = action.params or {}
+            verification = verify_placement(env, perception, params.get("object", ""), params.get("region", ""))
+            return ExecutionResult(action, verification.passed,
+                                   ErrorCode.NONE if verification.passed else ErrorCode.VERIFY_FAILED,
+                                   post_frame_id=verification.frame_id, info={"detail": verification.detail})
         return self._result(action, env, False, ErrorCode.INVALID_ACTION)
