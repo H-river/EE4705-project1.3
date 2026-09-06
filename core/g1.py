@@ -85,13 +85,14 @@ WAIST_REST = {"waist_yaw_joint": 0.0, "waist_roll_joint": 0.0, "waist_pitch_join
 LEFT_ARM_REST = {"left_shoulder_pitch_joint": 0.2, "left_shoulder_roll_joint": 0.4, "left_shoulder_yaw_joint": 0.0,
                  "left_elbow_joint": 1.28, "left_wrist_roll_joint": 0.0, "left_wrist_pitch_joint": 0.0,
                  "left_wrist_yaw_joint": 0.0}
-# RIGHT arm rest ("ready" posture): elbow bent and arm swung out to the
-# right so the hand is raised beside the body (EE ~(-0.11, -0.48, 0.81) at
-# base pose 0), out of the head camera's view and above the hip.  Chosen so
-# joint-space paths to tabletop targets do not sweep under the table slab
-# (see docs/DECISIONS.md).  Also the IK rest-posture bias.
-RIGHT_ARM_REST = {"right_shoulder_pitch_joint": 0.0, "right_shoulder_roll_joint": -0.9, "right_shoulder_yaw_joint": 0.3,
-                  "right_elbow_joint": 1.9, "right_wrist_roll_joint": 0.0, "right_wrist_pitch_joint": 0.0,
+# RIGHT arm rest ("ready" posture): arm raised forward-right with the hand
+# ABOVE the table plane (EE ~(0.40, -0.46, 0.97) at base pose 0, i.e. 12 cm
+# above the 0.85 m table top, at the table's right edge), out of the head
+# camera's view and clear of the hip.  Chosen (docs/DECISIONS.md) so
+# straight-line hand paths to tabletop targets descend from above instead
+# of sweeping across the table edge from a hanging arm.
+RIGHT_ARM_REST = {"right_shoulder_pitch_joint": -0.8, "right_shoulder_roll_joint": -1.0, "right_shoulder_yaw_joint": -0.5,
+                  "right_elbow_joint": 1.0, "right_wrist_roll_joint": 0.0, "right_wrist_pitch_joint": 0.0,
                   "right_wrist_yaw_joint": 0.0}
 # Fixed, collision-safe semi-closed finger posture (see assets/README.md):
 # index/middle curled 0.35 rad at both joints; thumb abducted and flexed to
@@ -108,6 +109,12 @@ LEFT_HAND_POSTURE = {
     "left_hand_middle_0_joint": -0.35, "left_hand_middle_1_joint": -0.35,
 }
 LEG_REST = {j: 0.0 for j in LEG_JOINTS}
+# IK search ranges narrower than the joint limits: shoulder pitch is kept
+# below 0.8 rad (model range -3.09..2.67) so IK never picks the "arm swung
+# behind/below the torso" family, which drags the hand across the table
+# edge on the way to tabletop targets.  (The elbow's zero is NOT the
+# straight arm in this model, so no elbow restriction is applied.)
+IK_RANGE_OVERRIDES = {"right_shoulder_pitch_joint": (-3.0, 0.8)}
 # IK null-space bias posture (NOT a physical target): upstream keyframe arm.
 IK_REST_BIAS = {"right_shoulder_pitch_joint": 0.2, "right_shoulder_roll_joint": -0.4, "right_shoulder_yaw_joint": 0.0,
                 "right_elbow_joint": 1.28, "right_wrist_roll_joint": 0.0, "right_wrist_pitch_joint": 0.0,
@@ -221,10 +228,11 @@ class G1Controller:
         self.pelvis_id = int(model.body(PELVIS_BODY).id)
         self.mocap_id = int(model.body(BASE_MOCAP_BODY).mocapid[0])
         self.ee_site_id = int(model.site(RIGHT_EE_SITE).id)
-        self.ik = ChainIK(model, RIGHT_EE_SITE, RIGHT_ARM_JOINTS, ik_config or IKConfig())
+        self.ik = ChainIK(model, RIGHT_EE_SITE, RIGHT_ARM_JOINTS, ik_config or IKConfig(),
+                          range_overrides=IK_RANGE_OVERRIDES)
         # warm-started solver for the streaming setpoints (few iterations)
         self.ik_stream = ChainIK(model, RIGHT_EE_SITE, RIGHT_ARM_JOINTS,
-                                 IKConfig(max_iters=40, stall_iters=10))
+                                 IKConfig(max_iters=40, stall_iters=10), range_overrides=IK_RANGE_OVERRIDES)
         self.ik_every = 2  # physics steps between streaming IK solves
         self.max_branch_jump = 0.6  # rad; larger setpoint jumps are IK-branch changes
         self.stuck_steps_allow_jump = 150  # steps (0.3 s) stuck before a branch change is accepted
@@ -426,7 +434,9 @@ class G1Controller:
             self._cart_cmd = self._cart_cmd + delta / dist * step
             dist -= step
             self._stuck_steps = 0
-        elif dist > 1e-12:
+        else:
+            # not advancing: either the EE lags, or we are at the goal but the
+            # goal orientation is not satisfied yet (command still active)
             self._stuck_steps += 1
         arrived = dist <= 1e-9
         self._ik_countdown -= 1

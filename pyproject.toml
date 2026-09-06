@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "matplotlib>=3.8",  # scripts/ik_reach_test.py, scripts/cam_sync_check.py
 ]
 
 [tool.setuptools]

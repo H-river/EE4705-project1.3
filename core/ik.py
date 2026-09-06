@@ -61,7 +61,11 @@ class ChainIK:
     """IK for a fixed set of hinge joints driving one site."""
 
     def __init__(self, model: "mujoco.MjModel", site_name: str, joint_names: list[str],
-                 config: Optional[IKConfig] = None) -> None:
+                 config: Optional[IKConfig] = None,
+                 range_overrides: Optional[dict[str, tuple[float, float]]] = None) -> None:
+        """``range_overrides`` narrows the IK search range of named joints
+        (must lie inside the model's joint range) — used to exclude
+        undesirable solution families such as a hyper-extended elbow."""
         self.model = model
         self.cfg = config or IKConfig()
         self.site_id = int(model.site(site_name).id)
@@ -73,6 +77,11 @@ class ChainIK:
         self.dof_ids = np.array([int(model.jnt_dofadr[j]) for j in self.joint_ids])
         self.lower = np.array([float(model.jnt_range[j][0]) for j in self.joint_ids])
         self.upper = np.array([float(model.jnt_range[j][1]) for j in self.joint_ids])
+        for name, (lo, hi) in (range_overrides or {}).items():
+            k = joint_names.index(name)
+            if lo < self.lower[k] - 1e-9 or hi > self.upper[k] + 1e-9 or lo >= hi:
+                raise ValueError(f"IK range override for {name} must lie inside the joint range")
+            self.lower[k], self.upper[k] = float(lo), float(hi)
         self._jacp = np.zeros((3, model.nv))
         self._jacr = np.zeros((3, model.nv))
 

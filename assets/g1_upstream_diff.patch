@@ -76,7 +76,7 @@
                            <body name="right_hand_thumb_0_link" pos="0.067 -0.003 0">
                              <inertial pos="-0.000884246 0.00863407 0.000944293"
                                quat="0.643965 0.462991 -0.398986 0.460173" mass="0.0862366"
-@@ -435,6 +473,20 @@
+@@ -435,6 +473,24 @@
      </body>
    </worldbody>
  
@@ -90,8 +90,12 @@
 +  </contact>
 +
 +  <equality>
-+    <!-- EE4705: base weld (mocap base_target -> free pelvis). -->
-+    <weld name="base_weld" body1="base_target" body2="pelvis"/>
++    <!-- EE4705: base weld (mocap base_target -> free pelvis).  solref time
++         constant 0.01 s (>= 2x the 0.002 s timestep) and a stiff solimp:
++         with the defaults the pelvis lagged the target by 2.4 cm and rose
++         1.2 cm while translating (torso lean moment); measured residuals
++         now: height < 1 mm, planar < 2 mm, yaw < 3 mrad. -->
++    <weld name="base_weld" body1="base_target" body2="pelvis" solref="0.01 1" solimp="0.99 0.999 0.001 0.5 2"/>
 +  </equality>
 +
    <actuator>

@@ -42,6 +42,14 @@ from core.validation import validate_plan
 
 _STATE_CHANGING = {Skill.SEARCH, Skill.APPROACH, Skill.REACH, Skill.GRASP, Skill.MOVE_TO, Skill.PLACE}
 
+# Camera routing (docs/DECISIONS.md §11): the orchestrator's own captures —
+# describe/ground at plan time, SEARCH views (via the executor) and the
+# FINAL VERIFICATION observation — use the HEAD camera (env.get_obs() default,
+# alias "onboard").  The wrist cameras (left_wrist / right_wrist) are exposed
+# through RobotEnv.get_obs / get_obs_multi for a future Executor's alignment
+# and grasp/place checks; nothing here requests them, and GTPerception plus
+# the grounding evaluation stay head-only.
+
 # Region half-extent assumed by SYSTEM-side (vision) verification when 3D
 # positions are available; matches assets/objects.yaml size_xyz/2 for
 # red_region.  This is a perception-side constant, not oracle access.
