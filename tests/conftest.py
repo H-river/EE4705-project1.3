@@ -33,9 +33,9 @@ def standard_scene(seed: int = 0) -> SceneConfig:
     return SceneConfig(
         seed=seed,
         objects=[
-            SceneObjectSpec("stone", (0.60, -0.15, 0.43)),
-            SceneObjectSpec("cube", (0.60, 0.15, 0.43)),
-            SceneObjectSpec("bottle", (0.90, -0.30, 0.465)),
+            SceneObjectSpec("stone", (0.40, -0.15, 0.88)),
+            SceneObjectSpec("cube", (0.40, 0.15, 0.88)),
+            SceneObjectSpec("bottle", (0.55, -0.35, 0.915)),
         ],
     )
 
@@ -44,5 +44,5 @@ def standard_scene(seed: int = 0) -> SceneConfig:
 def standard_world(world):
     """World reset to the standard scene and settled."""
     world.reset(standard_scene())
-    world.step(200)
+    world.step(int(round(1.0 / world.timestep)))  # 1 s settle
     return world

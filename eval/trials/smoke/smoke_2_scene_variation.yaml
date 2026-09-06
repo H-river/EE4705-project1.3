@@ -5,9 +5,9 @@ instruction: "move the stone onto the red region"
 scene:
   seed: 12
   objects:
-    - {name: stone,  pos: [0.88, -0.05, 0.43], yaw: 0.8}
-    - {name: cube,   pos: [0.55, -0.35, 0.43]}
-    - {name: bottle, pos: [0.70, -0.50, 0.465]}
+    - {name: stone,  pos: [0.45, -0.05, 0.88], yaw: 0.8}
+    - {name: cube,   pos: [0.35, -0.35, 0.88]}
+    - {name: bottle, pos: [0.55, -0.45, 0.915]}
   robot_init: {x: -0.15, y: 0.12, yaw: -0.1}
 clarification_responses: []
 expected:

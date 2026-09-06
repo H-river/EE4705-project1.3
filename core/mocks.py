@@ -31,6 +31,7 @@ from core.types import (
     SceneDescription,
     Skill,
 )
+from core.g1 import approach_base_pose
 from core.vocab import Vocab
 from core.world import SimWorld
 
@@ -305,51 +306,18 @@ class TeleportExecutor(Executor):
 
     # -- helpers (privileged)
 
-    def _teleport_joints(self, targets: dict[str, float]) -> None:
-        """Set robot joints instantly, carrying any held (welded) object
-        along so its EE-relative placement is preserved."""
+    def _teleport_base_near(self, pos) -> None:
+        """Park the base so ``pos`` lies in the right arm's workspace
+        (core.g1.approach_base_pose), instantly.  Any held object is
+        carried along by SimWorld.teleport_base."""
         w = self._world
-        held = w.attached_body_name()
-        offset = w.body_pos(held) - w.ee_pos() if held is not None else None
-        for joint, value in targets.items():
-            w._set_joint(joint, value)
-        self._sync_ctrl_and_forward()
-        if held is not None and offset is not None:
-            w.teleport_body(held, w.ee_pos() + offset)
-
-    def _teleport_base_near(self, pos, standoff: float = 0.45) -> None:
-        w = self._world
-        p = np.asarray(pos, dtype=float)
-        base = w.base_pose()
-        delta = p[:2] - base[:2]
-        dist = float(np.linalg.norm(delta))
-        yaw = float(np.arctan2(delta[1], delta[0])) if dist > 1e-6 else float(base[2])
-        target_xy = p[:2] - standoff * delta / dist if dist > standoff else base[:2]
-        self._teleport_joints({"base_x": float(target_xy[0]), "base_y": float(target_xy[1]),
-                               "base_yaw": yaw})
+        x, y, yaw = approach_base_pose(np.asarray(pos, dtype=float)[:2], w.base_pose()[:2])
+        w.teleport_base(x, y, yaw)
 
     def _teleport_ee_to(self, pos) -> bool:
-        w = self._world
-        p = np.asarray(pos, dtype=float)
-        base = w.base_pose()
-        yaw = base[2]
-        rot = np.array([[np.cos(-yaw), -np.sin(-yaw)], [np.sin(-yaw), np.cos(-yaw)]])
-        local_xy = rot @ (p[:2] - base[:2])
-        targets = {"arm_x": float(local_xy[0]), "arm_y": float(local_xy[1]), "arm_z": float(p[2] - 0.80)}
-        ranges = w.joint_ranges()
-        for joint, value in targets.items():
-            lo, hi = ranges[joint]
-            if not lo <= value <= hi:
-                return False
-        self._teleport_joints(targets)
-        return True
-
-    def _sync_ctrl_and_forward(self) -> None:
-        w = self._world
-        w.data.ctrl[:] = [w._get_joint(j) for j in ("base_x", "base_y", "base_yaw", "arm_x", "arm_y", "arm_z")]
-        from core.rendering import mujoco
-
-        mujoco.mj_forward(w.model, w.data)
+        """Instantly place the right end effector at ``pos`` (IK, privileged
+        teleport of the arm joints); False when unreachable from here."""
+        return self._world.teleport_arm_to(np.asarray(pos, dtype=float))
 
     def _result(self, action: Action, env: RobotEnvProtocol, success: bool,
                 error: ErrorCode = ErrorCode.NONE, **info) -> ExecutionResult:
@@ -389,7 +357,11 @@ class TeleportExecutor(Executor):
                 if wrong is not None:
                     grasp_pos = wrong  # physically go to the WRONG object
             if not self._teleport_ee_to(grasp_pos):
-                return self._result(action, env, False, ErrorCode.UNREACHABLE)
+                # outside the arm workspace from here: re-park the base at
+                # the (possibly wrong) grasp position and retry once
+                self._teleport_base_near(grasp_pos)
+                if not self._teleport_ee_to(grasp_pos):
+                    return self._result(action, env, False, ErrorCode.UNREACHABLE)
             handle = self._world.try_attach_near_ee()
             if handle is None:
                 return self._result(action, env, False, ErrorCode.GRASP_MISSED)
@@ -398,16 +370,12 @@ class TeleportExecutor(Executor):
         if skill is Skill.MOVE_TO:
             if pos is None:
                 return self._result(action, env, False, ErrorCode.INVALID_ACTION)
-            # Turn toward the destination first (so subsequent VERIFY /
-            # verification observations actually have it in view).
-            base = self._world.base_pose()
-            delta = np.asarray(pos, dtype=float)[:2] - base[:2]
-            if np.linalg.norm(delta) > 1e-6:
-                self._teleport_joints({"base_yaw": float(np.arctan2(delta[1], delta[0]))})
+            # Re-park the base so the destination is in the arm workspace
+            # (and in the head camera's view for subsequent VERIFY /
+            # verification observations), then place the end effector.
+            self._teleport_base_near(pos)
             if not self._teleport_ee_to(pos):
-                self._teleport_base_near(pos)
-                if not self._teleport_ee_to(pos):
-                    return self._result(action, env, False, ErrorCode.UNREACHABLE)
+                return self._result(action, env, False, ErrorCode.UNREACHABLE)
             return self._result(action, env, True)
 
         if skill is Skill.PLACE:
@@ -418,7 +386,7 @@ class TeleportExecutor(Executor):
             if pos is not None and held is not None:
                 drop = np.asarray(pos, dtype=float) + [0.0, 0.0, 0.03]
                 self._world.teleport_body(held, drop)
-            self._world.step(150)  # settle: observable, physical
+            self._world.step(int(round(0.75 / self._world.timestep)))  # settle 0.75 s: observable, physical
             return self._result(action, env, True)
 
         if skill is Skill.SEARCH:
@@ -462,7 +430,7 @@ class TeleportExecutor(Executor):
                                     grounded_instance=found.instance_id)
             yaw = float(base[2]) + 0.5 * (k + 1)
             yaw = float(np.arctan2(np.sin(yaw), np.cos(yaw)))
-            self._teleport_joints({"base_yaw": yaw})
+            w.teleport_base(float(base[0]), float(base[1]), yaw)
         return self._result(action, env, False, ErrorCode.SEARCH_NOT_FOUND, views=13)
 
     def _verify(self, action: Action, env: RobotEnvProtocol, perception: Perception) -> ExecutionResult:

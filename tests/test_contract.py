@@ -190,7 +190,7 @@ def test_exhausted_clarification_terminates(world, oracle):
     cfg = standard_scene(seed=9)
     from core.types import SceneObjectSpec
 
-    cfg.objects.append(SceneObjectSpec("stone2", (0.80, -0.02, 0.43)))
+    cfg.objects.append(SceneObjectSpec("stone2", (0.50, -0.02, 0.88)))
     world.reset(cfg)
     world.step(200)
     env = RobotEnv(world)
@@ -207,7 +207,7 @@ def test_repeated_unhelpful_clarification_terminates(world, oracle):
     cfg = standard_scene(seed=10)
     from core.types import SceneObjectSpec
 
-    cfg.objects.append(SceneObjectSpec("stone2", (0.80, -0.02, 0.43)))
+    cfg.objects.append(SceneObjectSpec("stone2", (0.50, -0.02, 0.88)))
     world.reset(cfg)
     world.step(200)
     env = RobotEnv(world)
@@ -251,7 +251,7 @@ def test_search_not_found_is_recoverable_not_fatal(world, oracle):
     not ERROR."""
     from core.types import SceneConfig, SceneObjectSpec
 
-    world.reset(SceneConfig(seed=12, objects=[SceneObjectSpec("cube", (0.60, 0.15, 0.43))]))
+    world.reset(SceneConfig(seed=12, objects=[SceneObjectSpec("cube", (0.40, 0.15, 0.88))]))
     world.step(200)
     env = RobotEnv(world)
     orch = Orchestrator(GTPerception(oracle), RulePlanner(), TeleportExecutor(world, seed=12),

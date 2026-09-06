@@ -20,6 +20,7 @@ from typing import Optional
 
 import numpy as np
 
+from core.g1 import ARM_WORKSPACE_OFFSET, approach_base_pose
 from core.interfaces import Perception, RobotEnvProtocol
 from core.types import ErrorCode, GroundedObject, SkillResult
 
@@ -27,9 +28,14 @@ BASE_POS_TOL = 0.02  # m
 BASE_YAW_TOL = 0.05  # rad
 EE_POS_TOL = 0.012  # m
 DEFAULT_TIMEOUT_S = 12.0  # sim seconds per primitive
-APPROACH_STANDOFF = 0.45  # m: base stops this far (xy) from the target
-GRASP_DESCEND_OFFSET = 0.0  # reach directly at the object center
-SETTLE_STEPS = 200
+# APPROACH parks the base so the target lands at ARM_WORKSPACE_OFFSET in the
+# base frame (right-arm workspace, see core.g1); this is the xy distance.
+APPROACH_STANDOFF = float(np.linalg.norm(ARM_WORKSPACE_OFFSET))
+# GRASP reaches with the palm reference point this far ABOVE the object
+# center (still inside ATTACH_RADIUS) so the fingers/thumb stay clear of
+# the support surface.
+GRASP_DESCEND_OFFSET = 0.02
+SETTLE_STEPS = 375  # 0.75 s at the 2 ms timestep
 
 
 def _step_until(env: RobotEnvProtocol, done, timeout_s: float = DEFAULT_TIMEOUT_S,
@@ -47,16 +53,12 @@ def _step_until(env: RobotEnvProtocol, done, timeout_s: float = DEFAULT_TIMEOUT_
 def approach(env: RobotEnvProtocol, pos_world: np.ndarray,
              standoff: float = APPROACH_STANDOFF,
              timeout_s: float = DEFAULT_TIMEOUT_S) -> SkillResult:
-    """Drive the base to ``standoff`` meters (xy) from pos_world, facing it."""
+    """Drive the base to the parking pose that puts pos_world in the right
+    arm's workspace (about ``standoff`` meters away, target ahead-right)."""
     p = np.asarray(pos_world, dtype=float)
     base = env.get_base_pose()
-    delta = p[:2] - base[:2]
-    dist = float(np.linalg.norm(delta))
-    yaw = math.atan2(delta[1], delta[0]) if dist > 1e-6 else base[2]
-    if dist <= standoff:
-        target_xy = base[:2]
-    else:
-        target_xy = p[:2] - standoff * delta / dist
+    bx, by, yaw = approach_base_pose(p[:2], base[:2])
+    target_xy = np.array([bx, by])
     env.set_base_target(float(target_xy[0]), float(target_xy[1]), yaw)
 
     def done() -> bool:
@@ -69,17 +71,18 @@ def approach(env: RobotEnvProtocol, pos_world: np.ndarray,
     return SkillResult(True, ErrorCode.NONE, {"primitive": "approach"})
 
 
-def reach(env: RobotEnvProtocol, pos_world: np.ndarray,
-          timeout_s: float = DEFAULT_TIMEOUT_S) -> SkillResult:
-    """Move the end effector to pos_world (world frame)."""
-    p = np.asarray(pos_world, dtype=float)
+PRE_REACH_HEIGHT = 0.10  # m: via-point above the target for long reaches
+PRE_REACH_XY_TRIGGER = 0.08  # m: use the via-point when farther than this (xy)
+
+
+def _reach_point(env: RobotEnvProtocol, p: np.ndarray, timeout_s: float, tol: float) -> SkillResult:
     try:
         env.set_arm_target(p)
     except ValueError as exc:
         return SkillResult(False, ErrorCode.UNREACHABLE, {"primitive": "reach", "detail": str(exc)})
 
     def done() -> bool:
-        if bool(np.linalg.norm(env.get_ee_pos() - p) < EE_POS_TOL):
+        if bool(np.linalg.norm(env.get_ee_pos() - p) < tol):
             return True
         # Closed loop: the base may still be creeping toward its own target,
         # so re-resolve the arm command against the CURRENT base pose.
@@ -95,6 +98,24 @@ def reach(env: RobotEnvProtocol, pos_world: np.ndarray,
             "ee_error": float(np.linalg.norm(env.get_ee_pos() - p)),
         })
     return SkillResult(True, ErrorCode.NONE, {"primitive": "reach"})
+
+
+def reach(env: RobotEnvProtocol, pos_world: np.ndarray,
+          timeout_s: float = DEFAULT_TIMEOUT_S) -> SkillResult:
+    """Move the end effector to pos_world (world frame).  Long reaches go
+    through a via-point PRE_REACH_HEIGHT above the target first so the
+    hand descends vertically instead of sweeping across the support
+    surface (the humanoid arm's joint-space path is otherwise unconstrained)."""
+    p = np.asarray(pos_world, dtype=float)
+    ee = env.get_ee_pos()
+    if np.linalg.norm(ee[:2] - p[:2]) > PRE_REACH_XY_TRIGGER:
+        via = p + np.array([0.0, 0.0, PRE_REACH_HEIGHT])
+        pre = _reach_point(env, via, timeout_s, tol=3.0 * EE_POS_TOL)
+        if not pre.success and pre.error_code is ErrorCode.UNREACHABLE:
+            pass  # via-point outside the envelope: go straight to the target
+        elif not pre.success:
+            return pre
+    return _reach_point(env, p, timeout_s, EE_POS_TOL)
 
 
 def grasp(env: RobotEnvProtocol, pos_world: np.ndarray,

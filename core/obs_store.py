@@ -44,6 +44,7 @@ def persist_observation(obs: Observation, directory: pathlib.Path) -> dict[str, 
     meta = {
         "frame_id": obs.frame_id,
         "camera_name": obs.camera_name,
+        "capture_id": obs.capture_id,
         "sim_time": _json_safe(float(obs.sim_time)),
         "intrinsics": obs.intrinsics.tolist(),
         "t_world_camera": obs.t_world_camera.tolist(),

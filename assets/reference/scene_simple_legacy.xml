@@ -1,0 +1,127 @@
+<!-- Owner: backbone (ALL) -->
+<!-- Simplified humanoid-style upper-body reference platform.
+     Kinematics: planar base (slide x, slide y, hinge yaw) + Cartesian
+     3-slide "arm" (arm_x/arm_y/arm_z) with a visible end-effector site.
+     This is deliberately NOT an anthropomorphic arm; see README
+     "Reference platform limitations".  Base slide axes stay world-aligned
+     (translation joints precede the yaw hinge); arm axes rotate with yaw.
+     Arm/EE geoms are non-colliding (contype/conaffinity 0): grasping is
+     weld-based attachment, not contact physics. -->
+<mujoco model="ee4705_simple_platform">
+  <compiler angle="radian"/>
+  <option timestep="0.005" integrator="implicitfast"/>
+  <statistic extent="2" center="0.5 0 0.5"/>
+  <visual>
+    <map znear="0.005" zfar="10"/>
+    <global offwidth="640" offheight="480"/>
+    <quality shadowsize="2048"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.7 0.8 0.9" rgb2="0.35 0.45 0.55" width="64" height="64"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.8 0.8 0.8" rgb2="0.62 0.62 0.62" width="64" height="64"/>
+    <material name="grid" texture="grid" texrepeat="10 10" reflectance="0.05"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.5 0 3" dir="0 0 -1" diffuse="0.9 0.9 0.9"/>
+    <light pos="2 1.5 2.5" dir="-0.5 -0.4 -0.8" diffuse="0.45 0.45 0.45"/>
+    <geom name="floor" type="plane" size="6 6 0.1" material="grid"/>
+
+    <!-- Debug overhead camera (optional for perception; not the onboard view) -->
+    <camera name="overhead" pos="0.6 0 2.4" xyaxes="0 -1 0 1 0 0" fovy="55"/>
+
+    <!-- Table: top surface at z = 0.40 m -->
+    <body name="table" pos="0.75 0 0.2">
+      <geom name="table_top" type="box" size="0.4 0.6 0.2" rgba="0.55 0.42 0.28 1" friction="0.8 0.005 0.0001"/>
+    </body>
+
+    <!-- Finite red target region: visual-only thin box ON the table top.
+         Bounds: center (0.65, 0.35), half-extent 0.08 x 0.08 in x/y.
+         Support height (table top): 0.40 m. -->
+    <body name="red_region" pos="0.65 0.35 0.4015">
+      <geom name="red_region_geom" type="box" size="0.08 0.08 0.0015" rgba="0.85 0.08 0.08 1"
+            contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Robot -->
+    <body name="base" pos="0 0 0">
+      <joint name="base_x" type="slide" axis="1 0 0" range="-2.5 2.5" damping="80"/>
+      <joint name="base_y" type="slide" axis="0 1 0" range="-2.5 2.5" damping="80"/>
+      <joint name="base_yaw" type="hinge" axis="0 0 1" range="-3.2 3.2" damping="30"/>
+      <geom name="base_geom" type="cylinder" size="0.18 0.06" pos="0 0 0.06" rgba="0.30 0.30 0.36 1"/>
+      <geom name="torso_geom" type="box" size="0.10 0.14 0.24" pos="0 0 0.60" rgba="0.42 0.46 0.52 1"
+            contype="0" conaffinity="0"/>
+      <body name="head" pos="0.02 0 0.95">
+        <geom name="head_geom" type="sphere" size="0.07" rgba="0.42 0.46 0.52 1" contype="0" conaffinity="0"/>
+        <!-- Onboard RGB-D camera: forward (+x of base) and pitched down.
+             MuJoCo camera frame: x right, y up, looks along -z. -->
+        <camera name="onboard" pos="0.14 0 0.02" xyaxes="0 -1 0  0.6 0 0.8" fovy="60"/>
+      </body>
+      <!-- Cartesian arm: slides relative to the (yaw-rotated) base -->
+      <body name="arm_base" pos="0 0 0.80">
+        <geom name="arm_base_geom" type="box" size="0.05 0.05 0.02" rgba="0.5 0.5 0.55 1"
+              contype="0" conaffinity="0"/>
+        <body name="arm_x_body" pos="0 0 0">
+          <joint name="arm_x" type="slide" axis="1 0 0" range="0.10 0.90" damping="40"/>
+          <geom name="arm_x_geom" type="capsule" fromto="0 0 0  0 0 -0.03" size="0.02" mass="2.0"
+                rgba="0.5 0.5 0.55 1" contype="0" conaffinity="0"/>
+          <body name="arm_y_body" pos="0 0 0">
+            <joint name="arm_y" type="slide" axis="0 1 0" range="-0.70 0.70" damping="40"/>
+            <geom name="arm_y_geom" type="capsule" fromto="0 0 0  0 0 -0.05" size="0.018" mass="1.5"
+                  rgba="0.5 0.5 0.55 1" contype="0" conaffinity="0"/>
+            <body name="ee_body" pos="0 0 0">
+              <joint name="arm_z" type="slide" axis="0 0 1" range="-0.55 0.15" damping="40"/>
+              <geom name="ee_geom" type="sphere" size="0.015" mass="0.8" rgba="0.05 0.85 0.10 1"
+                    contype="0" conaffinity="0"/>
+              <!-- Visible end-effector site -->
+              <site name="ee_site" pos="0 0 0" size="0.012" rgba="0 1 0 1"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!-- Manipulable free bodies.  Default poses here are placeholders; every
+         trial reset re-places them from SceneConfig (unused objects are
+         parked far outside the workspace). -->
+    <body name="stone" pos="0.60 -0.15 0.425">
+      <freejoint name="stone_free"/>
+      <geom name="stone_geom" type="ellipsoid" size="0.030 0.025 0.025" rgba="0.52 0.52 0.52 1"
+            density="1800" friction="0.9 0.005 0.01" condim="6"/>
+    </body>
+    <body name="stone2" pos="10 10 0.025">
+      <freejoint name="stone2_free"/>
+      <geom name="stone2_geom" type="ellipsoid" size="0.030 0.025 0.025" rgba="0.47 0.15 0.10 1"
+            density="1800" friction="0.9 0.005 0.01" condim="6"/>
+    </body>
+    <body name="cube" pos="0.60 0.15 0.425">
+      <freejoint name="cube_free"/>
+      <geom name="cube_geom" type="box" size="0.025 0.025 0.025" rgba="0.15 0.32 0.85 1"
+            density="600" friction="0.9 0.005 0.0001"/>
+    </body>
+    <body name="bottle" pos="0.90 -0.30 0.46">
+      <freejoint name="bottle_free"/>
+      <geom name="bottle_geom" type="cylinder" size="0.028 0.06" rgba="0.18 0.68 0.30 1"
+            density="400" friction="0.7 0.005 0.005" condim="6"/>
+    </body>
+  </worldbody>
+
+  <!-- One predefined (inactive) weld per manipulable body; SimWorld
+       activates at most one at a time with the current relative pose, so
+       attachment never snaps the object. -->
+  <equality>
+    <weld name="grasp_stone" body1="ee_body" body2="stone" active="false"/>
+    <weld name="grasp_stone2" body1="ee_body" body2="stone2" active="false"/>
+    <weld name="grasp_cube" body1="ee_body" body2="cube" active="false"/>
+    <weld name="grasp_bottle" body1="ee_body" body2="bottle" active="false"/>
+  </equality>
+
+  <actuator>
+    <position name="act_base_x" joint="base_x" kp="2000" kv="300" ctrlrange="-2.5 2.5" forcerange="-800 800"/>
+    <position name="act_base_y" joint="base_y" kp="2000" kv="300" ctrlrange="-2.5 2.5" forcerange="-800 800"/>
+    <position name="act_base_yaw" joint="base_yaw" kp="600" kv="80" ctrlrange="-3.2 3.2" forcerange="-300 300"/>
+    <position name="act_arm_x" joint="arm_x" kp="1500" kv="120" ctrlrange="0.10 0.90" forcerange="-200 200"/>
+    <position name="act_arm_y" joint="arm_y" kp="1500" kv="120" ctrlrange="-0.70 0.70" forcerange="-200 200"/>
+    <position name="act_arm_z" joint="arm_z" kp="1500" kv="120" ctrlrange="-0.55 0.15" forcerange="-200 200"/>
+  </actuator>
+</mujoco>

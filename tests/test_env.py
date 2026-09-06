@@ -13,6 +13,8 @@ from core.env import RobotEnv
 from core.types import IMAGE_HEIGHT, IMAGE_WIDTH
 from core.world import ATTACH_RADIUS
 
+TABLE_TOP_Z = 0.85  # m, top surface of the table in assets/scene_common.xml
+
 
 def test_rgbd_shapes_and_calibration(standard_world, env):
     obs = env.get_obs()
@@ -34,7 +36,7 @@ def test_rgbd_shapes_and_calibration(standard_world, env):
 
 def test_known_distance_depth_and_projection(standard_world, env):
     """Unproject NON-CENTRAL table pixels through K, depth and
-    T_world_camera: they must land on the table plane z = 0.40."""
+    T_world_camera: they must land on the table plane z = TABLE_TOP_Z."""
     obs = env.get_obs()
     K, T = obs.intrinsics, obs.t_world_camera
     for (u, v) in ((550, 400), (100, 430), (320, 380)):
@@ -42,7 +44,7 @@ def test_known_distance_depth_and_projection(standard_world, env):
         assert np.isfinite(d)
         pc = np.array([(u - K[0, 2]) / K[0, 0] * d, (v - K[1, 2]) / K[1, 1] * d, d, 1.0])
         pw = T @ pc
-        assert abs(pw[2] - 0.40) < 0.01, f"pixel ({u},{v}) unprojected to z={pw[2]:.3f}"
+        assert abs(pw[2] - TABLE_TOP_Z) < 0.01, f"pixel ({u},{v}) unprojected to z={pw[2]:.3f}"
 
     # Aligned RGB: those table pixels must show the brown table color
     r, g, b = env.get_obs().rgb[400, 550].astype(int)
@@ -102,7 +104,8 @@ def test_detach_and_reset_clear_attachment(standard_world, env, oracle):
     standard_world.reset(standard_scene())
     assert not env.is_attached()
     assert standard_world.attached_body_name() is None
-    assert np.all(np.asarray(standard_world.data.eq_active) == 0)
+    # every GRASP weld inactive (the permanent base weld of the G1 stays on)
+    assert not standard_world.grasp_weld_active()
     assert standard_world.sim_time == 0.0
 
 

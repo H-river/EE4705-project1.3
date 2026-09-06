@@ -1,0 +1,81 @@
+<!-- Owner: backbone (ALL) -->
+<!-- Shared tabletop world for the Unitree G1 platform: lighting, floor,
+     table, red target region, manipulable objects, attachment welds.
+     Included by scene.xml (production) and scene_cam_sync.xml (diagnostic
+     variant that adds a falling ball).  The robot itself comes from
+     assets/g1_with_hands_ee4705.xml (local adaptation of Menagerie). -->
+<mujoco model="ee4705_g1_tabletop">
+  <compiler angle="radian"/>
+  <option timestep="0.002" integrator="implicitfast"/>
+  <!-- Explicit extent so MJCF clip settings are deterministic:
+       effective znear = map.znear * extent = 0.0025 * 2 = 0.005 m,
+       effective zfar  = map.zfar  * extent = 5 * 2 = 10 m (verified in tests). -->
+  <statistic extent="2" center="0.4 0 0.7"/>
+  <visual>
+    <map znear="0.0025" zfar="5"/>
+    <global offwidth="640" offheight="480"/>
+    <quality shadowsize="2048"/>
+    <headlight diffuse="0.5 0.5 0.5" ambient="0.25 0.25 0.25" specular="0.2 0.2 0.2"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.7 0.8 0.9" rgb2="0.35 0.45 0.55" width="64" height="64"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.8 0.8 0.8" rgb2="0.62 0.62 0.62" width="64" height="64"/>
+    <material name="grid" texture="grid" texrepeat="10 10" reflectance="0.05"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.5 0 3" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <light pos="2 1.5 2.5" dir="-0.5 -0.4 -0.8" diffuse="0.4 0.4 0.4"/>
+    <geom name="floor" type="plane" size="2.5 2.5 0.1" material="grid"/>  <!-- finite 5x5 m floor: background (NaN depth) is visible beyond it -->
+
+    <!-- Debug overhead camera (optional; not an onboard view) -->
+    <camera name="overhead" pos="0.5 0 2.6" xyaxes="0 -1 0 1 0 0" fovy="55"/>
+
+    <!-- Table: thin slab, x in [0.25, 0.65], y in [-0.5, 0.5], top surface at z = 0.85 (see assets/README.md
+         "Trial geometry"); legs are omitted so the humanoid's knees/feet can
+         stand close to the edge without contact. -->
+    <body name="table" pos="0.45 0 0.825">
+      <geom name="table_top" type="box" size="0.20 0.50 0.025" rgba="0.55 0.42 0.28 1" friction="0.8 0.005 0.0001"/>
+    </body>
+
+    <!-- Finite red target region: visual-only thin box ON the table top. -->
+    <body name="red_region" pos="0.40 0.30 0.8515">
+      <geom name="red_region_geom" type="box" size="0.08 0.08 0.0015" rgba="0.85 0.08 0.08 1"
+            contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Manipulable free bodies.  Default poses are placeholders; every
+         trial reset re-places them from SceneConfig (unused objects are
+         parked far outside the workspace). -->
+    <body name="stone" pos="0.40 -0.15 0.88">
+      <freejoint name="stone_free"/>
+      <geom name="stone_geom" type="ellipsoid" size="0.030 0.025 0.025" rgba="0.52 0.52 0.52 1"
+            density="1800" friction="0.9 0.005 0.01" condim="6"/>
+    </body>
+    <body name="stone2" pos="10 10 0.025">
+      <freejoint name="stone2_free"/>
+      <geom name="stone2_geom" type="ellipsoid" size="0.030 0.025 0.025" rgba="0.47 0.15 0.10 1"
+            density="1800" friction="0.9 0.005 0.01" condim="6"/>
+    </body>
+    <body name="cube" pos="0.40 0.15 0.88">
+      <freejoint name="cube_free"/>
+      <geom name="cube_geom" type="box" size="0.025 0.025 0.025" rgba="0.15 0.32 0.85 1"
+            density="600" friction="0.9 0.005 0.0001"/>
+    </body>
+    <body name="bottle" pos="0.55 -0.35 0.915">
+      <freejoint name="bottle_free"/>
+      <geom name="bottle_geom" type="cylinder" size="0.028 0.06" rgba="0.18 0.68 0.30 1"
+            density="400" friction="0.7 0.005 0.005" condim="6"/>
+    </body>
+  </worldbody>
+
+  <!-- One predefined (inactive) weld per manipulable body between the
+       right end-effector body and the object; SimWorld activates at most
+       one at a time with the current relative pose (no snap). -->
+  <equality>
+    <weld name="grasp_stone" body1="right_wrist_yaw_link" body2="stone" active="false"/>
+    <weld name="grasp_stone2" body1="right_wrist_yaw_link" body2="stone2" active="false"/>
+    <weld name="grasp_cube" body1="right_wrist_yaw_link" body2="cube" active="false"/>
+    <weld name="grasp_bottle" body1="right_wrist_yaw_link" body2="bottle" active="false"/>
+  </equality>
+</mujoco>

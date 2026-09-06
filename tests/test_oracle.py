@@ -18,7 +18,7 @@ def test_visibility_respects_view(world, oracle):
     world.step(200)
     assert set(oracle.visible_objects()) == {"stone", "cube", "bottle"}
     # rotate away: nothing visible
-    world._set_joint("base_yaw", 3.0)
+    world.teleport_base(0.0, 0.0, 3.0)
     world.data.ctrl[2] = 3.0
     from core.rendering import mujoco
 
@@ -89,13 +89,13 @@ def test_region_predicate_has_finite_bounds(world, oracle):
     world.step(200)
     b = oracle.region_bounds()
     assert b.half_extents_xy[0] < 0.5 and b.half_extents_xy[1] < 0.5  # finite, not a plane
-    assert b.support_z == pytest.approx(0.40, abs=1e-3)
+    assert b.support_z == pytest.approx(0.85, abs=1e-3)  # table top (assets/scene_common.xml)
     # on-table but outside bounds -> False
-    world.teleport_body("stone", np.array([b.center_xy[0] - 0.3, b.center_xy[1], 0.43]))
+    world.teleport_body("stone", np.array([b.center_xy[0] - 0.3, b.center_xy[1], b.support_z + 0.03]))
     assert not oracle.object_in_region("stone")
     # inside bounds at support height -> True
-    world.teleport_body("stone", np.array([b.center_xy[0], b.center_xy[1], 0.425]))
+    world.teleport_body("stone", np.array([b.center_xy[0], b.center_xy[1], b.support_z + 0.025]))
     assert oracle.object_in_region("stone")
     # hovering far above the region -> False
-    world.teleport_body("stone", np.array([b.center_xy[0], b.center_xy[1], 0.8]))
+    world.teleport_body("stone", np.array([b.center_xy[0], b.center_xy[1], b.support_z + 0.40]))
     assert not oracle.object_in_region("stone")

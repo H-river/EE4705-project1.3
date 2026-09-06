@@ -233,7 +233,7 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     record.infrastructure_check = any("(MOCK)" in v for v in module_config.values())
 
     world.reset(scene_config_from_spec(trial.get("scene", {}) or {}))
-    world.step(200)  # settle objects onto their supports
+    world.step(int(round(1.0 / world.timestep)))  # settle objects onto their supports (1 s)
 
     orch = Orchestrator(perception, planner, spy, env, clarifier,
                         config=OrchestratorConfig(), store=store)

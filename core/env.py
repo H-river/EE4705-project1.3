@@ -7,6 +7,20 @@ MjData handles.  Attachment returns an opaque handle only.
 
 Every capture is an owned-copy Observation; if an ObservationStore is
 provided, captures are recorded there automatically.
+
+Cameras (see assets/README.md):
+* ``head``        — describe, ground, SEARCH and final verification (the
+                    default; ``"onboard"`` is an accepted alias).
+* ``left_wrist``, ``right_wrist`` — available for future Executor
+                    alignment and grasp/place checks; not used by the
+                    current mock workflow.
+
+Control contract (unchanged from the pre-G1 backbone): ``set_base_target``
+and ``set_arm_target`` only update targets and return immediately; motion
+happens exclusively inside ``step``.  ``set_arm_target`` is position-only;
+its orientation policy is documented in core.g1.G1Controller
+(default tilted top-down approach, relaxed to position-only when that
+orientation is unreachable).
 """
 
 from __future__ import annotations
@@ -17,7 +31,7 @@ import numpy as np
 
 from core.obs_store import ObservationStore
 from core.types import Observation
-from core.world import SimWorld
+from core.world import DEFAULT_CAMERA, SimWorld, resolve_camera
 
 
 class RobotEnv:
@@ -25,24 +39,49 @@ class RobotEnv:
         self._world = world
         self._store = store
         self._frame_counter = 0
+        self._capture_counter = 0
 
     # -------------------------------------------------- observation
 
     def get_obs(self, camera: str = "onboard") -> Observation:
-        rgb, depth = self._world.render_rgbd(camera)
-        obs = Observation(
-            frame_id=self._frame_counter,
-            rgb=rgb,
-            depth=depth,
-            intrinsics=self._world.camera_intrinsics(camera),
-            t_world_camera=self._world.camera_extrinsics(camera),
-            sim_time=self._world.sim_time,
-            camera_name=camera,
-        )
-        self._frame_counter += 1
-        if self._store is not None:
-            self._store.put(obs)
-        return obs
+        """One RGB-D observation (``"onboard"`` == head camera)."""
+        return self.get_obs_multi([camera])[resolve_camera(camera)]
+
+    def get_obs_multi(self, camera_ids: list[str]) -> dict[str, Observation]:
+        """Atomic multi-camera capture: every requested camera is rendered
+        (RGB and depth) from ONE unchanged simulation state, with its own
+        calibration from that same state.  All observations share
+        ``sim_time`` and a common capture identifier
+        ``ep<episode>_capture<n>_<camera>``; the capture counter increments
+        on every call, so repeated captures without stepping still get
+        unique IDs.  Keys are the canonical camera names."""
+        if not camera_ids:
+            raise ValueError("camera_ids must not be empty")
+        names = [resolve_camera(c) for c in camera_ids]
+        if len(set(names)) != len(names):
+            raise ValueError(f"duplicate camera in request: {camera_ids}")
+        cap = self._world.capture(tuple(names))
+        capture_index = self._capture_counter
+        self._capture_counter += 1
+        base_id = f"ep{self._world.episode:02d}_capture{capture_index:04d}"
+        out: dict[str, Observation] = {}
+        for cam in names:
+            rgb, depth, k, t = cap.frames[cam]
+            obs = Observation(
+                frame_id=self._frame_counter,
+                rgb=rgb,
+                depth=depth,
+                intrinsics=k,
+                t_world_camera=t,
+                sim_time=cap.sim_time,
+                camera_name=cam,
+                capture_id=f"{base_id}_{cam}",
+            )
+            self._frame_counter += 1
+            if self._store is not None:
+                self._store.put(obs)
+            out[cam] = obs
+        return out
 
     # -------------------------------------------------- proprioception
 
@@ -61,31 +100,18 @@ class RobotEnv:
     # -------------------------------------------------- control
 
     def set_base_target(self, x: float, y: float, yaw: float) -> None:
-        ctrl = self._world.get_ctrl()
-        self._world.set_ctrl(x, y, yaw, ctrl[3], ctrl[4], ctrl[5])
+        """Non-blocking planar base target (x, y, yaw); the base slides
+        toward it with speed limits during ``step``."""
+        self._world.set_base_target(float(x), float(y), float(yaw))
 
     def set_arm_target(self, pos_world: np.ndarray) -> None:
-        """Command the arm slides so the EE converges toward ``pos_world``
-        (world frame, meters).  Raises ValueError when the point is outside
-        the reachable envelope for the current base pose."""
+        """Non-blocking: command the right arm so the end effector converges
+        toward ``pos_world`` (world frame, meters) during ``step``.  Raises
+        ValueError when no IK solution exists for the current base pose."""
         p = np.asarray(pos_world, dtype=float)
         if p.shape != (3,) or not np.all(np.isfinite(p)):
             raise ValueError(f"pos_world must be a finite 3-vector, got {pos_world!r}")
-        base = self._world.base_pose()
-        yaw = base[2]
-        rot = np.array([[np.cos(-yaw), -np.sin(-yaw)], [np.sin(-yaw), np.cos(-yaw)]])
-        local_xy = rot @ (p[:2] - base[:2])
-        # Arm slide targets in the base frame; arm_base sits 0.80 m above base.
-        targets = {"arm_x": local_xy[0], "arm_y": local_xy[1], "arm_z": p[2] - 0.80}
-        ranges = self._world.joint_ranges()
-        for joint, value in targets.items():
-            lo, hi = ranges[joint]
-            if not lo <= value <= hi:
-                raise ValueError(
-                    f"target {p.tolist()} unreachable: {joint}={value:.3f} outside [{lo:.2f}, {hi:.2f}]"
-                )
-        ctrl = self._world.get_ctrl()
-        self._world.set_ctrl(ctrl[0], ctrl[1], ctrl[2], targets["arm_x"], targets["arm_y"], targets["arm_z"])
+        self._world.set_arm_target(p)
 
     def step(self, n: int = 1) -> None:
         self._world.step(n)
@@ -108,3 +134,6 @@ class RobotEnv:
 
     def close(self) -> None:
         self._world.close()
+
+
+__all__ = ["RobotEnv", "DEFAULT_CAMERA"]

@@ -168,6 +168,8 @@ class Observation:
     ``intrinsics``: float64 (3, 3) pinhole K.
     ``t_world_camera``: float64 (4, 4) camera(+x right, +y down, +z fwd)
     to world transform.
+    ``capture_id``: batch identifier shared (up to the camera suffix) by all
+    observations of one atomic multi-camera capture.
     """
 
     frame_id: int
@@ -177,6 +179,10 @@ class Observation:
     t_world_camera: np.ndarray
     sim_time: float
     camera_name: str
+    # Batch identity for (multi-)camera captures: ``ep<episode>_capture<n>_<camera>``.
+    # Observations captured together share the ``ep.._capture..`` prefix and
+    # the same ``sim_time``.  Empty for synthetic/legacy observations.
+    capture_id: str = ""
 
     def __post_init__(self) -> None:
         if self.rgb.shape != (IMAGE_HEIGHT, IMAGE_WIDTH, 3) or self.rgb.dtype != np.uint8:

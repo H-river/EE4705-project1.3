@@ -1,0 +1,20 @@
+<!-- Owner: backbone (ALL) -->
+<!-- DIAGNOSTIC scene variant for scripts/cam_sync_check.py: the production
+     G1 + tabletop world plus a uniquely coloured free-falling ball.  The
+     ball is NOT a manipulable object (no grasp weld, not in
+     MANIPULABLE_BODIES, never eligible for attachment) and this file is
+     never used by smoke trials or tests of production behaviour. -->
+<mujoco model="ee4705_g1_scene_cam_sync">
+  <include file="g1_with_hands_ee4705.xml"/>
+  <include file="scene_common.xml"/>
+  <worldbody>
+    <!-- Magenta diagnostic ball (colour distinct from the red region, gray/
+         dark-red stones, blue cube, green bottle, brown table).  Released
+         from ~0.30 m above the table top by the diagnostic script. -->
+    <body name="diag_ball" pos="0.40 -0.20 1.15">
+      <freejoint name="diag_ball_free"/>
+      <geom name="diag_ball_geom" type="sphere" size="0.03" rgba="0.95 0.10 0.85 1"
+            density="500" friction="0.6 0.005 0.001" condim="6"/>
+    </body>
+  </worldbody>
+</mujoco>
