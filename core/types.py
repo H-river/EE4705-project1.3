@@ -12,7 +12,8 @@ Coordinate frames and units
 ---------------------------
 * World frame: right-handed, z up, units are meters.  Angles are radians.
 * ``pos_world`` on a :class:`GroundedObject` is the estimated 3D position of
-  the object's center in the **world frame** (meters).  ``None`` means the
+  the object's center, or a region's support-surface point, in the **world
+  frame** (meters).  ``None`` means the
   object has not been localized in 3D (see :class:`GroundStatus`).
 * Camera frame (public convention): +x right, +y down, +z forward (optical
   axis).  ``t_world_camera`` is the 4x4 homogeneous transform mapping points
@@ -80,7 +81,8 @@ from typing import Any, Optional
 
 import numpy as np
 
-CONTRACT_VERSION = 1
+# v2: full-motion STOP and fresh, exact-instance placement verification.
+CONTRACT_VERSION = 2
 
 # Fixed public image resolution.
 IMAGE_HEIGHT = 480
@@ -195,6 +197,30 @@ class Observation:
             raise ValueError("t_world_camera must be 4x4")
 
 
+@dataclass(frozen=True)
+class RobotState:
+    """Proprioceptive snapshot returned by ``RobotEnv.get_robot_state()``
+    (no ground truth about the scene).
+
+    ``base_pose``: (x, y, yaw) of the sliding base, world frame.
+    ``ee_pos`` / ``ee_quat``: end-effector site (2F-85 pinch point / TCP)
+    position and orientation (w, x, y, z) in the world frame.
+    ``gripper_opening``: MEASURED normalized opening per side,
+    1.0 = fully open, 0.0 = closed (same normalization as ``set_gripper``).
+    ``attached``: an attachment (weld or physical grasp) is currently held.
+    ``last_attach_reason``: outcome of the most recent attach attempt
+    ("attached", "no_contact", "single_pad_contact", ...).
+    """
+
+    sim_time: float
+    base_pose: tuple[float, float, float]
+    ee_pos: tuple[float, float, float]
+    ee_quat: tuple[float, float, float, float]
+    gripper_opening: dict[str, float]
+    attached: bool
+    last_attach_reason: str = ""
+
+
 @dataclass
 class GroundedObject:
     """A perceived object or region instance.
@@ -203,7 +229,8 @@ class GroundedObject:
     ``name`` is the normalized class name from assets/objects.yaml.
     ``bbox_xyxy`` is (x_min, y_min, x_max, y_max) in pixels, or None when
     no 2D evidence exists (status NOT_FOUND).
-    ``pos_world`` is the world-frame 3D center estimate in meters, or None.
+    ``pos_world`` is the world-frame object center or region support-surface
+    point in meters, or None.
     ``kind`` distinguishes manipulable objects from support regions.
     """
 
@@ -217,6 +244,9 @@ class GroundedObject:
     kind: str = "object"  # "object" | "region"
     frame_id: int = -1
     attributes: dict[str, str] = field(default_factory=dict)  # e.g. {"color": "gray"}
+    # Optional perceived/declared axis-aligned region half-size in world meters.
+    # For a region, pos_world is the support-surface point, not the visual slab center.
+    region_half_extents_xy: Optional[tuple[float, float]] = None
 
     def __post_init__(self) -> None:
         if self.status is GroundStatus.LOCALIZED and self.pos_world is None:
@@ -228,6 +258,11 @@ class GroundedObject:
             self.pos_world = (float(p[0]), float(p[1]), float(p[2]))
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"confidence must be in [0,1], got {self.confidence}")
+        if self.region_half_extents_xy is not None:
+            half = np.asarray(self.region_half_extents_xy, dtype=float)
+            if self.kind != "region" or half.shape != (2,) or not np.all(np.isfinite(half)) or np.any(half <= 0):
+                raise ValueError("region_half_extents_xy requires a region and two finite positive lengths")
+            self.region_half_extents_xy = tuple(float(v) for v in half)
 
 
 @dataclass

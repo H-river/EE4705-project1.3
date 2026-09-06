@@ -46,13 +46,13 @@ from core.world import SimWorld  # noqa: E402
 TABLE_TOP_Z = 0.85  # m (assets/scene_common.xml)
 GRID_X = np.linspace(0.28, 0.44, 5)  # world = base frame (base at origin, yaw 0)
 GRID_Y = np.linspace(-0.32, -0.08, 5)
-TARGET_Z = TABLE_TOP_Z + 0.05  # palm reference point 5 cm above the table
+TARGET_Z = TABLE_TOP_Z + 0.05  # pinch TCP 5 cm above the table
 BASE_POSE = (0.0, 0.0, 0.0)  # x, y, yaw
 WAIST_POSE = (WAIST_REST["waist_yaw_joint"], WAIST_REST["waist_roll_joint"], WAIST_REST["waist_pitch_joint"])
 INITIAL_ARM_Q = [RIGHT_ARM_REST[j] for j in (
     "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint", "right_elbow_joint",
     "right_wrist_roll_joint", "right_wrist_pitch_joint", "right_wrist_yaw_joint")]
-TARGET_ROT = approach_rotation(BASE_POSE[2])  # tilt 20 deg, finger azimuth 30 deg (core.g1)
+TARGET_ROT = approach_rotation(BASE_POSE[2])  # tilt 45 deg, finger azimuth 0 deg (core.g1)
 
 POS_TOL = 0.01  # m
 ROT_TOL = math.radians(5.0)

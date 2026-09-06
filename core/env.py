@@ -30,7 +30,8 @@ from typing import Optional
 import numpy as np
 
 from core.obs_store import ObservationStore
-from core.types import Observation
+from core.rendering import mujoco
+from core.types import Observation, RobotState
 from core.world import DEFAULT_CAMERA, SimWorld, resolve_camera
 
 
@@ -113,8 +114,41 @@ class RobotEnv:
             raise ValueError(f"pos_world must be a finite 3-vector, got {pos_world!r}")
         self._world.set_arm_target(p)
 
+    def set_gripper(self, side: str, opening: float) -> None:
+        """Non-blocking gripper target: ``side`` in {"left", "right"},
+        ``opening`` 0.0 = closed .. 1.0 = fully open.  The measured opening
+        is reported by ``get_robot_state().gripper_opening``."""
+        self._world.set_gripper(side, float(opening))
+
+    def get_robot_state(self) -> RobotState:
+        """Proprioceptive snapshot (no scene ground truth)."""
+        with self._world.lock:
+            base = self._world.base_pose()
+            pos = self._world.ee_pos()
+            quat = np.empty(4)
+            mujoco.mju_mat2Quat(quat, np.ascontiguousarray(self._world.ee_rot()).reshape(9))
+            return RobotState(
+                sim_time=self._world.sim_time,
+                base_pose=(float(base[0]), float(base[1]), float(base[2])),
+                ee_pos=(float(pos[0]), float(pos[1]), float(pos[2])),
+                ee_quat=tuple(float(v) for v in quat),
+                gripper_opening=self._world.gripper_opening(),
+                attached=self._world.is_attached(),
+                last_attach_reason=self._world.last_attach_reason,
+            )
+
     def step(self, n: int = 1) -> None:
         self._world.step(n)
+
+    def stop_motion(self) -> None:
+        """Cancel motion and hold the current pose without advancing time.
+
+        Attachment is preserved. A physically held gripper retains its
+        closing effort. Other gripper targets freeze at measured opening.
+        Physics decelerates during subsequent step() calls; velocities and
+        joint positions are never teleported to simulate a stop.
+        """
+        self._world.stop_motion()
 
     # -------------------------------------------------- attachment
 

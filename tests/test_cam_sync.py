@@ -138,8 +138,8 @@ def test_extrinsics_agree_with_model_camera_poses(standard_world, env):
         assert np.allclose(o.t_world_camera[:3, 2], -r_gl[:, 2], atol=1e-9)
         # mounting bodies as documented
     assert m.body(m.cam_bodyid[m.camera("head").id]).name == "torso_link"
-    assert m.body(m.cam_bodyid[m.camera("left_wrist").id]).name == "left_wrist_yaw_link"
-    assert m.body(m.cam_bodyid[m.camera("right_wrist").id]).name == "right_wrist_yaw_link"
+    assert m.body(m.cam_bodyid[m.camera("left_wrist").id]).name == "lg_base"  # left 2F-85 base
+    assert m.body(m.cam_bodyid[m.camera("right_wrist").id]).name == "rg_base"  # right 2F-85 base
 
 
 def test_effective_clip_distances():

@@ -37,6 +37,7 @@ packages = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # keep pytest and python -m pytest equivalent for tests.conftest imports
 # This machine has ROS Jazzy on PYTHONPATH; its pytest plugins break inside
 # the isolated venv (missing transitive deps), so disable them explicitly.
 addopts = "-p no:launch_testing -p no:launch_ros -p no:ament_lint -p no:ament_copyright -p no:ament_flake8 -p no:ament_pep257 -p no:ament_xmllint"

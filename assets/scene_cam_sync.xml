@@ -5,7 +5,7 @@
      MANIPULABLE_BODIES, never eligible for attachment) and this file is
      never used by smoke trials or tests of production behaviour. -->
 <mujoco model="ee4705_g1_scene_cam_sync">
-  <include file="g1_with_hands_ee4705.xml"/>
+  <include file="g1_2f85_ee4705.xml"/>
   <include file="scene_common.xml"/>
   <worldbody>
     <!-- Magenta diagnostic ball (colour distinct from the red region, gray/

@@ -26,7 +26,7 @@ from __future__ import annotations
 import pathlib
 import threading
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
 
 import numpy as np
 
@@ -34,6 +34,7 @@ from core.g1 import (
     CAMERA_ALIASES,
     CAMERA_HEAD,
     CAMERAS,
+    GRIPPER_PAD_GEOMS,
     RIGHT_EE_BODY,
     G1Controller,
     G1Limits,
@@ -53,6 +54,14 @@ _PARK_POS = (10.0, 10.0)  # parked (unused) objects go far outside the workspace
 
 ATTACH_RADIUS = 0.05  # meters; distance predicate for try_attach_near_ee (EE site to object center)
 MAX_ATTACHMENTS = 1
+GRASP_MODES = ("weld", "physical")
+PHYSICAL_GRASP_EXPERIMENTAL = True  # bounded evaluation below 7/10; see docs/validation/robotiq/REPORT.md
+# physical grasp: close-and-check parameters (see assets/README.md)
+PHYSICAL_CLOSE_TIMEOUT_S = 1.5
+PHYSICAL_STALL_SPEED = 0.05  # rad/s driver speed below which the fingers count as stalled
+PHYSICAL_STALL_STEPS = 50  # consecutive stalled steps (0.1 s)
+PHYSICAL_MIN_OPENING = 0.03  # a "grasp" on nothing closes below this normalized opening
+PAD_TOUCH_DIST = 0.0006  # m; summed margin of two 0.3 mm pad surfaces
 
 _INVALID_DEPTH_FRACTION = 0.98  # depth >= this fraction of zfar -> NaN
 
@@ -83,7 +92,11 @@ def resolve_camera(name: str) -> str:
 
 class SimWorld:
     def __init__(self, xml_path: pathlib.Path = SCENE_XML, limits: Optional[G1Limits] = None,
-                 ik_config: Optional[IKConfig] = None) -> None:
+                 ik_config: Optional[IKConfig] = None, grasp_mode: Literal["weld", "physical"] = "weld") -> None:
+        if grasp_mode not in GRASP_MODES:
+            raise ValueError(f"grasp_mode must be one of {GRASP_MODES}, got {grasp_mode!r}")
+        self.grasp_mode = grasp_mode
+        self.last_attach_reason = ""
         self.xml_path = pathlib.Path(xml_path)
         self.model = mujoco.MjModel.from_xml_path(str(self.xml_path))
         self.data = mujoco.MjData(self.model)
@@ -100,6 +113,14 @@ class SimWorld:
         }
         self._eq_id = {self.model.equality(i).name: i for i in range(self.model.neq)}
         self._grasp_eq_ids = {self._eq_id[_WELD_FOR_BODY[n]] for n in MANIPULABLE_BODIES}
+        self._pad_geom_ids = {side: [int(self.model.geom(g).id) for g in names] for side, names in GRIPPER_PAD_GEOMS.items()}
+        self._pad_side_of_geom = {}
+        for side in GRIPPER_PAD_GEOMS:
+            for name in GRIPPER_PAD_GEOMS[side]:
+                self._pad_side_of_geom[int(self.model.geom(name).id)] = (side, "right" if "right_pad" in name else "left")
+        self._object_geom_ids = {n: [g for g in range(self.model.ngeom) if self.model.geom_bodyid[g] == self.model.body(n).id]
+                                 for n in MANIPULABLE_BODIES}
+        self._saved_conaffinity: dict[str, np.ndarray] = {}
         self.robot = G1Controller(self.model, self.data, limits=limits, ik_config=ik_config)
         self.robot.reset(0.0, 0.0, 0.0)
         self._park_all_objects()
@@ -121,9 +142,11 @@ class SimWorld:
             # grasp welds inactive; the base weld stays active
             for eq in self._grasp_eq_ids:
                 self.data.eq_active[eq] = 0
+            self._restore_object_contacts()
             self._attached_body = None
             self._attach_handles.clear()
             self._attach_counter = 0
+            self.last_attach_reason = ""
             self._episode += 1
             self.config = config
 
@@ -156,6 +179,12 @@ class SimWorld:
                 self.robot.update()
                 mujoco.mj_step(self.model, self.data)
 
+    def stop_motion(self) -> None:
+        with self.lock:
+            self._refresh_kinematics()
+            preserve_right = self.grasp_mode == "physical" and self._attached_body is not None
+            self.robot.stop_motion(preserve_right_grip=preserve_right)
+
     @property
     def sim_time(self) -> float:
         return float(self.data.time)
@@ -185,13 +214,28 @@ class SimWorld:
         self.robot.set_base_target(x, y, yaw)
 
     def set_arm_target(self, pos_world: np.ndarray, rot_world: Optional[np.ndarray] = None) -> IKResult:
-        """Non-blocking IK command for the right arm (see G1Controller)."""
+        """Non-blocking IK command for the right arm."""
         with self.lock:
             self._refresh_kinematics()
+            result, policy = self.robot.solve_arm_target(pos_world, rot_world)
+            if result.success and policy == "position_only":
+                contacts = [c for c in self.robot_contacts_for_arm_q(result.q)
+                            if self._attached_body is None or self._attached_body not in c[:2]]
+                if contacts:
+                    raise ValueError("position-only IK intersects robot or scene geometry; re-park the base")
             return self.robot.set_arm_target(pos_world, rot_world)
 
     def set_waist_target(self, yaw: float, roll: float, pitch: float) -> None:
         self.robot.set_waist_target(yaw, roll, pitch)
+
+    def set_gripper(self, side: str, opening: float) -> None:
+        """Non-blocking gripper target (1 open .. 0 closed)."""
+        with self.lock:
+            self.robot.set_gripper(side, opening)
+
+    def gripper_opening(self) -> dict[str, float]:
+        with self.lock:
+            return self.robot.gripper_opening()
 
     def _refresh_kinematics(self) -> None:
         """Make derived kinematic quantities (site/cam/geom poses) consistent
@@ -205,13 +249,24 @@ class SimWorld:
 
     def try_attach_near_ee(self) -> Optional[str]:
         """Attach the nearest eligible manipulable free body within
-        ATTACH_RADIUS of the end-effector site, at its CURRENT relative
-        pose.  Returns an opaque handle string, or None (nothing in range,
-        or the single supported attachment is already in use).  Ties are
-        resolved deterministically by (distance, body id).  Selection uses
-        actual simulated geometry only — never perceived IDs."""
+        ATTACH_RADIUS of the end-effector site (the 2F-85 pinch point).
+        Returns an opaque handle string, or None (nothing in range, or the
+        single supported attachment is already in use; in physical mode
+        also when the close-and-check fails — see ``last_attach_reason``).
+        Ties are resolved deterministically by (distance, body id).
+        Selection uses actual simulated geometry only — never perceived IDs.
+
+        * ``grasp_mode="weld"``: a weld between the gripper base and the
+          object is activated at the object's CURRENT relative pose (no
+          snap); closing the gripper afterwards is cosmetic (pad/object
+          contacts are disabled while welded).
+        * ``grasp_mode="physical"``: the right gripper is commanded closed
+          and the simulation advanced until the fingers stall; success
+          requires both pads in contact with the SAME candidate body which
+          then sits inside the pad gap."""
         with self.lock:
             if len(self._attach_handles) >= MAX_ATTACHMENTS:
+                self.last_attach_reason = "already_attached"
                 return None
             ee = self.ee_pos()
             candidates: list[tuple[float, int, str]] = []
@@ -221,10 +276,18 @@ class SimWorld:
                 if dist <= ATTACH_RADIUS:
                     candidates.append((dist, int(self.model.body(name).id), name))
             if not candidates:
+                self.last_attach_reason = "nothing_in_range"
                 return None
             candidates.sort()
             name = candidates[0][2]
-            self._activate_weld(name)
+            if self.grasp_mode == "physical":
+                ok, reason = self._physical_grasp(name)
+                self.last_attach_reason = reason
+                if not ok:
+                    return None
+            else:
+                self._activate_weld(name)
+                self.last_attach_reason = "attached"
             self._attach_counter += 1
             handle = f"att_{self._episode}_{self._attach_counter}"
             self._attach_handles[handle] = name
@@ -248,18 +311,107 @@ class SimWorld:
         data[10] = 1.0  # torquescale
         self.model.eq_data[eq, :] = data
         self.data.eq_active[eq] = 1
+        # A welded object retains bit-1 scene contacts, while excluding
+        # bit-2 grippers. Restore its original affinity on detach/reset.
+        gids = self._object_geom_ids[body_name]
+        self._saved_conaffinity[body_name] = np.array(self.model.geom_conaffinity[gids])
+        self.model.geom_conaffinity[gids] = 1
+
+    def _restore_object_contacts(self) -> None:
+        for name, saved in self._saved_conaffinity.items():
+            self.model.geom_conaffinity[self._object_geom_ids[name]] = saved
+        self._saved_conaffinity.clear()
+
+    def _pad_contacts(self, side: str = "right") -> dict[str, set[str]]:
+        """Bodies each pad ('right'/'left' finger) of the gripper touches."""
+        out: dict[str, set[str]] = {"right": set(), "left": set()}
+        for c in range(self.data.ncon):
+            con = self.data.contact[c]
+            if con.dist > PAD_TOUCH_DIST:
+                continue  # contacts are generated inside the margin; count only near-touching ones
+            for g_pad, g_other in ((con.geom1, con.geom2), (con.geom2, con.geom1)):
+                info = self._pad_side_of_geom.get(int(g_pad))
+                if info is not None and info[0] == side:
+                    out[info[1]].add(self.model.body(self.model.geom_bodyid[g_other]).name)
+        return out
+
+    def _physical_grasp(self, name: str) -> tuple[bool, str]:
+        """Close the right gripper on ``name`` and check the grasp."""
+        self.robot.set_gripper("right", 0.0)
+        stalled = 0
+        t0 = self.sim_time
+        while self.sim_time - t0 < PHYSICAL_CLOSE_TIMEOUT_S:
+            self.step(1)
+            opening = self.robot.gripper_opening()["right"]
+            if self.robot.gripper_driver_speed("right") < PHYSICAL_STALL_SPEED and self.sim_time - t0 > 0.05:
+                stalled += 1
+            else:
+                stalled = 0
+            if stalled >= PHYSICAL_STALL_STEPS or opening <= 0.001:
+                break
+        mujoco.mj_forward(self.model, self.data)
+        pads = self._pad_contacts("right")
+        touching = pads["right"] | pads["left"]
+        opening = self.robot.gripper_opening()["right"]
+        if name not in touching:
+            return False, "no_contact" if not touching else "contact_with_other"
+        if name not in pads["right"] or name not in pads["left"]:
+            return False, "single_pad_contact"
+        if opening <= PHYSICAL_MIN_OPENING:
+            return False, "closed_on_nothing"
+        # the body centre must lie inside the pad gap: |offset along the
+        # closing axis (site y)| < half the current gap (+ a margin), and
+        # close to the pinch point across the pads
+        rel = self.robot.ee_rot().T @ (self.body_pos(name) - self.ee_pos())
+        gap = self.pad_gap("right")
+        if abs(rel[1]) > gap / 2 + 0.005 or float(np.hypot(rel[0], rel[2])) > ATTACH_RADIUS:
+            return False, "object_not_between_pads"
+        return True, "attached"
+
+    def pad_gap(self, side: str = "right") -> float:
+        """Measured inner-face separation along the TCP closing axis."""
+        self._refresh_kinematics()
+        prefix = "rg_" if side == "right" else "lg_"
+        gids = [int(self.model.geom(prefix + p + "_pad1").id) for p in ("right", "left")]
+        axis = self.data.site(prefix + "pinch").xmat.reshape(3, 3)[:, 1]
+        radii = [float(np.abs(axis @ self.data.geom_xmat[g].reshape(3, 3)) @ self.model.geom_size[g])
+                 for g in gids]
+        separation = abs(float(axis @ (self.data.geom_xpos[gids[0]] - self.data.geom_xpos[gids[1]])))
+        return max(0.0, separation - sum(radii))
+
+    def check_physical_hold(self) -> bool:
+        """Physical mode: is the attached body still held (both pads in
+        contact with it)?  Marks the attachment lost ("slipped") otherwise."""
+        if self.grasp_mode != "physical" or self._attached_body is None:
+            return self._attached_body is not None
+        mujoco.mj_forward(self.model, self.data)
+        pads = self._pad_contacts("right")
+        name = self._attached_body
+        if name in pads["right"] and name in pads["left"]:
+            return True
+        self._attach_handles.clear()
+        self._attached_body = None
+        self.last_attach_reason = "slipped"
+        return False
 
     def detach(self) -> bool:
         with self.lock:
             if not self._attach_handles:
+                if self.grasp_mode == "physical":
+                    self.robot.set_gripper("right", 1.0)
                 return False
             for name in self._attach_handles.values():
                 self.data.eq_active[self._eq_id[_WELD_FOR_BODY[name]]] = 0
+            self._restore_object_contacts()
+            if self.grasp_mode == "physical":
+                self.robot.set_gripper("right", 1.0)
             self._attach_handles.clear()
             self._attached_body = None
             return True
 
     def is_attached(self) -> bool:
+        if self.grasp_mode == "physical" and self._attach_handles:
+            return self.check_physical_hold()
         return bool(self._attach_handles)
 
     def grasp_weld_active(self) -> bool:

@@ -3,9 +3,10 @@
      table, red target region, manipulable objects, attachment welds.
      Included by scene.xml (production) and scene_cam_sync.xml (diagnostic
      variant that adds a falling ball).  The robot itself comes from
-     assets/g1_with_hands_ee4705.xml (local adaptation of Menagerie). -->
+     assets/g1_2f85_ee4705.xml (local adaptation of Menagerie). -->
 <mujoco model="ee4705_g1_tabletop">
   <compiler angle="radian"/>
+  <!-- Preserve the existing scene solver settings; tune contacts only on pads/objects. -->
   <option timestep="0.002" integrator="implicitfast"/>
   <!-- Explicit extent so MJCF clip settings are deterministic:
        effective znear = map.znear * extent = 0.0025 * 2 = 0.005 m,
@@ -70,12 +71,13 @@
   </worldbody>
 
   <!-- One predefined (inactive) weld per manipulable body between the
-       right end-effector body and the object; SimWorld activates at most
-       one at a time with the current relative pose (no snap). -->
+       right GRIPPER BASE (rg_base, which carries the rg_pinch TCP) and the
+       object; SimWorld activates at most one at a time with the current
+       relative pose (no snap), so a welded object sits between the pads. -->
   <equality>
-    <weld name="grasp_stone" body1="right_wrist_yaw_link" body2="stone" active="false"/>
-    <weld name="grasp_stone2" body1="right_wrist_yaw_link" body2="stone2" active="false"/>
-    <weld name="grasp_cube" body1="right_wrist_yaw_link" body2="cube" active="false"/>
-    <weld name="grasp_bottle" body1="right_wrist_yaw_link" body2="bottle" active="false"/>
+    <weld name="grasp_stone" body1="rg_base" body2="stone" active="false"/>
+    <weld name="grasp_stone2" body1="rg_base" body2="stone2" active="false"/>
+    <weld name="grasp_cube" body1="rg_base" body2="cube" active="false"/>
+    <weld name="grasp_bottle" body1="rg_base" body2="bottle" active="false"/>
   </equality>
 </mujoco>

@@ -1,0 +1,103 @@
+--- upstream/unitree_g1/g1_with_hands.xml@8161bba264d7fa7c99ca301e91e7fb44737676ad
++++ assets/g1_with_hands_ee4705.xml
+@@ -1,5 +1,12 @@
+-<mujoco model="g1_29dof_with_hand_rev_1_0">
+-  <compiler angle="radian" meshdir="assets"/>
++<!-- Owner: backbone (ALL)
++     LOCAL ADAPTATION of MuJoCo Menagerie unitree_g1/g1_with_hands.xml
++     (revision in assets/menagerie_revision.txt; BSD-3-Clause, see
++     assets/menagerie/unitree_g1/LICENSE).  Every change from upstream is
++     marked with an EE4705 comment and listed in assets/g1_upstream_diff.patch
++     (regenerate with scripts/g1_upstream_diff.sh).  Meshes are NOT copied:
++     meshdir points into the git-ignored upstream checkout. -->
++<mujoco model="g1_29dof_with_hand_ee4705">
++  <compiler angle="radian" meshdir="menagerie/unitree_g1/assets"/>  <!-- EE4705: upstream meshes -->
+ 
+   <option integrator="implicitfast"/>
+ 
+@@ -76,7 +83,14 @@
+   </asset>
+ 
+   <worldbody>
+-    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
++    <!-- EE4705: upstream light removed (scene provides lighting). -->
++    <!-- EE4705: world-child mocap body driving the (free) pelvis through the
++         base_weld equality below.  Sliding-base approximation: no walking.
++         Its pose is set by SimWorld.reset (stand height, upright) and moved
++         only with rate limits by the base controller. -->
++    <body name="base_target" mocap="true" pos="0 0 0.793">
++      <geom type="box" size="0.02 0.02 0.02" contype="0" conaffinity="0" group="4" rgba="0 0.6 1 0.3"/>
++    </body>
+     <body name="pelvis" pos="0 0 0.793" childclass="g1">
+       <inertial pos="0 0 -0.07605" quat="1 0 -0.000399148 0" mass="3.813" diaginertia="0.010549 0.0093089 0.0079184"/>
+       <freejoint name="floating_base_joint"/>
+@@ -195,6 +209,13 @@
+             <geom pos="0.0039635 0 -0.044" class="visual" material="black" mesh="head_link"/>
+             <geom pos="0.0039635 0 -0.044" class="collision" mesh="head_link"/>
+             <site name="imu_in_torso" size="0.01" pos="-0.03959 -0.00224 0.14792"/>
++            <!-- EE4705: head RGB-D camera.  The G1 head is a fixed mesh on
++                 torso_link (no neck joint): head mesh spans x in [-0.062,0.077],
++                 z in [0.281,0.489] in this frame, so the lens sits just in front
++                 of the face.  MuJoCo camera frame: x right, y up, looks along -z.
++                 Forward (+x torso) pitched down 30 deg; with the 0.30 rad waist
++                 rest pitch the optical axis is ~47 deg below horizontal. -->
++            <camera name="head" pos="0.09 0 0.40" xyaxes="0 -1 0  0.5 0 0.86603" fovy="60"/>
+             <body name="left_shoulder_pitch_link" pos="0.0039563 0.10022 0.24778"
+               quat="0.990264 0.139201 1.38722e-05 -9.86868e-05">
+               <inertial pos="0 0.035892 -0.011628" quat="0.654152 0.0130458 -0.326267 0.68225" mass="0.718"
+@@ -244,6 +265,11 @@
+                           <geom class="collision" mesh="left_wrist_yaw_link"/>
+                           <geom pos="0.0415 0.003 0" quat="1 0 0 0" class="visual" mesh="left_hand_palm_link"/>
+                           <geom pos="0.0415 0.003 0" quat="1 0 0 0" class="collision" mesh="left_hand_palm_link"/>
++                          <!-- EE4705: left end-effector frame (mirror of the right one:
++                               palm normal is link -y). -->
++                          <site name="left_ee_site" pos="0.10 -0.065 0" quat="0.70710678 0.70710678 0 0" size="0.008" rgba="0 1 0 1" group="1"/>
++                          <!-- EE4705: left wrist RGB-D camera (mirror of the right one; approach axis is link -y). -->
++                          <camera name="left_wrist" pos="0.05 -0.01 0.075" xyaxes="0.00000 -0.25038 0.96815  0.98635 0.15940 0.04122" fovy="90"/>
+                           <body name="left_hand_thumb_0_link" pos="0.067 0.003 0">
+                             <inertial pos="-0.000884246 -0.00863407 0.000944293"
+                               quat="0.462991 0.643965 -0.460173 0.398986" mass="0.0862366"
+@@ -361,6 +387,18 @@
+                           <geom class="collision" mesh="right_wrist_yaw_link"/>
+                           <geom pos="0.0415 -0.003 0" quat="1 0 0 0" class="visual" mesh="right_hand_palm_link"/>
+                           <geom pos="0.0415 -0.003 0" quat="1 0 0 0" class="collision" mesh="right_hand_palm_link"/>
++                          <!-- EE4705: right end-effector frame at the palm reference
++                               point (in front of the palm face, between the finger
++                               bases).  Site axes: +x = finger direction (link +x),
++                               +z = grasp approach axis = palm normal (link +y),
++                               +y = -link z.  quat = rotation of -90 deg about x. -->
++                          <site name="right_ee_site" pos="0.10 0.065 0" quat="0.70710678 -0.70710678 0 0" size="0.008" rgba="0 1 0 1" group="1"/>
++                          <!-- EE4705: right wrist RGB-D camera.  Lens on a bracket 7.5 cm to the
++                               index-finger side of the palm (palm mesh |z| <= 0.044), optical
++                               axis aimed at the point 0.235 m ahead of the palm reference
++                               point along the grasp approach axis (link +y), so it looks along
++                               the approach direction and sees the palm point.  90 deg vfov. -->
++                          <camera name="right_wrist" pos="0.05 0.01 0.075" xyaxes="0.00000 -0.25038 -0.96815  0.98635 -0.15940 0.04122" fovy="90"/>
+                           <body name="right_hand_thumb_0_link" pos="0.067 -0.003 0">
+                             <inertial pos="-0.000884246 0.00863407 0.000944293"
+                               quat="0.643965 0.462991 -0.398986 0.460173" mass="0.0862366"
+@@ -435,6 +473,24 @@
+     </body>
+   </worldbody>
+ 
++  <!-- EE4705: sliding-base approximation.  The feet must not drag on the
++       floor while the mocap weld slides the pelvis, so ONLY the two
++       ankle_roll (foot) bodies are excluded from colliding with world
++       geoms (the floor).  All other robot/environment collisions stay on. -->
++  <contact>
++    <exclude body1="left_ankle_roll_link" body2="world"/>
++    <exclude body1="right_ankle_roll_link" body2="world"/>
++  </contact>
++
++  <equality>
++    <!-- EE4705: base weld (mocap base_target -> free pelvis).  solref time
++         constant 0.01 s (>= 2x the 0.002 s timestep) and a stiff solimp:
++         with the defaults the pelvis lagged the target by 2.4 cm and rose
++         1.2 cm while translating (torso lean moment); measured residuals
++         now: height < 1 mm, planar < 2 mm, yaw < 3 mrad. -->
++    <weld name="base_weld" body1="base_target" body2="pelvis" solref="0.01 1" solimp="0.99 0.999 0.001 0.5 2"/>
++  </equality>
++
+   <actuator>
+     <position class="g1" name="left_hip_pitch_joint" joint="left_hip_pitch_joint"/>
+     <position class="g1" name="left_hip_roll_joint" joint="left_hip_roll_joint"/>
