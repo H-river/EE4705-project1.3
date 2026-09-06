@@ -1,0 +1,53 @@
+[
+  {
+    "name": "pytest",
+    "command": [
+      ".venv/bin/pytest",
+      "-q"
+    ],
+    "exit_code": 0,
+    "pytest_reported_s": 16.8
+  },
+  {
+    "name": "smoke",
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "eval.runner",
+      "--mode",
+      "e2e",
+      "--trials",
+      "eval/trials/smoke",
+      "--mock-all"
+    ],
+    "exit_code": 0,
+    "wall_s": 2.5001878759994725
+  },
+  {
+    "name": "reach",
+    "command": [
+      ".venv/bin/python",
+      "scripts/ik_reach_test.py"
+    ],
+    "exit_code": 0,
+    "wall_s": 5.600552281999626
+  },
+  {
+    "name": "camsync",
+    "command": [
+      ".venv/bin/python",
+      "scripts/cam_sync_check.py"
+    ],
+    "exit_code": 0,
+    "wall_s": 15.762342665000688
+  },
+  {
+    "name": "grasp",
+    "command": [
+      ".venv/bin/python",
+      "scripts/grasp_test.py"
+    ],
+    "exit_code": 1,
+    "wall_s": 129.7523386619996
+  }
+]

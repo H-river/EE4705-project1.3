@@ -1,0 +1,41 @@
+{
+  "head_open": {
+    "central_gripper_fraction": 0.0,
+    "central_median_depth_m": 0.44173210859298706,
+    "total_gripper_pixels": 0
+  },
+  "right_wrist_open": {
+    "central_gripper_fraction": 0.0,
+    "central_median_depth_m": 2.830082416534424,
+    "total_gripper_pixels": 69298
+  },
+  "left_wrist_open": {
+    "central_gripper_fraction": 0.0,
+    "central_median_depth_m": 0.771784782409668,
+    "total_gripper_pixels": 69290
+  },
+  "head_closed": {
+    "central_gripper_fraction": 0.0,
+    "central_median_depth_m": 0.44172078371047974,
+    "total_gripper_pixels": 0
+  },
+  "right_wrist_closed": {
+    "central_gripper_fraction": 0.0,
+    "central_median_depth_m": 2.8299474716186523,
+    "total_gripper_pixels": 64513
+  },
+  "left_wrist_closed": {
+    "central_gripper_fraction": 0.0,
+    "central_median_depth_m": 0.7717738151550293,
+    "total_gripper_pixels": 64513
+  },
+  "ready_tcp_m": [
+    0.432763811321493,
+    -0.5639516559728298,
+    0.9802127730756469
+  ],
+  "clip_m": [
+    0.004999999888241291,
+    10.0
+  ]
+}

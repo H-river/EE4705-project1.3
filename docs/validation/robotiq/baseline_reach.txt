@@ -1,0 +1,48 @@
+Declared workspace:
+  grid x = [0.28, 0.32, 0.36, 0.4, 0.44] m, y = [-0.32, -0.26, -0.2, -0.14, -0.08] m (world = base frame)
+  target height z = 0.900 m (table top 0.85 + 0.05)
+  orientation: tilted top-down approach, tilt 20 deg, finger azimuth 30 deg (R columns = finger, y, approach):
+[[ 0.814  0.5    0.296]
+ [ 0.47  -0.866  0.171]
+ [ 0.342  0.    -0.94 ]]
+  base pose (0.0, 0.0, 0.0), waist (yaw, roll, pitch) = (0.0, 0.0, 0.3), initial arm q = [-0.8, -1.0, -0.5, 1.0, 0.0, 0.0, 0.0]
+  success: IK residual < 1 mm / 0.5 deg (solver); tracking < 10 mm / 5 deg
+
+Grid:
+  grid (0.28,-0.32): ik=ok (0.9 mm, 0.1 deg) usable=True track=ok settle=0.94s 
+  grid (0.28,-0.26): ik=ok (0.8 mm, 0.1 deg) usable=True track=ok settle=1.06s 
+  grid (0.28,-0.20): ik=ok (0.2 mm, 0.0 deg) usable=True track=ok settle=1.24s 
+  grid (0.28,-0.14): ik=ok (0.3 mm, 0.0 deg) usable=True track=ok settle=1.46s 
+  grid (0.28,-0.08): ik=ok (0.2 mm, 0.0 deg) usable=True track=ok settle=1.68s 
+  grid (0.32,-0.32): ik=ok (1.0 mm, 0.1 deg) usable=True track=ok settle=0.84s 
+  grid (0.32,-0.26): ik=ok (0.5 mm, 0.1 deg) usable=True track=ok settle=0.98s 
+  grid (0.32,-0.20): ik=ok (0.7 mm, 0.1 deg) usable=True track=ok settle=1.18s 
+  grid (0.32,-0.14): ik=ok (0.8 mm, 0.1 deg) usable=True track=ok settle=1.40s 
+  grid (0.32,-0.08): ik=ok (0.2 mm, 0.0 deg) usable=True track=ok settle=1.64s 
+  grid (0.36,-0.32): ik=ok (0.8 mm, 0.1 deg) usable=True track=ok settle=0.80s 
+  grid (0.36,-0.26): ik=ok (0.3 mm, 0.1 deg) usable=True track=ok settle=0.92s 
+  grid (0.36,-0.20): ik=ok (0.3 mm, 0.0 deg) usable=True track=ok settle=1.14s 
+  grid (0.36,-0.14): ik=ok (0.2 mm, 0.0 deg) usable=True track=ok settle=1.38s 
+  grid (0.36,-0.08): ik=ok (0.3 mm, 0.0 deg) usable=True track=ok settle=1.62s 
+  grid (0.40,-0.32): ik=FAIL (4.0 mm, 0.4 deg) usable=False track=FAIL settle=nans ik_stalled
+  grid (0.40,-0.26): ik=ok (0.5 mm, 0.1 deg) usable=True track=ok settle=0.88s 
+  grid (0.40,-0.20): ik=ok (0.6 mm, 0.1 deg) usable=True track=ok settle=1.14s 
+  grid (0.40,-0.14): ik=ok (0.5 mm, 0.1 deg) usable=True track=ok settle=1.38s 
+  grid (0.40,-0.08): ik=ok (0.4 mm, 0.1 deg) usable=True track=ok settle=1.62s 
+  grid (0.44,-0.32): ik=FAIL (23.4 mm, 2.2 deg) usable=False track=FAIL settle=nans ik_stalled
+  grid (0.44,-0.26): ik=ok (0.9 mm, 0.1 deg) usable=True track=ok settle=0.94s 
+  grid (0.44,-0.20): ik=ok (0.9 mm, 0.0 deg) usable=True track=ok settle=1.16s 
+  grid (0.44,-0.14): ik=ok (0.1 mm, 0.0 deg) usable=True track=ok settle=1.40s 
+  grid (0.44,-0.08): ik=ok (0.2 mm, 0.0 deg) usable=True track=ok settle=1.62s 
+Task poses (smoke_1 layout):
+  task approach: ik=ok usable=True track=ok settle=1.14s 
+  task grasp: ik=ok usable=True track=ok settle=0.48s 
+  task lift: ik=ok usable=True track=ok settle=0.70s 
+  task place: ik=ok usable=True track=ok settle=0.66s 
+
+Grid: IK 23/25, usable (collision-free IK) 23/25, tracked 23/25
+  tracked residuals: pos mean 1.10 mm (max 2.13), rot mean 0.18 deg (max 0.42); settle mean 1.24 s (max 1.68)
+  FAILED grid point (0.40,-0.32): ik_stalled
+  FAILED grid point (0.44,-0.32): ik_stalled
+Task poses: ALL tracked collision-free: approach=ok, grasp=ok, lift=ok, place=ok
+Outputs: runs/ik_reach/20260906_220658/reach_results.csv, runs/ik_reach/20260906_220658/reach_grid.png, runs/ik_reach/20260906_220658/summary.json (wall 3.4 s)

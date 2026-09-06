@@ -1,0 +1,67 @@
+Declared workspace:
+  grid x = [0.28, 0.32, 0.36, 0.4, 0.44] m, y = [-0.32, -0.26, -0.2, -0.14, -0.08] m (world = base frame)
+  target height z = 0.900 m (table top 0.85 + 0.05)
+  orientation: tilted top-down approach, tilt 45 deg, finger azimuth 0 deg (R columns = finger, y, approach):
+[[ 0.814  0.5    0.296]
+ [ 0.47  -0.866  0.171]
+ [ 0.342  0.    -0.94 ]]
+  base pose (0.0, 0.0, 0.0), waist (yaw, roll, pitch) = (0.0, 0.0, 0.3), initial arm q = [-0.8, -1.0, -0.5, 1.0, 0.0, 0.0, 0.0]
+  success: IK residual < 1 mm / 0.5 deg (solver); tracking < 10 mm / 5 deg
+
+Grid:
+  grid (0.28,-0.32): ik=ok (0.5 mm, 0.0 deg) usable=False track=ok settle=1.38s 
+  grid (0.28,-0.26): ik=ok (0.5 mm, 0.1 deg) usable=False track=ok settle=1.56s 
+  grid (0.28,-0.20): ik=ok (0.8 mm, 0.1 deg) usable=True track=ok settle=1.84s 
+  grid (0.28,-0.14): ik=ok (0.8 mm, 0.1 deg) usable=True track=FAIL settle=nans tracking_timeout(pos 213.8 mm, rot 64.8 deg)
+  grid (0.28,-0.08): ik=ok (0.8 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 283.5 mm, rot 79.2 deg)
+  grid (0.32,-0.32): ik=ok (0.5 mm, 0.0 deg) usable=False track=FAIL settle=1.32s collision_at_target
+  grid (0.32,-0.26): ik=ok (1.0 mm, 0.1 deg) usable=False track=FAIL settle=1.50s collision_at_target
+  grid (0.32,-0.20): ik=ok (0.5 mm, 0.1 deg) usable=False track=FAIL settle=1.82s collision_at_target
+  grid (0.32,-0.14): ik=ok (0.8 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 191.0 mm, rot 57.6 deg)
+  grid (0.32,-0.08): ik=ok (0.4 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 272.6 mm, rot 75.9 deg)
+  grid (0.36,-0.32): ik=ok (0.7 mm, 0.1 deg) usable=False track=FAIL settle=1.28s collision_at_target
+  grid (0.36,-0.26): ik=ok (0.9 mm, 0.1 deg) usable=False track=FAIL settle=1.46s collision_at_target
+  grid (0.36,-0.20): ik=ok (0.3 mm, 0.0 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 14.9 mm, rot 3.9 deg)
+  grid (0.36,-0.14): ik=ok (0.4 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 175.9 mm, rot 52.1 deg)
+  grid (0.36,-0.08): ik=ok (0.5 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 242.8 mm, rot 67.1 deg)
+  grid (0.40,-0.32): ik=ok (0.5 mm, 0.1 deg) usable=False track=FAIL settle=1.24s collision_at_target
+  grid (0.40,-0.26): ik=ok (0.4 mm, 0.1 deg) usable=False track=FAIL settle=1.44s collision_at_target
+  grid (0.40,-0.20): ik=ok (0.3 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 12.7 mm, rot 2.3 deg)
+  grid (0.40,-0.14): ik=ok (0.6 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 149.9 mm, rot 40.3 deg)
+  grid (0.40,-0.08): ik=ok (0.6 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 229.4 mm, rot 60.1 deg)
+  grid (0.44,-0.32): ik=ok (0.9 mm, 0.1 deg) usable=False track=ok settle=1.46s 
+  grid (0.44,-0.26): ik=ok (0.9 mm, 0.1 deg) usable=False track=FAIL settle=1.42s collision_at_target
+  grid (0.44,-0.20): ik=ok (0.8 mm, 0.1 deg) usable=False track=FAIL settle=1.62s collision_at_target
+  grid (0.44,-0.14): ik=ok (0.3 mm, 0.1 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 92.2 mm, rot 20.4 deg)
+  grid (0.44,-0.08): ik=ok (0.4 mm, 0.0 deg) usable=False track=FAIL settle=nans tracking_timeout(pos 197.9 mm, rot 47.7 deg)
+Task poses (smoke_1 layout):
+  task approach: ik=ok usable=False track=FAIL settle=1.70s collision_at_target
+  task grasp: ik=ok usable=True track=FAIL settle=nans tracking_timeout(pos 15.9 mm, rot 4.1 deg)
+  task lift: ik=ok usable=False track=FAIL settle=nans tracking_timeout(pos 18.5 mm, rot 3.5 deg)
+  task place: ik=ok usable=True track=FAIL settle=nans tracking_timeout(pos 14.3 mm, rot 3.7 deg)
+
+Grid: IK 25/25, usable (collision-free IK) 2/25, tracked 4/25
+  tracked residuals: pos mean 1.59 mm (max 2.41), rot mean 0.24 deg (max 0.36); settle mean 1.56 s (max 1.84)
+  FAILED grid point (0.28,-0.14): tracking_timeout(pos 213.8 mm, rot 64.8 deg)
+  FAILED grid point (0.28,-0.08): tracking_timeout(pos 283.5 mm, rot 79.2 deg)
+  FAILED grid point (0.32,-0.32): collision_at_target
+  FAILED grid point (0.32,-0.26): collision_at_target
+  FAILED grid point (0.32,-0.20): collision_at_target
+  FAILED grid point (0.32,-0.14): tracking_timeout(pos 191.0 mm, rot 57.6 deg)
+  FAILED grid point (0.32,-0.08): tracking_timeout(pos 272.6 mm, rot 75.9 deg)
+  FAILED grid point (0.36,-0.32): collision_at_target
+  FAILED grid point (0.36,-0.26): collision_at_target
+  FAILED grid point (0.36,-0.20): tracking_timeout(pos 14.9 mm, rot 3.9 deg)
+  FAILED grid point (0.36,-0.14): tracking_timeout(pos 175.9 mm, rot 52.1 deg)
+  FAILED grid point (0.36,-0.08): tracking_timeout(pos 242.8 mm, rot 67.1 deg)
+  FAILED grid point (0.40,-0.32): collision_at_target
+  FAILED grid point (0.40,-0.26): collision_at_target
+  FAILED grid point (0.40,-0.20): tracking_timeout(pos 12.7 mm, rot 2.3 deg)
+  FAILED grid point (0.40,-0.14): tracking_timeout(pos 149.9 mm, rot 40.3 deg)
+  FAILED grid point (0.40,-0.08): tracking_timeout(pos 229.4 mm, rot 60.1 deg)
+  FAILED grid point (0.44,-0.26): collision_at_target
+  FAILED grid point (0.44,-0.20): collision_at_target
+  FAILED grid point (0.44,-0.14): tracking_timeout(pos 92.2 mm, rot 20.4 deg)
+  FAILED grid point (0.44,-0.08): tracking_timeout(pos 197.9 mm, rot 47.7 deg)
+Task poses: FAILURES: approach=FAIL, grasp=FAIL, lift=FAIL, place=FAIL
+Outputs: runs/ik_old_orientation/20260906_231603/reach_results.csv, runs/ik_old_orientation/20260906_231603/reach_grid.png, runs/ik_old_orientation/20260906_231603/summary.json (wall 10.4 s)

@@ -1,0 +1,12 @@
+[PASS] smoke_1_standard: outcome=CLAIMED_SUCCESS claimed=True actual=True
+[PASS] smoke_2_scene_variation: outcome=CLAIMED_SUCCESS claimed=True actual=True
+[PASS] smoke_3_instruction_variation: outcome=CLAIMED_SUCCESS claimed=True actual=True
+[PASS] smoke_4_search: outcome=CLAIMED_SUCCESS claimed=True actual=True
+[PASS] smoke_5_clarification: outcome=CLAIMED_SUCCESS claimed=True actual=True
+
+Run dir: runs/20260906_231828_e2e_mockall
+Trials: 5  passed: 5  failed: 0
+NOTE: --mock-all results are infrastructure checks, not system performance.
+
+exit_code=0
+wall_s=2.500

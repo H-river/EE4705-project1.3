@@ -9,6 +9,11 @@ LLM/VLM client.  The three real modules (Student A perception, Student B
 planner, Student C executor) are **interface stubs** here — see
 "Directory ownership".
 
+**Student A/B/C 开发入口：** [分工、input/output 与测试指南](docs/STUDENT_README.md)。
+该指南说明 Task 2/3/4 的具体实现步骤、独立评测方法和联调命令。
+当前 contract v2 已修复 ID-only 动作解析、全运动 STOP 与最终放置验证；
+真实学生模块和正式课程实验仍待完成。
+
 > **Design document note:** `docs/backbone_design_v3.md` was not present at
 > implementation time; contract choices and their sources are recorded in
 > `docs/DECISIONS.md` §0.  If the v3 document is added later, reconcile
@@ -19,7 +24,7 @@ planner, Student C executor) are **interface stubs** here — see
 ```bash
 python3.12 -m venv .venv                      # any Python >= 3.10
 .venv/bin/python -m pip install -e ".[dev]"
-bash scripts/fetch_menagerie.sh               # Unitree G1 meshes/MJCF at the pinned Menagerie revision
+bash scripts/fetch_menagerie.sh               # G1 + Robotiq meshes/MJCF at the pinned revision
 ```
 
 Tested with: Python 3.12.3, mujoco 3.12.0, numpy 2.5.2, PyYAML 6.0.3,
@@ -44,29 +49,29 @@ never skipped.
 
 ## Platform: Unitree G1 (sliding humanoid)
 
-The simulated robot is the MuJoCo Menagerie **Unitree G1 with Dex3 hands**
-(pinned revision and BSD-3 license recorded in `assets/README.md`), adapted
-locally in `assets/g1_with_hands_ee4705.xml`:
+The robot is MuJoCo Menagerie **Unitree G1 with two Robotiq 2F-85 grippers**,
+composed in `assets/g1_2f85_ee4705.xml`. The pinned sources, licenses, flange,
+TCP and camera transforms are in `assets/README.md`.
 
-- **base**: the free pelvis is welded to a rate-limited mocap body and
-  slides at a fixed standing height (x, y, yaw); no walking, legs
-  position-held, feet excluded from floor contact (only that pair);
-- **arm**: the right arm is driven by damped-least-squares IK
-  (`core/ik.py`) on the palm reference site, with Cartesian setpoint
-  streaming, joint-rate limits and gravity feed-forward
-  (`core/g1.py`); the left arm, waist and fingers hold fixed postures;
-- **grasping** is weld attachment within 0.05 m of the palm point
-  (fingers fixed, no contact grasping);
-- **cameras**: `head` (default; alias `onboard`), `left_wrist`,
-  `right_wrist` — RGB-D 640×480 with per-camera K / T_world_camera;
-  `RobotEnv.get_obs_multi([...])` captures several cameras atomically from
-  one simulation state with a shared capture ID;
-- **table** top at 0.85 m; reachable band ≈ 0.28–0.45 m ahead and
-  0.08–0.32 m right of the base (see `scripts/ik_reach_test.py`).
+- The pelvis slides at fixed standing height through a rate-limited mocap
+  weld; this remains a non-walking approximation.
+- The right arm uses DLS IK and Cartesian streaming on the gripper's
+  **pinch TCP**, with joint-rate limits and gravity compensation.
+- **Weld grasping is the default**, with a 5 cm attachment radius and opaque
+  handles. `SimWorld(grasp_mode="physical")` opts into experimental contact
+  grasping; current success counts are stone 0/10, cube 7/10, bottle 1/10.
+- `RobotEnv.set_gripper("right", opening)` sets a non-blocking target:
+  0 closed, 1 open. Both grippers reset open.
+- Cameras remain `head` (alias `onboard`), `left_wrist`, `right_wrist`;
+  wrist cameras now mount on the gripper bases and retain finger references
+  at the image bottom. Multi-camera capture remains atomic.
+- Table top is 0.85 m; the unchanged 25-point reach grid yields 21 usable,
+  tracked points, and all four task poses pass.
 
-Limitations and every parameter are documented in `assets/README.md`;
-decisions in `docs/DECISIONS.md` §11.  The pre-G1 Cartesian-gantry scene
-is archived in `assets/reference/` and no longer loaded.
+Dex3 assets are archived under `assets/archive/`; no hands variant is selected
+at runtime. See `docs/DECISIONS.md` §12 and
+[the validation report](docs/validation/robotiq/REPORT.md) for measurements,
+contract reconciliation, images and remaining limitations.
 
 ## Running things
 
@@ -86,6 +91,9 @@ is archived in `assets/reference/` and no longer loaded.
 # three-camera synchronization check with a falling ball (contact sheet, video,
 # raw depth, diagnostics under runs/cam_sync/)
 .venv/bin/python scripts/cam_sync_check.py
+
+# experimental contact-grasp evaluation (30 attempts, CSV and failure images)
+.venv/bin/python scripts/grasp_test.py
 ```
 
 Physical arm control is validated by `tests/test_g1_control.py` and
@@ -112,9 +120,9 @@ Mocks are never substituted silently.
 
 ## Mock-only versus real-system results
 
-Every run records its module configuration (`run_meta.json` and each
-record's `module_config`); any run containing a mock is flagged
-`infrastructure_check: true`.  **Mock-only results verify the backbone
+Every trial records its module configuration in `module_config`; a trial
+containing a mock is flagged `infrastructure_check: true`. Run-level
+metadata also records the mode and `--mock-all` flag. **Mock-only results verify the backbone
 plumbing — they are never system performance and never validate Student
 A/B/C work.**  Claimed success (the system's own verification) and actual
 success (oracle judgement, `eval/criteria.py`) are always reported

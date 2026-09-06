@@ -1,0 +1,45 @@
+{
+  "run_id": "20260906_231702",
+  "attempts_per_object": 10,
+  "objects": {
+    "stone": {
+      "success": 0,
+      "attempts": 10,
+      "failure_reasons": {
+        "slipped": 10
+      },
+      "slip_heights_m": [
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06
+      ]
+    },
+    "cube": {
+      "success": 7,
+      "attempts": 10,
+      "failure_reasons": {
+        "single_pad_contact": 2,
+        "closed_on_nothing": 1
+      },
+      "slip_heights_m": []
+    },
+    "bottle": {
+      "success": 1,
+      "attempts": 10,
+      "failure_reasons": {
+        "unreachable:TIMEOUT": 9
+      },
+      "slip_heights_m": []
+    }
+  },
+  "wall_s": 129.7523386619996,
+  "slip_height_note": "commanded lift at first detected loss; measured_lift_m is object displacement then; detection at 3 cm lift increments",
+  "all_objects_at_least_7_of_10": false
+}

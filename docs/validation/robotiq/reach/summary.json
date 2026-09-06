@@ -1,0 +1,137 @@
+{
+  "run_id": "20260906_231830",
+  "declared_workspace": {
+    "grid_x": [
+      0.28,
+      0.32,
+      0.36,
+      0.4,
+      0.44
+    ],
+    "grid_y": [
+      -0.32,
+      -0.26,
+      -0.2,
+      -0.14,
+      -0.08
+    ],
+    "target_z": 0.9,
+    "base_pose": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "waist_pose": [
+      0.0,
+      0.0,
+      0.3
+    ],
+    "initial_arm_q": [
+      -0.8,
+      -1.0,
+      -0.5,
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "target_rotation": [
+      [
+        0.7071067811865476,
+        0.0,
+        0.7071067811865475
+      ],
+      [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      [
+        0.7071067811865475,
+        0.0,
+        -0.7071067811865476
+      ]
+    ]
+  },
+  "grid_points": 25,
+  "grid_ik_success": 21,
+  "grid_ik_solution_usable": 21,
+  "grid_tracking_success": 21,
+  "grid_settle_time_s": {
+    "mean": 1.6590476190475942,
+    "max": 2.379999999999904
+  },
+  "grid_tracked_pos_residual_mm": {
+    "mean": 1.6871596965151663,
+    "max": 3.1652224018022435
+  },
+  "grid_tracked_rot_residual_deg": {
+    "mean": 0.2785548632831273,
+    "max": 0.4978617338375129
+  },
+  "grid_failures": [
+    {
+      "x": 0.28,
+      "y": -0.14,
+      "reason": "ik_stalled"
+    },
+    {
+      "x": 0.28,
+      "y": -0.08,
+      "reason": "ik_max_iters"
+    },
+    {
+      "x": 0.32,
+      "y": -0.14,
+      "reason": "ik_stalled"
+    },
+    {
+      "x": 0.32,
+      "y": -0.08,
+      "reason": "ik_max_iters"
+    }
+  ],
+  "task_poses": {
+    "approach": {
+      "ik_success": true,
+      "usable": true,
+      "track_success": true,
+      "settle_time_s": 1.6399999999998747,
+      "pos_err_mm": 2.2989210588990208,
+      "rot_err_deg": 0.5207172919733554,
+      "collision": "",
+      "failure_reason": ""
+    },
+    "grasp": {
+      "ik_success": true,
+      "usable": true,
+      "track_success": true,
+      "settle_time_s": 0.5199999999999427,
+      "pos_err_mm": 1.9032617826294176,
+      "rot_err_deg": 0.2699601165862281,
+      "collision": "",
+      "failure_reason": ""
+    },
+    "lift": {
+      "ik_success": true,
+      "usable": true,
+      "track_success": true,
+      "settle_time_s": 0.7199999999999211,
+      "pos_err_mm": 1.1449119932157148,
+      "rot_err_deg": 0.19374235545586582,
+      "collision": "",
+      "failure_reason": ""
+    },
+    "place": {
+      "ik_success": true,
+      "usable": true,
+      "track_success": true,
+      "settle_time_s": 0.6799999999999251,
+      "pos_err_mm": 1.0559517456399294,
+      "rot_err_deg": 0.18578781293342084,
+      "collision": "",
+      "failure_reason": ""
+    }
+  },
+  "wall_s": 4.840881586074829
+}

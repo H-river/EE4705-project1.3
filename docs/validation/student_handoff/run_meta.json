@@ -1,0 +1,10 @@
+{
+  "contract_version": 2,
+  "mode": "e2e",
+  "mock_all": true,
+  "n_trials": 5,
+  "trials_dir": "eval/trials/smoke",
+  "started": "20260907_000129",
+  "infrastructure_check": true,
+  "note": "MOCK-ONLY RESULTS: infrastructure check, not system performance"
+}

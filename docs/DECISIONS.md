@@ -246,3 +246,143 @@ separable.
   detected the ball in 56 of 61 burst frames, wrist cameras never during
   the fall (out of their fields of view), right wrist during the reach;
   rendering ≈ 380–440 observations/s.
+
+
+## 12. Bilateral Robotiq 2F-85 replacement (2026-09-06)
+
+### 12.1 Hardware and restoration
+
+Dex3 hands are retired for now: fixed finger weld grasping offered no useful
+physical closing action, the thumb complicated low grasps, and a parallel
+pad TCP provides a clearer manipulation frame. The old XML and original
+upstream patch are archived under `assets/archive/` with restoration notes.
+There is no selectable hands variant. Both G1 no-hands and 2F-85 sources
+come from the already pinned Menagerie revision
+8161bba264d7fa7c99ca301e91e7fb44737676ad; G1 is BSD-3-Clause and 2F-85 is
+BSD-2-Clause (license copies tracked under `assets/licenses/`). The fetch
+script now includes both directories. `build_g1_model.py` generates the
+composition reproducibly; passive linkage equalities are retained.
+
+### 12.2 Frames, contacts and posture
+
+The wrist-yaw link's forward +x axis is the new approach axis. Wrist → mount
+translation is (0.045,0,0), quaternion (0.5,0.5,0.5,0.5). Retaining the
+upstream mount → base transform yields effective wrist → TCP translation
+(0.1938,0,0), with +z approach, +y closing and +x pad width in the TCP frame.
+The old palm point was (0.10,0.065,0) and had a different approach axis.
+The right ready joints remain unchanged; measured TCP is roughly
+(0.433,−0.564,0.980). Settling and task-pose tests pass without weakened
+assertions. The fixed head camera does not see the grippers at ready.
+
+Collision bits distinguish grippers from ordinary scene bodies while
+retaining upstream gripper internal/mutual collisions. Only the held
+object's gripper-contact eligibility is removed in weld mode; table/object
+contacts continue. Six gripper linkage equalities stay active. The
+interrupted implementation's masks disabled every gripper/gripper contact;
+that was corrected before final validation. No object sizes or masses changed.
+
+### 12.3 IK comparison and contract reconciliation
+
+Grid, height, base pose, waist pose, ready joints and all smoke trial
+positions are unchanged. New TCP with old 20°/30° approach produced only
+2/25 collision-free IK endpoints and failed all four task poses. Because
+that approach no longer describes a workable gripper pose, default tilt /
+finger azimuth change to 45°/0°. Final new TCP: 21/25 IK, usable and tracked;
+old palm: 23/25. Approach/grasp/lift/place all pass with the new orientation.
+The original test accepting a high position-only target is retained.
+
+Two discrepancies were explicitly surfaced to the user for reconciliation:
+(1) the repository had no RobotState/get_robot_state even though the prompt
+requires it; (2) a mathematically reachable fallback solution for cross-table
+transport penetrates the torso. The proposed snapshot adds only robot
+proprioception, and the proposed fallback guard rejects actual endpoint
+penetration, not upward orientation by itself. Existing move_to then uses
+its existing base-reparking branch. See §13 for the subsequent handoff update.
+CONTRACT_VERSION remains 1; existing RobotEnv and EvalOracle signatures are
+unchanged. AttachmentResult also did not exist: Optional[str] opaque-handle
+semantics are preserved. Student A/B/C files are unchanged.
+
+### 12.4 Cameras
+
+Wrist cameras mount on lg_base/rg_base at (−0.058,0,0.02), xyaxes
+`0 -1 0  -0.9962 0 0.0872`, FOV 90°. The lens clears the housing and looks
+5° toward the approach axis, with open and closed finger tips at the bottom.
+Central 20% gripper fraction is zero for both wrists in both states; ready
+median depths are 2.830 m right / 0.772 m left. Effective near/far clipping
+remains 0.005/10 m. Plane unprojection checks pass for both wrists. Head
+mount/optics are unchanged. Sync gives 125 batches/375 observations with no
+capture failure, timestamp difference or physical-state mutation.
+
+### 12.5 Bounded physical mode
+
+Default is weld; physical is explicitly experimental. Upstream gripper
+position gain/bias/control/force range and all linkage constraints remain.
+Close targets are rate-limited, measured from driver joints, and checked
+against bilateral pad contact with the same free body inside the gap.
+Pad friction 1.0/0.02/0.002, condim 4, solref 0.004/1, solimp
+0.95/0.99/0.001; margin is 0.3 mm. The initial 1 mm margin stopped the pads
+short of the closed target; reducing it fixed the full-stroke acceptance
+check. Scene-wide elliptic cone/impratio tuning from the interrupted work
+was removed to respect the pad/object-only scope; object parameters remain
+unchanged. Tuning stopped after bounded evaluation below the 7/10 threshold.
+
+Final seeded ±1 cm / ±10° physical attempts: stone 0/10 (slips detected at
+6 cm commanded lift), cube 7/10 (2 single-pad contacts, 1 closed-on-nothing),
+bottle 1/10 (9 reach timeouts). CSV includes measured object displacement at
+slip detection, whose command checkpoints are 3 cm apart; exact continuous
+slip-onset heights are not claimed. The canonical cube unit test is
+skip-marked with an experimental-mode reason. Full results and representative
+failure images are tracked in docs/validation/robotiq/.
+
+### 12.6 Validation and reproducibility
+
+Baseline from Claude's pre-change saved output: 89 tests, smoke 5/5 in
+2.36 s, reach 23/25, sync exit 0. Final: 98 passed/1 experimental skip,
+smoke 5/5 in 2.50 s, reach 21/25 with all task poses passing, sync exit 0,
+physical evaluator exit 1 (expected below-threshold result). The pytest
+configuration now adds the repository root to pythonpath so the requested
+`pytest -q` command resolves `tests.conftest` just like `python -m pytest`.
+Detailed raw outputs, exit codes, provenance and images are in the report.
+
+## 13. Student handoff fixes (2026-09-07, contract v2)
+
+The user requested implementing the three readiness fixes and documenting
+each student's work, inputs/outputs and tests. The historical version-1
+statements and measurements above describe earlier snapshots. Current
+`CONTRACT_VERSION = 2` distinguishes the stricter verification and full-motion
+stop from those records; existing records are not rewritten.
+
+- `core.action_targets.resolve_action_position` resolves exact perceived IDs
+  from fresh perception, without oracle access. Existing explicit `params.pos`
+  waypoints remain overrides. MOVE_TO a region uses its support point + 0.18 m
+  (the existing RulePlanner clearance); PLACE uses the support point. Missing,
+  ambiguous or unlocalized references fail. The validator also checks waypoint
+  overrides and rejects PLACE without either a localized region or an explicit
+  position. Student C can reuse this helper; the mock executor already does.
+- `RobotEnv.stop_motion` cancels the base, waist, arm and gripper trajectories
+  and holds measured poses. It changes control targets only, never qpos/qvel/time.
+  Attachment is preserved; a physically held right gripper retains its closing
+  command. Orchestrator calls this on every terminal path, including refusal,
+  exhausted search/clarification and exceptions. Stop failures are recorded as
+  ERROR, not swallowed. RobotEnvProtocol now includes the concrete observation,
+  proprioception, gripper, timestep and stop surfaces used by student modules.
+- `core.verification.verify_placement` requires fresh 3D estimates of the exact
+  object and region IDs, no attachment, finite region XY bounds, support height
+  offset in [-0.005, 0.12] m and <= 0.02 m drift over two views 0.2 sim seconds
+  apart. There is no same-class replacement, bbox-only success, or extra 3 cm
+  XY slack. A successful in-plan VERIFY never bypasses final verification.
+  Geometry is shared with the oracle through a pure function in `core.placement`;
+  the data sources stay separate and the evaluator retains its 2 s stability
+  check. This remains a perception-based claim, not privileged actual success.
+
+`GroundedObject.region_half_extents_xy` is an optional axis-aligned half-size
+in world meters. Region pos_world denotes its support-surface center. When
+no extent is supplied, known class geometry from assets/objects.yaml is used;
+unknown regions fail closed. This is not ground-truth pose access and does not
+implement region randomization in SceneConfig.
+
+Regression cases and a full ID-only episode are in
+`tests/test_student_handoff.py`; the development/testing guide is
+`docs/STUDENT_README.md`. Real A/B/C remain stubs. The guide explicitly
+separates mixed-mode integration checks from independent student metrics and
+lists region variation and full Task 5 metrics as remaining evaluation work.

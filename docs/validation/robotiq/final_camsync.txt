@@ -1,0 +1,43 @@
+Episode: 6.0 s at dt=0.002 (3000 steps); reach [0.36, -0.2, 0.9] at t=0.5s, return at t=3.0s; ball released from z=1.15 m (table top 0.85)
+Capture steps: 125 distinct (overview 24, video 60, burst 61)
+
+Batches: 125 (375 observations); capture failures: 0
+Max inter-camera timestamp difference (any batch): 0.000e+00 s
+Max scheduling error |actual - nominal|: 4.281e-13 s (all requests aligned to 0.002 s steps)
+Physical-state change across capture: max |dqpos|,|dqvel| = 0.000e+00; sim-time change = 0.000e+00 s
+All capture IDs unique: True
+Per-camera ball detections during the 100 Hz fall burst (61 frames): head: 56 detected / 50 geometrically in view, left_wrist: 0 detected / 0 geometrically in view, right_wrist: 0 detected / 0 geometrically in view
+Ball first table contact at t = 0.24000000000000019
+  head: colour-centroid vs projected-centre error: n=120 mean=6.791594503970733 px max=92.52217152189047 px
+  left_wrist: colour-centroid vs projected-centre error: n=0 mean=None px max=None px
+  right_wrist: colour-centroid vs projected-centre error: n=25 mean=23.71133511782737 px max=96.32526371530994 px
+  t=0.00s head: (--,--) area=0  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=0.25s head: (476,382) area=5040  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=0.50s head: (481,375) area=5374  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=0.75s head: (481,375) area=5361  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=1.00s head: (480,375) area=5329  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=1.25s head: (480,375) area=5291  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=1.50s head: (480,376) area=5282  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=1.75s head: (480,376) area=5262  left_wrist: (--,--) area=0  right_wrist: (584,93) area=13914
+  t=2.00s head: (480,376) area=5272  left_wrist: (--,--) area=0  right_wrist: (523,276) area=11455
+  t=2.25s head: (480,376) area=5185  left_wrist: (--,--) area=0  right_wrist: (489,283) area=10240
+  t=2.50s head: (480,376) area=5193  left_wrist: (--,--) area=0  right_wrist: (489,282) area=10208
+  t=2.75s head: (480,376) area=5190  left_wrist: (--,--) area=0  right_wrist: (489,282) area=10202
+  t=3.00s head: (480,376) area=5194  left_wrist: (--,--) area=0  right_wrist: (489,282) area=10200
+  t=3.25s head: (481,376) area=5295  left_wrist: (--,--) area=0  right_wrist: (377,168) area=7171
+  t=3.50s head: (477,375) area=5263  left_wrist: (--,--) area=0  right_wrist: (89,86) area=11290
+  t=3.75s head: (480,376) area=5280  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=4.00s head: (480,376) area=5293  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=4.25s head: (480,375) area=5312  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=4.50s head: (480,375) area=5333  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=4.75s head: (481,375) area=5355  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=5.00s head: (481,375) area=5369  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=5.25s head: (481,375) area=5369  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=5.50s head: (481,375) area=5370  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+  t=5.75s head: (481,375) area=5370  left_wrist: (--,--) area=0  right_wrist: (--,--) area=0
+Rendering throughput: 368.4 observations/s (375 observations in 1.0 s render wall; episode wall 8.8 s)
+Contact sheet: runs/cam_sync/20260906_231836/contact_sheet.png
+Video: runs/cam_sync/20260906_231836/sync.mp4 
+
+exit_code=0
+wall_s=15.762

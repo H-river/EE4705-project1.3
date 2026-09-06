@@ -1,0 +1,16 @@
+{
+  "n_trials": 5,
+  "n_feasible": 5,
+  "n_infeasible": 0,
+  "claimed_success_rate": 1.0,
+  "actual_success_rate": 1.0,
+  "claimed_and_actual_rate": 1.0,
+  "false_claim_count": 0,
+  "wrong_object_count": 0,
+  "refusal_correct_rate": null,
+  "clarification_correct_rate": 1.0,
+  "outcome_histogram": {
+    "CLAIMED_SUCCESS": 5
+  },
+  "infrastructure_check_only": true
+}

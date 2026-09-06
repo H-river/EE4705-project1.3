@@ -1,0 +1,222 @@
+{
+  "run_id": "20260906_231603",
+  "declared_workspace": {
+    "grid_x": [
+      0.28,
+      0.32,
+      0.36,
+      0.4,
+      0.44
+    ],
+    "grid_y": [
+      -0.32,
+      -0.26,
+      -0.2,
+      -0.14,
+      -0.08
+    ],
+    "target_z": 0.9,
+    "base_pose": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "waist_pose": [
+      0.0,
+      0.0,
+      0.3
+    ],
+    "initial_arm_q": [
+      -0.8,
+      -1.0,
+      -0.5,
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "target_rotation": [
+      [
+        0.8137976813493738,
+        0.49999999999999994,
+        0.29619813272602386
+      ],
+      [
+        0.46984631039295416,
+        -0.8660254037844388,
+        0.17101007166283433
+      ],
+      [
+        0.3420201433256687,
+        0.0,
+        -0.9396926207859084
+      ]
+    ]
+  },
+  "grid_points": 25,
+  "grid_ik_success": 25,
+  "grid_ik_solution_usable": 2,
+  "grid_tracking_success": 4,
+  "grid_settle_time_s": {
+    "mean": 1.5599999999999898,
+    "max": 1.8399999999999634
+  },
+  "grid_tracked_pos_residual_mm": {
+    "mean": 1.589750566389381,
+    "max": 2.4109974310007205
+  },
+  "grid_tracked_rot_residual_deg": {
+    "mean": 0.23506145128297545,
+    "max": 0.3610334020382429
+  },
+  "grid_failures": [
+    {
+      "x": 0.28,
+      "y": -0.14,
+      "reason": "tracking_timeout(pos 213.8 mm, rot 64.8 deg)"
+    },
+    {
+      "x": 0.28,
+      "y": -0.08,
+      "reason": "tracking_timeout(pos 283.5 mm, rot 79.2 deg)"
+    },
+    {
+      "x": 0.32,
+      "y": -0.32,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.32,
+      "y": -0.26,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.32,
+      "y": -0.2,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.32,
+      "y": -0.14,
+      "reason": "tracking_timeout(pos 191.0 mm, rot 57.6 deg)"
+    },
+    {
+      "x": 0.32,
+      "y": -0.08,
+      "reason": "tracking_timeout(pos 272.6 mm, rot 75.9 deg)"
+    },
+    {
+      "x": 0.36,
+      "y": -0.32,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.36,
+      "y": -0.26,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.36,
+      "y": -0.2,
+      "reason": "tracking_timeout(pos 14.9 mm, rot 3.9 deg)"
+    },
+    {
+      "x": 0.36,
+      "y": -0.14,
+      "reason": "tracking_timeout(pos 175.9 mm, rot 52.1 deg)"
+    },
+    {
+      "x": 0.36,
+      "y": -0.08,
+      "reason": "tracking_timeout(pos 242.8 mm, rot 67.1 deg)"
+    },
+    {
+      "x": 0.4,
+      "y": -0.32,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.4,
+      "y": -0.26,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.4,
+      "y": -0.2,
+      "reason": "tracking_timeout(pos 12.7 mm, rot 2.3 deg)"
+    },
+    {
+      "x": 0.4,
+      "y": -0.14,
+      "reason": "tracking_timeout(pos 149.9 mm, rot 40.3 deg)"
+    },
+    {
+      "x": 0.4,
+      "y": -0.08,
+      "reason": "tracking_timeout(pos 229.4 mm, rot 60.1 deg)"
+    },
+    {
+      "x": 0.44,
+      "y": -0.26,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.44,
+      "y": -0.2,
+      "reason": "collision_at_target"
+    },
+    {
+      "x": 0.44,
+      "y": -0.14,
+      "reason": "tracking_timeout(pos 92.2 mm, rot 20.4 deg)"
+    },
+    {
+      "x": 0.44,
+      "y": -0.08,
+      "reason": "tracking_timeout(pos 197.9 mm, rot 47.7 deg)"
+    }
+  ],
+  "task_poses": {
+    "approach": {
+      "ik_success": true,
+      "usable": false,
+      "track_success": false,
+      "settle_time_s": 1.699999999999868,
+      "pos_err_mm": 2.1043852580987403,
+      "rot_err_deg": 0.6917449968601435,
+      "collision": "right_wrist_roll_link|right_wrist_yaw_link|-0.0009;right_wrist_roll_link|right_wrist_yaw_link|-0.0009",
+      "failure_reason": "collision_at_target"
+    },
+    "grasp": {
+      "ik_success": true,
+      "usable": true,
+      "track_success": false,
+      "settle_time_s": NaN,
+      "pos_err_mm": 15.885827597761391,
+      "rot_err_deg": 4.098724741689802,
+      "collision": "right_shoulder_roll_link|torso_link|-0.0008;right_shoulder_roll_link|torso_link|-0.0008;right_shoulder_roll_link|torso_link|-0.0008;right_wrist_roll_link|right_wrist_yaw_link|-0.0009;right_wrist_roll_link|right_wrist_yaw_link|-0.0010",
+      "failure_reason": "tracking_timeout(pos 15.9 mm, rot 4.1 deg)"
+    },
+    "lift": {
+      "ik_success": true,
+      "usable": false,
+      "track_success": false,
+      "settle_time_s": NaN,
+      "pos_err_mm": 18.524900288085146,
+      "rot_err_deg": 3.4870959824974808,
+      "collision": "torso_link|right_shoulder_yaw_link|-0.0006;torso_link|right_shoulder_yaw_link|-0.0006;torso_link|right_shoulder_yaw_link|-0.0005;right_wrist_roll_link|right_wrist_yaw_link|-0.0008;right_wrist_roll_link|right_wrist_yaw_link|-0.0010",
+      "failure_reason": "tracking_timeout(pos 18.5 mm, rot 3.5 deg)"
+    },
+    "place": {
+      "ik_success": true,
+      "usable": true,
+      "track_success": false,
+      "settle_time_s": NaN,
+      "pos_err_mm": 14.264602293240205,
+      "rot_err_deg": 3.6833679110778155,
+      "collision": "right_shoulder_roll_link|torso_link|-0.0008;right_shoulder_roll_link|torso_link|-0.0008;right_shoulder_roll_link|torso_link|-0.0008;right_wrist_roll_link|right_wrist_yaw_link|-0.0009;right_wrist_roll_link|right_wrist_yaw_link|-0.0010",
+      "failure_reason": "tracking_timeout(pos 14.3 mm, rot 3.7 deg)"
+    }
+  },
+  "wall_s": 10.388212442398071
+}

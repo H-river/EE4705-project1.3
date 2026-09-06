@@ -1,0 +1,36 @@
+  stone #0: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #1: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #2: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #3: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #4: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #5: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #6: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #7: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 50 mm)
+  stone #8: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 49 mm)
+  stone #9: FAIL slipped at commanded lift 0.06 m (opening 0.54, gap 50 mm)
+  cube #0: OK held (opening 0.55, gap 50 mm)
+  cube #1: OK held (opening 0.55, gap 50 mm)
+  cube #2: OK held (opening 0.78, gap 70 mm)
+  cube #3: OK held (opening 0.55, gap 50 mm)
+  cube #4: OK held (opening 0.55, gap 50 mm)
+  cube #5: OK held (opening 0.78, gap 70 mm)
+  cube #6: OK held (opening 0.78, gap 70 mm)
+  cube #7: FAIL single_pad_contact (opening 0.01, gap 0 mm)
+  cube #8: FAIL closed_on_nothing (opening 0.00, gap 0 mm)
+  cube #9: FAIL single_pad_contact (opening 0.01, gap 0 mm)
+  bottle #0: FAIL unreachable:TIMEOUT
+  bottle #1: FAIL unreachable:TIMEOUT
+  bottle #2: FAIL unreachable:TIMEOUT
+  bottle #3: FAIL unreachable:TIMEOUT
+  bottle #4: FAIL unreachable:TIMEOUT
+  bottle #5: OK held (opening 0.62, gap 55 mm)
+  bottle #6: FAIL unreachable:TIMEOUT
+  bottle #7: FAIL unreachable:TIMEOUT
+  bottle #8: FAIL unreachable:TIMEOUT
+  bottle #9: FAIL unreachable:TIMEOUT
+stone: 0/10 held; failures {'slipped': 10}; slip heights [0.06, 0.06, 0.06, 0.06, 0.06, 0.06, 0.06, 0.06, 0.06, 0.06]
+cube: 7/10 held; failures {'single_pad_contact': 2, 'closed_on_nothing': 1}; slip heights []
+bottle: 1/10 held; failures {'unreachable:TIMEOUT': 9}; slip heights []
+Outputs: runs/grasp_test/20260906_231702/grasp_results.csv, runs/grasp_test/20260906_231702/summary.json, frames in runs/grasp_test/20260906_231702/failure_frames
+
+exit_code=1
