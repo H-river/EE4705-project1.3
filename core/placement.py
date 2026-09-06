@@ -19,4 +19,4 @@ def position_in_region(pos, support_pos, half_extents_xy) -> bool:
         return False
     delta = p - r
     return bool(np.all(np.abs(delta[:2]) <= half)
-                and MIN_SUPPORT_OFFSET_M <= delta[2] <= MAX_SUPPORT_OFFSET_M)
+                and r[2] + MIN_SUPPORT_OFFSET_M <= p[2] <= r[2] + MAX_SUPPORT_OFFSET_M)

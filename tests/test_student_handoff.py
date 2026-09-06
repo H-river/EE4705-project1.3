@@ -140,6 +140,8 @@ def test_refusal_also_stops_an_active_reach(standard_world, env, oracle):
 
 @pytest.mark.parametrize("pos, expected", [
     ((.4, .1, .88), True),
+    ((.4, .1, .845), True),  # preserve the oracle's inclusive lower bound
+    ((.4, .1, .97), True),   # and inclusive upper bound
     ((.4, .1, 1.60), False),  # same xy, floating 75 cm over the support
     ((.505, .1, .88), False),  # formerly accepted by the extra 3 cm xy slack
     ((.4, .1, .80), False),
