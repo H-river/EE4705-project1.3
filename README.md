@@ -19,10 +19,12 @@ planner, Student C executor) are **interface stubs** here — see
 ```bash
 python3.12 -m venv .venv                      # any Python >= 3.10
 .venv/bin/python -m pip install -e ".[dev]"
+bash scripts/fetch_menagerie.sh               # Unitree G1 meshes/MJCF at the pinned Menagerie revision
 ```
 
 Tested with: Python 3.12.3, mujoco 3.12.0, numpy 2.5.2, PyYAML 6.0.3,
-Pillow 12.3.0, requests 2.34.2, pytest 9.1.1 (Linux, NVIDIA EGL).
+Pillow 12.3.0, requests 2.34.2, pytest 9.1.1, matplotlib 3.11.1 (Linux,
+NVIDIA EGL); `ffmpeg` on PATH for `sync.mp4` (GIF fallback otherwise).
 MuJoCo `>=3.1` is required but only 3.12.0 is verified — do not assume
 every later version behaves identically (the depth-conversion check in
 `docs/DECISIONS.md` §4 must be repeated when upgrading).
@@ -40,27 +42,31 @@ MUJOCO_GL=osmesa python -m pytest -q      # software-rendering fallback (slower)
 If neither backend initializes, rendering tests fail loudly — they are
 never skipped.
 
-## Reference platform limitations
+## Platform: Unitree G1 (sliding humanoid)
 
-The self-contained platform in `assets/scene.xml` is deliberately
-simplified (see `assets/README.md`):
+The simulated robot is the MuJoCo Menagerie **Unitree G1 with Dex3 hands**
+(pinned revision and BSD-3 license recorded in `assets/README.md`), adapted
+locally in `assets/g1_with_hands_ee4705.xml`:
 
-- the "arm" is a **Cartesian 3-slide gantry**, not an anthropomorphic arm:
-  no IK, no joint-space redundancy, orientation of the end effector is
-  fixed;
-- arm/torso/head geoms are **non-colliding**; grasping is weld-based
-  attachment within 0.08 m of the EE (suction-style), not contact physics
-  with fingers;
-- the base is a frictionless-steering planar slide (x, y, yaw), so base
-  motion is idealized;
-- one attachment at a time; manipulable objects are rigid free bodies.
+- **base**: the free pelvis is welded to a rate-limited mocap body and
+  slides at a fixed standing height (x, y, yaw); no walking, legs
+  position-held, feet excluded from floor contact (only that pair);
+- **arm**: the right arm is driven by damped-least-squares IK
+  (`core/ik.py`) on the palm reference site, with Cartesian setpoint
+  streaming, joint-rate limits and gravity feed-forward
+  (`core/g1.py`); the left arm, waist and fingers hold fixed postures;
+- **grasping** is weld attachment within 0.05 m of the palm point
+  (fingers fixed, no contact grasping);
+- **cameras**: `head` (default; alias `onboard`), `left_wrist`,
+  `right_wrist` — RGB-D 640×480 with per-camera K / T_world_camera;
+  `RobotEnv.get_obs_multi([...])` captures several cameras atomically from
+  one simulation state with a shared capture ID;
+- **table** top at 0.85 m; reachable band ≈ 0.28–0.45 m ahead and
+  0.08–0.32 m right of the base (see `scripts/ik_reach_test.py`).
 
-## Unitree G1 status
-
-`assets/README.md` documents a reproducible MuJoCo Menagerie acquisition
-path (upstream, revision pinning, license).  **G1 execution is not
-implemented and not tested**: no hand control, locomotion, or IK.  Nothing
-in this backbone should be described as validating G1 control.
+Limitations and every parameter are documented in `assets/README.md`;
+decisions in `docs/DECISIONS.md` §11.  The pre-G1 Cartesian-gantry scene
+is archived in `assets/reference/` and no longer loaded.
 
 ## Running things
 
@@ -73,7 +79,18 @@ in this backbone should be described as validating G1 control.
 
 # metrics for a finished run
 .venv/bin/python -m eval.metrics runs/<run_dir>
+
+# right-arm reachability grid + task poses (CSV, plot, summary under runs/ik_reach/)
+.venv/bin/python scripts/ik_reach_test.py
+
+# three-camera synchronization check with a falling ball (contact sheet, video,
+# raw depth, diagnostics under runs/cam_sync/)
+.venv/bin/python scripts/cam_sync_check.py
 ```
+
+Physical arm control is validated by `tests/test_g1_control.py` and
+`scripts/ik_reach_test.py` — NOT by the smoke trials, which use the
+TeleportExecutor mock.
 
 Evaluation modes: `grounding` (real A + mock B/C), `planning` (mock A +
 real B + mock C), `manipulation` (mock A/B + real C), `e2e` (all real).

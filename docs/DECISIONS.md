@@ -154,3 +154,95 @@ API key is never in keys, entries, or logs.  Retryable = HTTP
 - Clarification necessity (smoke_5): both stones (same class `stone`,
   different colors) are visible; the single scripted response
   "the gray one" resolves the ambiguity and is consumed exactly once.
+
+## 11. Unitree G1 upgrade (2026-09-06)
+
+Prerequisite note: `docs/backbone_design_v3.md` and `docs/RECONCILE_v3.md`
+did not exist when this work started (see §0); the contract in force is the
+code + this file.  All RobotEnv / EvalOracle signatures and semantics were
+preserved; the only new public method is `RobotEnv.get_obs_multi`.
+`CONTRACT_VERSION` stays 1.  `Observation` gained the optional
+`capture_id: str = ""` field (additive, default-valued, needed for batch
+identity); the pre-G1 `ATTACH_RADIUS` of 0.08 m was set to the specified
+0.05 m.  The project was not a git repository; it was initialised with a
+baseline commit of the pre-upgrade state so this task's commits are
+separable.
+
+### 11.1 Platform
+- Model: Menagerie `unitree_g1/g1_with_hands.xml` @ `8161bba2…`, BSD-3;
+  local adaptation `assets/g1_with_hands_ee4705.xml` (diff in
+  `assets/g1_upstream_diff.patch`).  The hands variant was stable in every
+  settling check (no NaNs, base drift < 1 mm, joint speeds → 0, no limit
+  violations, no self-penetration at rest) → no `g1.xml` fallback.
+- Timestep 0.002 s (upstream value; 0.005 s was also stable but leaves
+  less margin for the kp = 500 finger actuators).  All step counts in
+  backbone code are time-based.
+- Sliding base = free pelvis welded (solref 0.01 s, solimp 0.99/0.999) to
+  a rate-limited mocap body; legs position-held; feet excluded from world
+  collisions only.
+- Kinematics after `mj_step` lag one integration step; `SimWorld` calls
+  `mj_kinematics/mj_comPos/mj_camlight` (never `mj_forward`, never
+  stepping) before reading EE/camera poses or rendering, so rendered
+  geometry, extrinsics and `sim_time` all describe the same `qpos`.
+
+### 11.2 Control
+- `set_base_target` / `set_arm_target` only update targets (non-blocking,
+  verified by a test that sim time does not advance); `step` runs one
+  `G1Controller.update()` per physics step (mocap rate limits, Cartesian
+  setpoint streaming + warm-started IK, synchronized joint-rate limit,
+  gravity feed-forward), then `mj_step`.  Live `qpos` is never written by
+  the controller.
+- Position-only commands request the default tilted top-down approach
+  orientation (tilt 20°, finger azimuth 30° from the base heading — the
+  widest collision-free band in the reach sweeps) and fall back to
+  position-only IK when infeasible; the policy is recorded per command.
+- The straight-line Cartesian stream was necessary: joint-space
+  interpolation from the hanging rest pose swept the hand under the table
+  slab (measured), and even Cartesian streaming from a low rest pose
+  skimmed the table edge, hence the raised right-arm "ready" posture.
+- IK branch control: shoulder pitch limited to ≤ 0.8 rad in IK (the
+  hyper-extended-elbow criterion was wrong: this model's elbow zero is not
+  the straight arm), a 0.6 rad continuity guard on streaming solutions, and
+  a bounded-rate multi-seed re-solve when the warm start stalls.
+
+### 11.3 Hand / EE / cameras
+- Palm reference point (0.10, 0.065, 0) in `right_wrist_yaw_link`; the EE
+  site's +z is the palm normal (grasp approach axis).  Thumb posture
+  (−1.0, −1.0, −1.0) chosen from a 735-combination search: no
+  self/object penetration, thumb tip 1.4 cm behind the palm point.
+  `skills.GRASP_DESCEND_OFFSET = 0.02 m` keeps fingers clear of the
+  support.
+- Wrist cameras on brackets 7.5 cm beside the palm, aimed along the
+  approach axis: best of 55 candidate mounts (7 % hand pixels, palm point
+  visible, min depth 4 cm).  Head camera 30° down on the torso (≈ 47° with
+  the waist lean) so the workspace band is image-centred.
+- Effective clip: near 0.005 m / far 10 m computed from the compiled
+  extent (2 m).
+- Camera routing: head = describe, ground, SEARCH, final verification;
+  wrist cameras = available to a future Executor for alignment and
+  grasp/place checks; GTPerception and grounding evaluation are head-only.
+
+### 11.4 Atomic multi-camera capture
+- `SimWorld.capture` renders every requested camera (RGB then depth) under
+  one `RLock` from one un-stepped state; K/T come from that same state;
+  arrays are copies.  `RobotEnv.get_obs_multi` assigns
+  `ep<episode>_capture<n>_<camera>` with a per-call counter (unique even
+  without stepping); `get_obs` routes through the same path.  `frame_id`
+  stays unique per observation (ObservationStore key); `capture_id` is
+  persisted in frame metadata.
+
+### 11.5 Measured results (this machine, 2026-09-06)
+- `scripts/ik_reach_test.py` (grid x 0.28–0.44, y −0.32–−0.08, z 0.90,
+  waist pitch 0.3): IK 23/25, collision-free 23/25, tracked 23/25 with
+  residuals 1.1 mm / 0.19° mean (2.2 mm / 0.38° max), settle 1.23 s mean
+  (1.68 s max) from the ready posture; failures (0.40, −0.32) and
+  (0.44, −0.32) are IK reach-boundary failures (3.5 mm / 22.9 mm best).
+  Task poses approach/grasp/lift/place: all tracked collision-free
+  (1.14 / 0.48 / 0.70 / 0.66 s).
+- `scripts/cam_sync_check.py`: 125 atomic batches (375 observations),
+  max inter-camera timestamp difference 0, scheduling error 4e-13 s,
+  physical-state change across capture 0, unique IDs; ball first table
+  contact at 0.24 s (free fall from 0.30 m: 0.247 s expected); head camera
+  detected the ball in 56 of 61 burst frames, wrist cameras never during
+  the fall (out of their fields of view), right wrist during the reach;
+  rendering ≈ 380–440 observations/s.
