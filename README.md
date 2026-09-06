@@ -9,10 +9,9 @@ LLM/VLM client.  The three real modules (Student A perception, Student B
 planner, Student C executor) are **interface stubs** here — see
 "Directory ownership".
 
-**Student A/B/C 开发入口：** [分工、input/output 与测试指南](docs/STUDENT_README.md)。
-该指南说明 Task 2/3/4 的具体实现步骤、独立评测方法和联调命令。
-当前 contract v2 已修复 ID-only 动作解析、全运动 STOP 与最终放置验证；
-真实学生模块和正式课程实验仍待完成。
+**Students: start with the [student guide](docs/STUDENT_README.md).**
+It explains each person's task in simple language, with runnable exercises,
+input/output examples, test commands, and steps for connecting A, B, and C.
 
 > **Design document note:** `docs/backbone_design_v3.md` was not present at
 > implementation time; contract choices and their sources are recorded in

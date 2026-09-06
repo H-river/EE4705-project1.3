@@ -1,281 +1,429 @@
-# Student A / B / C 开发与测试指南
+# Student Guide: Build the Robot Task Together
 
-Owner: backbone (ALL) · 更新：2026-09-07 · `CONTRACT_VERSION = 2`
+Our goal is to make a simulated robot follow an instruction such as:
 
-本指南依据 [Project 1.3 作业要求](../EE4705_Project1.3%20S1%20AY2627.pdf)
-Task 2–5（PDF 第 3–5 页）。A 负责 Task 2，B 负责 Task 3，C 负责 Task 4；
-Task 1 和 Task 5 由三人共同完成。下文给出的阈值、CSV 字段和测试分组是本项目建议的评测协议，
-不是课程额外规定的评分线。
+> "Find the stone, pick it up, and put it in the red area."
 
-**现在可以并行开发三个模块。真实 A/B/C 仍是 stub；本次完成的是公共接口修复与测试，
-不是三位学生的模型、策略或正式实验。** 默认使用 G1 + 双 Robotiq 2F-85、右臂操作、weld attachment。
-课程明确允许 grasp 或 attach，因此无需先解决 experimental physical grasp 才能开展 Task 2–4。
+We split this into three jobs:
 
-## 1. 本次修复和开发边界
+| Student | Your job in simple words | Example output | Main file to edit |
+| --- | --- | --- | --- |
+| **A — Task 2: vision** | Look at a camera image. Find the objects and the red area. Answer questions about what is visible. | "This is stone `p0`, and it is here." | `perception/student_a.py` |
+| **B — Task 3: planning (your role)** | Read the instruction and A's object list. Decide which actions the robot should take. | "Approach `p0`, grasp it, move to `p1`, place it, check, stop." | `planner/student_b.py` |
+| **C — Task 4: execution** | Make the robot carry out each action. Check whether it worked and report failures. | "GRASP succeeded" or "GRASP failed: nothing was attached." | `executor/student_c.py` |
 
-| 修复 | 现在的行为 | 代码 / 回归测试 |
-| --- | --- | --- |
-| B 输出目标 ID，C 执行时缺少坐标 | `resolve_action_position(action, scene)` 用当前感知的精确 ID 解析坐标；mock executor 已接入。`params.pos` 保留为显式 waypoint override；校验器检查坐标并拒绝没有 3D/坐标的 PLACE | `core/action_targets.py`、`core/validation.py`；`test_id_only_plan_validates_and_executes` |
-| STOP 后机械臂仍继续旧轨迹 | `env.stop_motion()` 取消底盘、腰部、机械臂和夹爪的运动目标，保持测得姿态；保留 attachment。所有 episode 终止路径都会调用它，停止失败记录为 ERROR | `core/env.py`、`core/g1.py`、`core/orchestrator.py`；`test_stop_cancels_motion_without_teleport_and_can_resume`、`test_refusal_also_stops_an_active_reach` |
-| 最终验证可能误报成功 | 必须是精确 object/region ID、已释放、有当前 3D 证据、处于区域范围和支撑高度内；相隔 0.2 模拟秒复查，位移不超过 2 cm。计划内 VERIFY 的成功不能替代最终检查 | `core/verification.py`；悬空、越界、错误 ID、旧帧、漂移和虚假 VERIFY 回归测试 |
+All three students also share the environment/report work in Task 1 and final integration in Task 5. See the [assignment PDF](../EE4705_Project1.3%20S1%20AY2627.pdf), pages 3–5.
 
-完整修复测试在 `tests/test_student_handoff.py`。STOP 是**非阻塞命令**，不会把 qpos/qvel 清零，
-也不会推进时间；之后需要 `env.step()` 让物理系统减速。它不会自动放下已抓取物体。
-physical 模式已持物时保留右夹爪的夹持命令，其他夹爪保持测得开度。
+**You can start separately.** A does not need to write robot motion code. B can develop with a small object list before A is ready. C can reuse the existing motion functions before B is ready.
 
-本次升到 contract v2，以区分新的停止和最终验证行为。旧 dataclass 构造方式仍可用；
-新增 `GroundedObject.region_half_extents_xy` 是可选字段。自定义环境适配器应实现公共
-`RobotEnvProtocol`，尤其是 `stop_motion()`、`timestep()` 和观测/本体状态方法。
-旧 v1 实验记录保留原版本，不应直接和 v2 的成功率混算。
+The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. The three student files are currently **stubs**: their method names exist, but their real work still needs to be implemented.
 
-三位学生可使用 `core/types.py`、`core/interfaces.py`、`core/validation.py`、
-`core/action_targets.py`、`core/verification.py`、`core/skills.py`、`core/llm_client.py`。
-学生模块之间不要互相 import；不要在学生实现中导入 `core.oracle`、`core.mocks`，
-或绕过 RobotEnv 读取 `SimWorld`/MuJoCo 的物体真值、调用 teleport。
-真值仅供 `eval/`、测试和 backbone mocks 使用。
+Start with [setup](#1-start-the-project), then read your section: [Student A](#2-student-a-help-the-robot-see), [Student B](#3-student-b-turn-instructions-into-actions), or [Student C](#4-student-c-make-the-robot-act). Use the [technical reference](#7-technical-reference-use-when-needed) when you need exact fields or units.
 
-## 2. 先运行公共基线
+## 1. Start the project
 
-下列命令在项目目录执行；已有 `.venv` 时无需重新安装。
+### 1.1 Open a terminal in the project folder
+
+On the current machine:
 
 ```bash
 cd /home/jiamo/EE4705/project1.3
+pwd
+ls pyproject.toml core perception planner executor
+```
 
-# 新机器需要时安装（Python >= 3.10）
+On another computer, open the folder containing `pyproject.toml` and run the remaining commands there. The commands use a Linux terminal. All command paths below are relative to this project folder.
+
+### 1.2 Install once, if needed
+
+Skip this step if the project already has a working `.venv` and the robot assets have been downloaded.
+
+```bash
+# Python 3.10 or newer is required.
+python3 --version
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
 bash scripts/fetch_menagerie.sh
+```
 
-# 离线检查：接口、相机、真实仿真控制、错误处理
+`.venv` is this project's Python environment. Using `.venv/bin/python` selects the correct packages without needing to activate it. The fetch script downloads robot assets and needs internet access. The starter exercises below do not need a model API key.
+
+### 1.3 Check that the shared project works
+
+```bash
 .venv/bin/python -m pytest -q
-
-# 本次三项修复的集中回归
-.venv/bin/python -m pytest -q tests/test_student_handoff.py
-
-# 5 个基础连通性场景：全部使用 mocks
 .venv/bin/python -m eval.runner --mode e2e --trials eval/trials/smoke --mock-all
 ```
 
-通过条件：pytest 无失败；smoke 输出 `Trials: 5  passed: 5  failed: 0`，退出码 0。
-physical grasp 有一项明确标记为 experimental 的 skip；这不代表物理夹持已通过。
-这些测试不访问付费模型 API。
+`pytest` runs automatic checks. The saved baseline is **121 passed, 1 skipped**; the skip is an experimental physical-grasp test. See the [saved validation record](validation/student_handoff/REPORT.md).
 
-本次完整验证为 **121 passed、1 experimental skip，smoke 5/5**；
-原始输出和适用范围见 [验证记录](validation/student_handoff/REPORT.md)。
-
-| 模式 | A | B | C | 用途 |
-| --- | --- | --- | --- | --- |
-| `grounding` | 真实 | RulePlanner | TeleportExecutor | 检查 A 能否接入流程 |
-| `planning` | GTPerception | 真实 | TeleportExecutor | 检查 B 能否接入流程 |
-| `manipulation` | GTPerception | RulePlanner | 真实 | 检查 C 在受控感知/计划下执行 |
-| `e2e` | 真实 | 真实 | 真实 | 全系统集成 |
-
-四种模式均运行完整 Orchestrator，
-**不是四个独立评分器**。任何模式加 `--mock-all` 都会覆盖三个真实模块。
-不加该参数而所需模块仍是 stub 时，runner 会报未实现并退出码 2，不会偷偷换成 mock。
-含有任何 mock 的记录都标为 `infrastructure_check: true`；做组件实验时应明确哪些模块真实、哪些是测试替身。
-
-## 3. 三人共享的 input/output
-
-数据流：`Observation → A: SceneDescription → B: Plan → C: ExecutionResult → 新 Observation`。
-失败结果和新 scene 会进入 B 的 `replan()`；最终 success 由 Orchestrator 独立调用感知验证后决定。
-
-### 相机和坐标
-
-| 输入字段 / API | 格式与含义 |
-| --- | --- |
-| `env.get_obs(camera="onboard")` | `Observation`；默认 onboard 是 head 的别名 |
-| `obs.rgb` | `uint8[480,640,3]`，RGB |
-| `obs.depth` | `float32[480,640]`，单位 m，沿相机光轴的 Z 深度；无效/背景为 NaN |
-| `obs.intrinsics` | `float64[3,3]`，针孔相机 K |
-| `obs.t_world_camera` | `float64[4,4]`，相机坐标到世界坐标变换 |
-| `frame_id / sim_time / camera_name` | 当前观测身份、模拟秒数、相机名；感知输出必须携带对应值 |
-| `env.get_obs_multi(["head", "left_wrist", "right_wrist"])` | 同一物理时刻的多视角 dict；相同 capture 批次前缀和 sim_time，不同 frame_id |
-| `env.get_robot_state()` | base_pose `(x,y,yaw)`、TCP 世界位姿、左右夹爪测得开度、attached 等本体反馈；没有场景物体真值 |
-
-世界坐标为右手系、Z 向上、位置单位 m、角度 rad。公共相机坐标为 +X 向右、+Y 向下、+Z 向前。
-像素 `(u,v)` 的有效光轴深度为 `d` 时：
+The second command runs five small example tasks. Look for:
 
 ```text
-p_camera = d * inv(K) @ [u, v, 1]
-p_world  = (T_world_camera @ [p_camera.x, p_camera.y, p_camera.z, 1])[:3]
+Trials: 5  passed: 5  failed: 0
 ```
 
-不要把包围盒中心的单个深度无条件当成物体中心：它可能落在背景、边缘或前表面。
-A 应过滤无效深度、使用物体内部证据，并说明如何从表面估计物体中心。
+A **mock** is a prepared replacement for a student module. `--mock-all` uses replacements for all three students, so this checks the shared setup. It does not test your real model or robot strategy.
 
-### 感知对象
+These commands normally run without opening a simulator window. Images and results are saved to files. No window appearing is normal.
 
-`SceneDescription` 含 `objects`、`regions`、`caption`、`ambiguities`、`frame_id`、`sim_time`。
-每个 `GroundedObject` 至少正确填写以下字段：
+### 1.4 Understand the basic workflow
 
-| 字段 | 约定 |
-| --- | --- |
-| `instance_id` | A 分配的 episode 内稳定 ID，如 `p0`；换视角、物体移动后仍跟踪同一实例，reset 后重建。不同于 MuJoCo body/GT ID |
-| `name` | `assets/objects.yaml` 中的标准类别；两个石头可同为 `stone`，但必须有不同 instance_id |
-| `kind` | `object` 或 `region` |
-| `bbox_xyxy` | 原图像素 `(xmin,ymin,xmax,ymax)`；缩放/裁剪推理后先换回原图坐标 |
-| `pos_world` | object 的估计中心；region 的**支撑面中心点**，不是 region 薄片几何中心，也不是空中的搬运点 |
-| `status` | `LOCALIZED` 有可靠 3D；`UNLOCALIZED` 看见但没有可靠 3D；`AMBIGUOUS` 无法区分候选；`NOT_FOUND` 没有视觉证据 |
-| `confidence / source / frame_id` | 0–1 置信度、来源标签、当前观测 frame_id |
-| `region_half_extents_xy` | 可选、仅 region：世界坐标中轴对齐区域的 XY 半宽，单位 m，必须为两个正数 |
-
-可见对象不等于可抓取：`UNLOCALIZED` 可以用于回答“看到了什么”，不能直接 REACH/GRASP。
-未看见目标时 `ground()` 返回 `None`；多个相似目标无法消歧时返回 `AMBIGUOUS`，不要随意选一个。
-精确目标在新帧丢失时，报告丢失或重新观察，不要拿另一个同名对象继承旧 ID。
-
-已知固定 `red_region` 不填半宽时，验证器使用 `assets/objects.yaml` 的类别先验 `(0.08,0.08)` m。
-它不读取 region 真值位置。区域改变尺寸或新增类别时，必须由感知/公开场景定义提供正确半宽；
-未知区域尺寸会验证失败。当前几何判断只支持轴对齐区域。
-
-### 动作
-
-| Skill | `target` / `params` input | 执行输出应表示什么 |
-| --- | --- | --- |
-| SEARCH | target 是类别名/搜索词，如 `stone`；status 为 NEEDS_SEARCH | 找到可用视觉证据；或 SEARCH_NOT_FOUND / SEARCH_FATAL |
-| APPROACH | 已定位 instance_id，或 `params.pos=[x,y,z]` | 底盘到达可操作位置 |
-| REACH | 已定位 object/region ID；可显式提供 pos | TCP 到达目标附近，或 UNREACHABLE/TIMEOUT |
-| GRASP | 已定位 object ID；手为空 | attachment 成功；否则 GRASP_MISSED 等。ID 不是 attachment handle |
-| MOVE_TO | 已定位 ID 或显式 pos | 到达运输目标；ID 指向 region 时默认取支撑点 + 0.18 m |
-| PLACE | region ID；已持物；建议 `params.object` 为所持 object ID | 移至释放位置、释放、检查放置；region 默认坐标为支撑点 |
-| VERIFY | `params.condition` 是 holding / object_visible / object_in_region | 该条件检查结果。object_visible 使用 target ID；object_in_region 必须给 params.object 与 params.region |
-| STOP | 无 params；若出现在计划中必须最后 | 取消运动、保持姿态，不自动释放物体 |
-
-除 SEARCH 外，引用对象时用 perceived ID。显式 `params.pos` 是世界坐标，并优先于 ID 解析位置；
-B 通常只输出 ID，让 C 用新观测更新位置。显式坐标适合已定义的 waypoint，使用前由 C 检查是否过期/可达。
-`resolve_action_position` 不检查机器人持物状态，也不替代 `validate_plan` 或动作后的反馈检查。
-
-## 4. Student A — Task 2：VLM / visual AI 感知和 grounding
-
-**修改入口：** `perception/student_a.py`，保留类名 `StudentAPerception`。
-
-| 方法 | Input | Output |
-| --- | --- | --- |
-| `describe(obs, query=None)` | 一张带标定的 RGB-D Observation；可选自然语言问题 | 当前帧 SceneDescription；caption 可回答 VQA，objects/regions 供 B/C 使用 |
-| `ground(obs, target)` | 当前 Observation + 类别或自然语言描述 | GroundedObject / None；应与 describe 使用同一套实例跟踪 |
-| `reset()` | 新 episode 开始 | 清空实例跟踪、缓存的场景关联，避免把上一局 p0 当成当前物体 |
-
-开发顺序：
-
-1. 接上 VLM 或等价视觉 AI，完成结构化检测、scene description 和 VQA；保存 prompt、raw response、解析失败。
-2. 把模型 bbox 映射到原图像素，通过 RGB-D/标定估计 3D；处理 NaN 和置信度不足。
-3. 维护对象/区域 ID，支持同类消歧与不可见目标；让新观测更新位置而不改变身份。
-4. 实现上面的两个接口和 reset；真实功能完成后设置 `IMPLEMENTED = True`。
-
-**具体 input/output 例子（数值仅示意，不是固定答案）：** 输入是 head 图像和
-`"Where is the stone?"`；输出 `GroundedObject(instance_id="p0", name="stone",
-status=LOCALIZED, bbox_xyxy=(280,220,315,255), pos_world=(0.40,-0.15,0.88),
-confidence=0.91, source="vlm", frame_id=obs.frame_id)`。
-如果 RGB 看到了石头但对应深度不可用，应输出 UNLOCALIZED 和 `pos_world=None`。
-
-**测试方法：**
-
-- 接口/几何准备：`.venv/bin/python -m pytest -q tests/test_env.py tests/test_cam_sync.py tests/test_llm_client.py`。
-  这些检查 backbone，不是 A 的模型正确率。
-- A 自己的离线单元测试应保存真实 RGB-D fixtures，并注入固定模型响应，覆盖 bbox 坐标换算、深度 NaN、两个同类目标、不可见目标、跨帧 ID、reset、非法 JSON。
-- 完成后跑 `.venv/bin/python -m eval.runner --mode grounding --trials eval/trials/smoke`，确认能接入已有 B/C mocks。
-- 正式评测至少 **20 个 grounding trials**。建议 12 个可见且唯一目标（变化物体、位置、视角），
-  4 个相似目标/属性消歧，4 个不可见目标；额外演示 scene description 和 VQA。
-  输入只给图像、标定和 query，不能给 expected GT ID/位置。
-- 独立评测应在 evaluation 脚本中直接调用 A。同一仿真时刻调用
-  `oracle.associate(scene, camera=obs.camera_name)`，依据 bbox IoU 将 perceived ID 与 GT ID 配对，
-  再比较 expected target。associate 当前只关联 objects；region 的 bbox/支撑点需单独比较评测标签。
-  感知与关联之间不要 `env.step()`，否则真值时刻不同会报错。
-
-建议输出 `grounding.csv`，每行记录
-`trial_id, seed, camera, frame_id, query, expected_status, expected_gt_id, predicted_id,
-predicted_status, associated_gt_id, bbox_iou, position_error_m, correct, latency_s`，并保存原图和预测叠图。
-明确采用的 Grounding Accuracy 定义：例如“唯一可定位目标中，正确选中目标的 trials / 该类 trials”；
-将不可见检测、消歧处理正确率和 3D 误差另外报告，避免把拒绝全部目标算成高准确率。
-oracle 的默认匹配门槛为 IoU ≥ 0.30；这是本项目关联阈值，不是课程规定。
-
-## 5. Student B — Task 3：语言理解和 action planning
-
-**修改入口：** `planner/student_b.py`，保留类名 `StudentBPlanner`。
-
-| 方法 | Input | Output |
-| --- | --- | --- |
-| `plan(instruction, scene)` | 原始自然语言 + A 的 SceneDescription | Plan |
-| `replan(instruction, scene, history, context, clarification=None)` | 新 scene、历史 ExecutionResult、held_instance_id 等当前状态、可选澄清回答 | 替换剩余动作的新 Plan；不能盲目从 GRASP 重启 |
-| `reset()` | episode 开始 | 清空本局记忆 |
-
-接入 LLM/VLM/VLA 的结构化输出并转换成 `core.types`，不要只交付 RulePlanner 的关键词规则。
-`validate_plan(plan, ExecutionContext(scene)) == []` 仅说明结构和前置条件允许尝试，
-不能说明自然语言理解正确或机械臂实际可达。
-
-**具体 input/output：** 输入 instruction 为 `"move the stone onto the red region"`，
-scene 中 `p0` 是已定位 stone，`p1` 是已定位 red_region，当前没有持物。模型 JSON 可设计成：
-
-```json
-{
-  "status": "READY",
-  "actions": [
-    {"skill": "APPROACH", "target": "p0", "params": {}},
-    {"skill": "GRASP", "target": "p0", "params": {}},
-    {"skill": "MOVE_TO", "target": "p1", "params": {}},
-    {"skill": "PLACE", "target": "p1", "params": {"object": "p0"}},
-    {"skill": "VERIFY", "params": {"condition": "object_in_region", "object": "p0", "region": "p1"}},
-    {"skill": "STOP", "params": {}}
-  ]
-}
+```text
+User instruction + camera image
+          |
+          v
+A: object list and positions
+          |
+          v
+B: ordered list of actions
+          |
+          v
+C: execute one action and report its result
+          |
+          v
+Take another image, check, and update the plan if needed
 ```
 
-这是一份建议的模型输出 schema；B 负责解析成 `Plan`/`Action`，把字符串转为对应枚举。
-字段缺失、未知技能、非法坐标、额外说明文字等都需要有界错误处理。
+An **episode** is one complete attempt at a user task. A **trial** is an episode or component example used in an experiment. **Grounding** means connecting a phrase such as "the stone" to a particular object in the image.
 
-| 场景 | 应有状态和行为 |
+## 2. Student A: help the robot see
+
+### What you need to build
+
+Your module receives an image and a question. It should identify objects, describe the scene, and locate the requested object. A vision-language model (VLM) is an AI model that accepts images and text. You may use a VLM or another suitable visual AI model allowed by the assignment.
+
+For "Where is the stone?", return the stone's ID, its box in the image, and its estimated position. If the stone is missing, report that. If two stones look equally likely, report the ambiguity instead of guessing.
+
+**First milestone:** save one camera image, run your chosen visual model on it, and return a useful object list. You do not need to move the robot to reach this milestone.
+
+### First exercise: save a camera image
+
+Copy the whole block into a terminal, including the final `PY` line:
+
+```bash
+.venv/bin/python - <<'PY'
+import json
+from pathlib import Path
+import numpy as np
+from PIL import Image
+from core.env import RobotEnv
+from core.types import SceneConfig, SceneObjectSpec
+from core.world import SimWorld
+
+out = Path("runs/student_a_intro")
+out.mkdir(parents=True, exist_ok=True)
+world = SimWorld()
+env = RobotEnv(world)
+try:
+    world.reset(SceneConfig(seed=11, objects=[
+        SceneObjectSpec("stone", (0.40, -0.15, 0.88)),
+        SceneObjectSpec("cube", (0.40, 0.15, 0.88)),
+        SceneObjectSpec("bottle", (0.55, -0.35, 0.915)),
+    ]))
+    env.step(500)  # Let the objects settle on the table.
+    obs = env.get_obs("head")
+    Image.fromarray(obs.rgb).save(out / "head_rgb.png")
+    np.save(out / "head_depth.npy", obs.depth)
+    metadata = {
+        "frame_id": obs.frame_id,
+        "sim_time": obs.sim_time,
+        "camera_name": obs.camera_name,
+        "intrinsics": obs.intrinsics.tolist(),
+        "t_world_camera": obs.t_world_camera.tolist(),
+    }
+    (out / "head_meta.json").write_text(json.dumps(metadata, indent=2))
+    print("RGB:", obs.rgb.shape, obs.rgb.dtype)
+    print("Depth:", obs.depth.shape, obs.depth.dtype)
+    print("Saved files to", out.resolve())
+finally:
+    world.close()
+PY
+```
+
+Open `runs/student_a_intro/head_rgb.png` in your editor or image viewer. You also have a depth array and camera information from the same capture. Depth tells you how far a visible surface is from the camera.
+Expected shapes are RGB `(480, 640, 3)` and depth `(480, 640)`. Rerunning this exercise replaces these three example files.
+
+### Your Python interface: input and output
+
+Edit `perception/student_a.py`. Keep the class name `StudentAPerception`.
+
+| Method | Input | Output |
+| --- | --- | --- |
+| `describe(obs, query=None)` | Camera data, plus an optional question | `SceneDescription`: object list, region list, and a text answer/description |
+| `ground(obs, target)` | Camera data and a phrase such as "the gray stone" | One `GroundedObject`, or `None` when no target is visible |
+| `reset()` | Called at the start of a new episode | Clear object tracking from the previous episode |
+
+These Python data types are in `core/types.py`. You do not need to invent a new format between students.
+An example output object has these fields. The numbers are illustrative, not fixed answers:
+
+```text
+instance_id: p0
+name: stone
+kind: object
+bbox_xyxy: [280, 220, 315, 255]
+pos_world: [0.40, -0.15, 0.88]
+status: LOCALIZED
+confidence: 0.91
+frame_id: the input image's frame_id
+```
+
+The box gives left, top, right, and bottom pixel coordinates. `pos_world` gives the estimated position in meters. Use `caption` to answer scene questions, and fill `regions` as well as `objects`: B and C need the destination too.
+
+### Build it in this order
+
+1. Send an image and question to your model. Save the original response so you can inspect mistakes.
+2. Convert the response into objects and image boxes. If you resized the image, convert boxes back to the original 640 × 480 image.
+3. Use depth and camera information to estimate positions. See the reference for the formula. For unreliable positions, use `UNLOCALIZED` with `pos_world=None`.
+4. Give each object a stable ID. Two stones can both have `name="stone"`, but need different IDs. Keep the same ID when the same object moves or the camera view changes.
+5. Handle a missing target and at least one confusing case, such as two similar objects. Clear tracking in `reset()`.
+
+### Test A
+
+Run the camera and model-client checks now:
+
+```bash
+.venv/bin/python -m pytest -q tests/test_env.py tests/test_cam_sync.py tests/test_llm_client.py
+```
+
+These test shared tools. Create `tests/test_student_a.py` for your parser, bad depth values, missing objects, similar objects, stable IDs, and reset. **After creating that file**, run:
+
+```bash
+.venv/bin/python -m pytest -q tests/test_student_a.py
+```
+
+When your real module works, change its `IMPLEMENTED = False` to `True`. Then run:
+
+```bash
+.venv/bin/python -m eval.runner --mode grounding --trials eval/trials/smoke --out runs/student_a
+```
+
+This uses your A with prepared B/C replacements. Do not add `--mock-all`, because that would replace your A too.
+
+For the report, evaluate **at least 20 trials** with different objects, positions, and viewing directions. Include missing or confusing targets, and demonstrate scene description and visual question answering.
+Save images, queries, predictions, correct answers, and response times. Report target-selection accuracy and discuss missed, falsely detected, or invented objects. State which cases count toward accuracy; report missing-target and ambiguity handling separately if needed.
+
+### What to give B and C
+
+Give them a sample `SceneDescription` and explain your ID rules. Confirm that it contains the stone **and** the region, positions in meters, and the input image's `frame_id` and `sim_time`.
+Tell B how ambiguity appears. Tell C what happens when a previously tracked object is no longer visible.
+
+## 3. Student B: turn instructions into actions
+
+### What you need to build
+
+Your module reads the user's request and A's scene description. It returns a short action list. You choose **what should happen next**; C handles motor control.
+If A says `p0` is a stone and `p1` is the red area, your plan can say:
+
+```text
+APPROACH p0 → GRASP p0 → MOVE_TO p1 → PLACE p0 in p1 → VERIFY → STOP
+```
+
+You can start before A or C is ready. Use a scene written by hand to test the planner. You do not need camera rendering or robot joint calculations for this first step.
+
+### First exercise: create and check a plan without a model
+
+This teaches the required Python output format. It does **not** implement your language model.
+
+```bash
+.venv/bin/python - <<'PY'
+import json
+from dataclasses import asdict
+from pathlib import Path
+from core.types import (
+    Action, ExecutionContext, GroundedObject, GroundStatus,
+    Plan, PlanStatus, SceneDescription, Skill,
+)
+from core.validation import validate_plan
+
+scene = SceneDescription(
+    objects=[GroundedObject(
+        "p0", "stone", GroundStatus.LOCALIZED,
+        pos_world=(0.40, -0.15, 0.88), frame_id=0,
+    )],
+    regions=[GroundedObject(
+        "p1", "red_region", GroundStatus.LOCALIZED,
+        pos_world=(0.40, 0.30, 0.85), kind="region", frame_id=0,
+        region_half_extents_xy=(0.08, 0.08),
+    )],
+    frame_id=0, sim_time=0.0,
+)
+plan = Plan(status=PlanStatus.READY, actions=[
+    Action(Skill.APPROACH, "p0"),
+    Action(Skill.GRASP, "p0"),
+    Action(Skill.MOVE_TO, "p1"),
+    Action(Skill.PLACE, "p1", {"object": "p0"}),
+    Action(Skill.VERIFY, params={
+        "condition": "object_in_region", "object": "p0", "region": "p1",
+    }),
+    Action(Skill.STOP),
+])
+errors = validate_plan(plan, ExecutionContext(scene=scene))
+print("Validation errors:", errors)  # Expected: []
+assert not errors
+out = Path("runs/student_b_intro")
+out.mkdir(parents=True, exist_ok=True)
+for name, value in (("scene.json", scene), ("plan.json", plan)):
+    (out / name).write_text(json.dumps(asdict(value), default=lambda x: x.value, indent=2))
+print("Saved examples to", out.resolve())
+PY
+```
+
+Open `runs/student_b_intro/scene.json` and `plan.json`. These show the data you receive and return. Rerunning the exercise replaces these files.
+Later, your model should generate the plan from the instruction and scene rather than use this fixed action list.
+
+### Your Python interface: input and output
+
+Edit `planner/student_b.py`. Keep the class name `StudentBPlanner`.
+
+| Method | Input | Output |
+| --- | --- | --- |
+| `plan(instruction, scene)` | User text and A's scene description | A `Plan` |
+| `replan(instruction, scene, history, context, clarification=None)` | Updated scene, previous action results, current holding state, and possibly an answer from the user | A new `Plan` replacing the remaining actions |
+| `reset()` | Called at the start of an episode | Clear information from the previous task |
+
+`history` tells you what happened. `context.held_instance_id` tells you which object the system believes it holds. If GRASP already succeeded, a revised plan must not blindly grasp again.
+
+### Build it in this order
+
+1. Connect an LLM, VLM, or VLA-based planner. The shared model client may help; see Section 5.
+2. Give the model the instruction, visible objects/regions, allowed actions, and output format. Convert its JSON into `Plan` and `Action` objects. Convert strings such as `"GRASP"` into `Skill.GRASP`.
+3. Call `validate_plan`. Handle invalid output with a limited retry or clear failure, not an endless loop.
+4. Handle different ways of asking for the same task, then add search, clarification, and refusal.
+5. Implement `replan()` using the current holding state and latest scene.
+
+| Situation | What B should return |
 | --- | --- |
-| 目标唯一、已定位、请求支持 | READY + 有序动作 |
-| 目标不在当前视野 | NEEDS_SEARCH + SEARCH；搜索成功后基于新 scene 重规划 |
-| 两个 stone，指令未区分 | NEEDS_CLARIFICATION + 非空 clarification_question，actions 为空 |
-| 不支持/明确不可能的请求 | INFEASIBLE + reason，actions 为空 |
-| GRASP 已成功，但 MOVE_TO 失败 | replan 使用 context 中已持物 ID，不能重复 GRASP |
+| A unique target is visible and located | `READY` with actions |
+| The target is not currently visible | `NEEDS_SEARCH` with SEARCH; plan again after a new view |
+| "The stone" could mean either of two stones | `NEEDS_CLARIFICATION`, a question, and no actions |
+| The request is unsupported or clearly impossible | `INFEASIBLE`, a reason, and no actions |
 
-**测试方法：**
+For SEARCH, `target` is a word such as `stone`. For actions on a visible object, use A's ID such as `p0`. Prefer IDs over copying positions into every action: C can look up the latest position before moving.
 
-- 规则准备：`.venv/bin/python -m pytest -q tests/test_validation.py tests/test_llm_client.py tests/test_student_handoff.py`。
-- 独立评测直接调用 B，用手工标注的 `SceneDescription` 和 `ExecutionContext` fixtures；无需渲染和 C。
-  对每个 case 先检查 schema/validate_plan，再检查语义：选对 object/region、步骤依赖正确、状态正确、遵守已持物上下文。
-  不要求所有正确计划逐 token 或逐 action 完全相同。
-- 至少 **20 条不同自然语言指令**；可分 10 个同义改写/有效请求、4 个非法或不可行请求、
-  3 个需搜索、3 个需澄清。另测 GRASP 失败、运输时丢失目标、已持物状态下的 replan。
-- 完成后跑 `.venv/bin/python -m eval.runner --mode planning --trials eval/trials/smoke`。
+**A valid format does not prove a correct plan.** A plan can pass `validate_plan` while choosing the wrong object. Your evaluation must check the instruction's meaning too.
 
-建议输出 `planning.jsonl`，每条包含
-`case_id, instruction, input_scene, input_context, raw_response, parsed_plan,
-validation_errors, expected_semantics, semantic_correct, latency_s, model_calls`。
-Action Planning Accuracy = 同时结构有效且语义符合预先标注要求的条数 / 全部评测指令数。
-解析失败、遗漏必要步骤、选错实例都计失败；单独汇报拒绝/搜索/澄清子集表现。
+### Test B
 
-## 6. Student C — Task 4：真实仿真执行、反馈与恢复
+Run the existing planning and model-client checks:
 
-**修改入口：** `executor/student_c.py`，保留类名 `StudentCExecutor`。
+```bash
+.venv/bin/python -m pytest -q tests/test_validation.py tests/test_llm_client.py
+```
 
-`execute(action, env, perception) -> ExecutionResult`：input 是**一个 Action**、公共 RobotEnv 和 A 接口；
-output 是该动作的成功与否、`ErrorCode`、`recovery_attempted`、动作后的 `post_frame_id` 和诊断 info。
-`execute` 可以内部按小步控制和观察，但需要有模拟时间上限；返回成功应基于该动作的后置条件。
+Create `tests/test_student_b.py` for your planner. Use saved scenes like the example, and test paraphrases, wrong IDs, impossible requests, ambiguity, malformed output, and replanning while holding an object. **After creating the file**, run:
 
-建议实现顺序：
+```bash
+.venv/bin/python -m pytest -q tests/test_student_b.py
+```
 
-1. 用 fresh `perception.describe(env.get_obs())` 和 `resolve_action_position()` 解析 ID；
-   丢失/歧义目标时返回 TARGET_LOST，让上层更新场景或重规划。
-2. 复用 `core.skills.approach/reach/grasp/move_to/place/search` 建立第一版；
-   这些是公开接口上的参考控制器，不要求重写 IK。**TeleportExecutor 是评测替身，不能作为真实 C。**
-3. GRASP 后检查 `env.is_attached()` 和本体/视觉反馈；必要时做小幅 lift check。
-   MOVE_TO 后检查到位且仍持物，避免把运输中掉落计成成功。
-4. PLACE 需要 C 自己完成安全下降、释放和反馈。`resolve_action_position(PLACE, scene)` 给的是支撑点；
-   **不要直接把 TCP 压到桌面 Z。** 根据物体尺寸、抓取偏置选择 TCP 释放高度/下降距离。
-   `core.skills.place(env)` 只负责 detach + settle，并不接受目标位置，也不保证物体落在区域里。
-5. VERIFY object_in_region 可以复用 `verify_placement(env, perception, object_id, region_id)`；
-   STOP 调用 `env.stop_motion()` 并在需要时 step/检查减速。动作后的观察 frame_id 要写入结果。
-6. 加至少一种有界恢复/失败报告，例如重新观察后重试 GRASP 一次，仍失败就报告 GRASP_MISSED；
-   或 SEARCH_NOT_FOUND 后由 Orchestrator 终止。把本地重试与上层重试次数一起计算，避免无限循环。
+When your real module works, set `IMPLEMENTED = True`, then run:
 
-`SkillResult` 不能直接返回给 Orchestrator，需转换。例如 primitive 返回成功后：
+```bash
+.venv/bin/python -m eval.runner --mode planning --trials eval/trials/smoke --out runs/student_b
+```
+
+This uses prepared A/C replacements, so you can test integration without waiting for teammates.
+
+For the report, use **at least 20 natural-language instructions**, including paraphrases and invalid/infeasible requests. Label each instruction's intended object, destination, expected status, and required action order before evaluating the model.
+Count a plan as correct only when its format, references, action dependencies, and meaning are correct. Different valid sequences can count as correct; they do not need to match one answer word for word.
+
+Save the instruction, input scene, raw model response, parsed plan, validation errors, correctness label, and response time. Report **Action Planning Accuracy = correct plans / evaluated instructions**, and show representative failures.
+
+### Your coordination with A and C
+
+Ask A for a real example scene early and replace your hand-written fixture with it. Agree on how missing and ambiguous objects are represented.
+Give C one simple, validated plan early. Start with one visible stone and one red region. Once that works, add SEARCH, clarification, and recovery.
+Keep model prompts and plan parsing in B; let C report movement failures through `ExecutionResult`.
+
+## 4. Student C: make the robot act
+
+### What you need to build
+
+Your module receives **one action at a time**. It moves the robot, checks the result, and returns success or a useful error.
+
+Reuse the motion functions in `core/skills.py` to get started. The project already calculates the arm joints needed to reach a position. You do not need to write that calculation from scratch. The robot's base slides around the table; learning to walk is outside this setup.
+
+Start with default **weld attachment**: a simulator constraint makes an object follow the gripper. The assignment allows grasping or attaching. Contact-based physical grasping is experimental and is not needed for your first working task.
+
+### First exercise: move the arm and save before/after pictures
+
+This uses the real simulated controller, with a known target point. It needs no A, B, or model API.
+
+```bash
+.venv/bin/python - <<'PY'
+from pathlib import Path
+import numpy as np
+from PIL import Image
+from core import skills
+from core.env import RobotEnv
+from core.types import SceneConfig, SceneObjectSpec
+from core.world import SimWorld
+
+out = Path("runs/student_c_intro")
+out.mkdir(parents=True, exist_ok=True)
+world = SimWorld()
+env = RobotEnv(world)
+try:
+    world.reset(SceneConfig(seed=11, objects=[
+        SceneObjectSpec("stone", (0.40, -0.15, 0.88)),
+        SceneObjectSpec("cube", (0.40, 0.15, 0.88)),
+        SceneObjectSpec("bottle", (0.55, -0.35, 0.915)),
+    ]))
+    env.step(500)
+    Image.fromarray(env.get_obs("head").rgb).save(out / "before.png")
+    target = np.array([0.36, -0.20, 0.95])
+    result = skills.reach(env, target)
+    print("Reached:", result.success, "Error:", result.error_code.value)
+    print("Position error (m):", float(np.linalg.norm(env.get_ee_pos() - target)))
+    env.stop_motion()
+    env.step(250)  # Give the simulated robot time to settle.
+    Image.fromarray(env.get_obs("head").rgb).save(out / "after.png")
+    assert result.success, result
+    print("Saved pictures to", out.resolve())
+finally:
+    world.close()
+PY
+```
+
+Expected: `Reached: True Error: NONE`, a position error below about 0.012 m, and two pictures in `runs/student_c_intro/`. Open them to compare the arm. Rerunning the exercise replaces them.
+The **end effector**, or **TCP**, is the point near the gripper fingers that the controller moves to the requested position.
+
+### Your Python interface: input and output
+
+Edit `executor/student_c.py`. Keep the class name `StudentCExecutor`.
+
+```text
+execute(action, env, perception) -> ExecutionResult
+```
+
+| Input or output | Meaning |
+| --- | --- |
+| `action` | One step, for example `Action(Skill.GRASP, target="p0")` |
+| `env` | Methods to read cameras, move the robot, and check holding state |
+| `perception` | A's interface; use it to locate targets in new images |
+| `ExecutionResult.success` | Whether this one action achieved its goal |
+| `error_code` | A failure such as `GRASP_MISSED`, `TARGET_LOST`, or `TIMEOUT` |
+| `post_frame_id` | ID of the image taken after the action |
+| `recovery_attempted` / `info` | Whether you tried recovery, plus useful details |
+
+### Build it in this order
+
+1. Get a new scene with `perception.describe(env.get_obs())`. Use `resolve_action_position(action, scene)` from `core/action_targets.py` to turn the target ID into a position.
+2. Start with APPROACH and REACH, using `skills.approach` and `skills.reach`.
+3. Add GRASP with `skills.grasp`, then check `env.is_attached()`. Sending a close command alone does not prove success.
+4. Add MOVE_TO with `skills.move_to`. Check that the robot arrived and still holds the object.
+5. Add PLACE: move to a suitable release height, release, let the object settle, then check its position. `skills.place(env)` only releases and waits; it does not move to the region or prove a correct placement.
+6. Add SEARCH, VERIFY, and STOP. Reuse `skills.search` and `core.verification.verify_placement` where useful. STOP calls `env.stop_motion()`; use `env.step()` afterward to observe settling if needed.
+7. Add at least one recovery or failure-reporting behavior. For example, observe again and retry a grasp once, then return a clear failure. Limit retries and simulated execution time.
+
+PLACE resolves to the region's surface center. **Do not drive the gripper directly into that surface.** Choose a release height that accounts for the object and its offset from the gripper.
+
+The motion functions return `SkillResult`. Your executor must return `ExecutionResult`, including the action and image after it. Use this pattern **inside your implementation**, after running a primitive:
 
 ```python
 post = env.get_obs()
-result = ExecutionResult(
+return ExecutionResult(
     action=action,
     success=primitive_result.success,
     error_code=primitive_result.error_code,
@@ -284,85 +432,272 @@ result = ExecutionResult(
 )
 ```
 
-**具体 input/output：** 输入 `Action(Skill.GRASP, target="p0")`；在确认 attachment 后，
-输出 `ExecutionResult(action=action, success=True, error_code=ErrorCode.NONE,
-post_frame_id=post.frame_id, info={"attachment": opaque_handle})`。
-如果目标未进入夹持范围，则 success=False、error_code=GRASP_MISSED；不能因为发出了 close 命令就返回成功。
+This is only a conversion pattern. Add any extra checks needed for that action before setting success.
 
-**测试方法：**
+### Test C
 
-- 仿真控制准备：`.venv/bin/python -m pytest -q tests/test_g1_control.py tests/test_gripper.py tests/test_student_handoff.py`。
-- 可达空间检查：`.venv/bin/python scripts/ik_reach_test.py`，读取 `runs/ik_reach/` 下 CSV 和图；
-  先在已验证工作空间完成单物体循环，再扩展底盘重定位和视角变化。
-- 单动作测试可在 `tests/` 中注入 GTPerception 和确定 Action，真实控制由 StudentCExecutor 完成；
-  oracle 只放在测试脚本，用于检查实际被抓取的对象和最终位置。
-- 至少 **10 个不同初始 robot/object 配置**。逐阶段记录 approach、grasp、transport、place、stop。
-  另加入至少一个恢复/失败 case：不可达点、空抓、目标丢失，或执行途中 STOP。
-- 完成后跑 `.venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/smoke`。
-  扩展 trial YAML 目录后，把 `--trials` 指向该目录即可。
+Run the existing controller checks:
 
-建议输出 `manipulation.csv`，每次尝试一行，包含
-`trial_id, seed, robot_init, target_gt_id, grasp_mode, skill, attempt, claimed_success,
-actual_grasp, actual_place, placement_xy_error_m, support_height_error_m, failure_code,
-recovery_attempted, sim_duration_s, wall_duration_s`。
+```bash
+.venv/bin/python -m pytest -q tests/test_g1_control.py tests/test_gripper.py tests/test_student_handoff.py
+```
 
-- Grasp Success Rate：正确物体实际抓取成功次数 / 实际 GRASP 尝试次数；错误物体不算成功。
-- Place Success Rate：正确释放并通过区域/稳定检查的次数 / 实际 PLACE 尝试次数；
-  同时报告完整 manipulation trials 成功率，避免因前面抓取失败而没有 PLACE 尝试导致分母失真。
-- 位置误差可报告物体中心到 region 支撑中心的 XY 欧氏距离，并另列高度偏差；
-  也可采用“是否进入区域”的等价 placement metric。说明失败样本如何计入，零分母用 null/N/A。
+To explore which positions the arm can reach:
 
-当前默认 weld 模式足以完成课程基线。physical 模式的旧测量为 stone 0/10、cube 7/10、bottle 1/10，
-仅是夹爪专项试验；本次没有把它改成合格物理夹持，也不要混入上述 C 的 weld 结果。
+```bash
+.venv/bin/python scripts/ik_reach_test.py
+```
 
-## 7. A/B 的模型配置与可复现性
+Read the printed output path and open the plot and CSV under `runs/ik_reach/`. Start near working points before trying difficult positions.
 
-公共 `LLMClient` 已提供 `call_vlm(image_png_bytes, prompt, system, json_schema)` 和
-`call_llm(prompt, system, json_schema)`，返回 `LLMResponse`，包含 parsed/raw、缓存标记、tokens 和 latency。
-RGB ndarray 要先用 Pillow 编码成 PNG bytes 才能传给 call_vlm。
-配置必须显式给 `LLMConfig(model, base_url, api_key, ...)`；当前 runner 没有 `--model` 或 `--base-url` 参数。
+Create `tests/test_student_c.py` to call your executor on individual actions. Use prepared perception in test code to isolate movement problems. Include failed grasps, lost targets, unreachable points, stopping during motion, and release. **After creating the file**, run:
 
-runner 当前**无参数构造**学生类。A/B 可设计 `__init__(client=None)` 供单元测试注入，
-默认分支通过自己明确记录的配置构造 client；或者由 ALL 在后续统一扩展 runner 配置工厂。
-不要提交 API key。配置缺失应有明确错误，不能静默退回 GT/规则实现。
+```bash
+.venv/bin/python -m pytest -q tests/test_student_c.py
+```
 
-用 `FakeTransport` 写解析、错误恢复和缓存单元测试；它不验证模型质量。
-真实 20-trial 评测要记录模型版本、prompt/schema、图像预处理、生成参数、seed、请求数、
-latency 和缓存使用情况。缓存命中的耗时不能冒充 live API latency。
+When your real module works, set `IMPLEMENTED = True`, then run:
 
-## 8. 联调输出、正式评测与提交
+```bash
+.venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/smoke --out runs/student_c
+```
 
-先分别完成 A/B/C 的组件评测和对应混合模式，再运行真实 `e2e`，不要给正式命令加 `--mock-all`。
-每个类真实实现后才置 `IMPLEMENTED = True`。
+This uses prepared A/B replacements with your real executor. `TeleportExecutor` is a replacement that skips physical movement; do not use it as your real implementation.
 
-当前 runner 输出到 `runs/<timestamp>_<mode>/`，包括：
+For the report, run **at least 10 trials** with different starting robot and object positions. Save results for grasp, transport, place, and stop, including retries and failures.
+Report correct-object grasp successes / grasp attempts, correct-place successes / place attempts, and complete manipulation successes / trials. Also report final placement error or an equivalent measure, such as horizontal distance from object center to region center in meters.
+Explain denominators; if no PLACE was attempted, its rate is N/A, not 100%.
 
-| 文件 | Output 内容 |
+### What to give A and B
+
+Give B examples of success and failure results, including which failures should cause replanning. Tell A when you need a fresh view and what position accuracy works in your grasp tests.
+
+## 5. Connect a model: shared notes for A and B
+
+The project provides `LLMClient` in `core/llm_client.py`:
+
+| Call | Use |
 | --- | --- |
-| `run_meta.json` | mode、contract_version、mock 标记、trial 来源；具体替换组合以各 trial_record 的 module_config / infrastructure_check 为准 |
-| `<trial_id>/trial_record.json` | module_config、instruction、outcome、claimed_success、actual_success、动作/验证事件、澄清、真值抓取记录、timings |
-| `<trial_id>/frames/` | 已标记观察的 RGB、depth.npy、相机标定/时间戳元数据 |
-| `metrics.json` | 当前已有的实际/宣称成功率、false claims、wrong object、refusal/clarification 指标 |
+| `call_llm(prompt, system=None, json_schema=None)` | Text input, useful for B |
+| `call_vlm(image_png_bytes, prompt, system=None, json_schema=None)` | Image and text input, useful for A |
 
-可用 `.venv/bin/python -m eval.metrics runs/实际运行目录名` 重新查看聚合指标。
-`CLAIMED_SUCCESS` 是系统的结论；`actual_success` 是 evaluator 使用真值独立判断的结论。
-当前实际成功要求抓对物体、已释放、中心处于区域 XY 内、高度相对支撑面处于
-`[-0.005, 0.12]` m，并通过 2 秒稳定性检查（位移 ≤ 2 cm、速度 ≤ 0.05 m/s）。
-系统侧的 0.2 秒感知检查受 A 的准确性和可见性限制，不能代替这个较长的真值评测。
+Both return `LLMResponse`, with text, parsed JSON when requested, the original response, time, and token counts. After the camera exercise, A can read the PNG bytes with `Path("runs/student_a_intro/head_rgb.png").read_bytes()`.
 
-**正式 Task 5 还需要 ALL 一起补齐以下评测工作；它们不是本次三项修复已经交付的功能：**
+This example demonstrates JSON handling **without calling a real service**:
 
-1. 至少 **20 个 randomized E2E trials**，变化 target object、object position、robot init、target area 和 instruction phrasing。
-   现有 `eval/trials/smoke` 只有 5 个。`SceneConfig` 当前只配置 objects、robot_init、seed，
-   尚不能通过 YAML 改 target region；需要在 ALL 的场景层增加区域配置并贯通 reset / oracle / 感知定义，
-   或提供明确选择的不同场景文件。不要只改 expected.region 标签而不改变实际场景。
-2. 实现/保存本指南给出的独立 A/B/C 评分记录，并在 eval 侧补充 Grounding Accuracy、
-   Planning Accuracy、Grasp/Place/Manipulation Success、平均完成时间和各变化子集统计。
-   **当前 eval.metrics 不会自动产生全部课程指标**；三个 mode 的 E2E success 不能分别充当 A/B/C 准确率。
-   计时应区分模拟秒与真实墙钟，完成时间说明是否仅统计成功任务；timeout 单独列出。
-3. 共同提交源代码/模型配置/场景/README/实验记录，标记学生贡献，记录固定依赖与 commit。
-   写 Task 1 的文献综述（≤2 页）、环境和接口说明；准备 3–5 分钟不剪辑演示，
-   至少包含成功任务和一次搜索、重试、澄清或失败报告。
+```bash
+.venv/bin/python - <<'PY'
+from core.llm_client import FakeTransport, LLMClient, LLMConfig
 
-A/B/C 可以立即开始 Task 2/3/4；区域随机化和完整评分器应在准备正式 Task 5 数据集时补齐。
-学生的独立模型/执行工作、真实 API 评测和上述课程实验仍需实际完成并报告结果。
+client = LLMClient(
+    LLMConfig(model="example", base_url="https://example.invalid/v1", api_key="test-only"),
+    transport=FakeTransport([FakeTransport.completion('{"answer": "stone"}')]),
+)
+response = client.call_llm(
+    "Return an object name.",
+    json_schema={
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+        "required": ["answer"],
+    },
+)
+print(response.parsed)  # Expected: {'answer': 'stone'}
+PY
+```
+
+For a real model, provide the actual `model`, `base_url`, and `api_key` in `LLMConfig` and use the real transport. Keep credentials out of source files and Git. The example address above is deliberately not a service address.
+
+The runner creates student classes with **no constructor arguments**. If you add `__init__(client=None)` for testing, make sure the no-argument path loads your documented configuration. The runner has no `--model` or `--base-url` options, and `LLMConfig` does not load environment variables automatically.
+
+Use prepared responses for parser/error tests and your actual chosen model for reported AI experiments. Record the model/version, prompt, output format, image processing, time, call count, and cache use. A cached reply's response time is not a live model response time.
+
+## 6. Put the three parts together
+
+### Which command tests which student?
+
+| Mode | A | B | C |
+| --- | --- | --- | --- |
+| `grounding` | Your real A | Prepared replacement | Prepared replacement |
+| `planning` | Prepared replacement | Your real B | Prepared replacement |
+| `manipulation` | Prepared replacement | Prepared replacement | Your real C |
+| `e2e` | Your real A | Your real B | Your real C |
+
+All modes run the same overall workflow. They test how a module connects to the others; they are **not separate automatic scorers for the course's A/B/C metrics**.
+Real-student commands stop with exit code 2 while a required module is marked `IMPLEMENTED = False`. This is expected until you implement it.
+
+Once A, B, and C work individually, run all three together:
+
+```bash
+.venv/bin/python -m eval.runner --mode e2e --trials eval/trials/smoke --out runs/team
+```
+
+### Read the output
+
+The command prints a new run directory. Each run has:
+
+| File | What to look for |
+| --- | --- |
+| `run_meta.json` | Mode, shared interface version, and trial source |
+| `<trial_id>/trial_record.json` | Which student modules ran, action results, errors, and success checks |
+| `<trial_id>/frames/` | Saved camera images, depth, and camera information |
+| `metrics.json` | Summary of the metrics currently implemented |
+
+After the team command above, print the latest team's metrics with:
+
+```bash
+.venv/bin/python - <<'PY'
+from pathlib import Path
+
+files = sorted(Path("runs/team").glob("*/metrics.json"))
+if not files:
+    raise SystemExit("No team metrics yet. Finish the team run first.")
+print(files[-1])
+print(files[-1].read_text())
+PY
+```
+
+`claimed_success` means the system thinks it succeeded. `actual_success` means the evaluator checked the simulator's true state. Read both: the system can be wrong about its own success.
+Trials using replacements have `infrastructure_check: true` in their records. State which modules were real when reporting an experiment.
+
+### Add your own trial files
+
+The five smoke trials are starting examples. To create a separate test set:
+
+```bash
+mkdir -p eval/trials/team
+cp -n eval/trials/smoke/smoke_1_standard.yaml eval/trials/team/team_01.yaml
+```
+
+Open `eval/trials/team/team_01.yaml` in your editor. Change `id` to `team_01`. It has three main parts:
+
+- `instruction`: what the user says.
+- `scene`: starting object/robot positions and a seed used to repeat the setup.
+- `expected`: the correct target/destination and expected behavior, used only by the evaluator.
+
+For a first small variation, keep the stone task and change its starting X coordinate from `0.40` to `0.42`. Run:
+
+```bash
+# Check the new setup with replacements first.
+.venv/bin/python -m eval.runner --mode e2e --trials eval/trials/team --mock-all --out runs/team_setup
+
+# After all real modules are implemented, test the real team.
+.venv/bin/python -m eval.runner --mode e2e --trials eval/trials/team --out runs/team
+```
+
+Add more YAML files with different IDs and meaningful variations. Do not pass `expected` labels to A, B, or C. A seed makes a chosen setup repeatable; changing only the seed does not automatically move the objects.
+
+### What is still needed for final submission?
+
+| Work | Course minimum / output |
+| --- | --- |
+| A's evaluation | At least 20 perception/grounding trials; grounding accuracy and failures |
+| B's evaluation | At least 20 instructions, including paraphrases and invalid/infeasible requests; planning accuracy |
+| C's evaluation | At least 10 starting configurations; grasp/place success and placement error or equivalent |
+| Team evaluation | At least 20 randomized full-system trials, changing objects, object positions, robot starts, target areas, and wording |
+| Team report/demo | Task 1 review (within 2 pages), setup description, contributions, results, and a 3–5 minute uncut demo with success and a recovery/failure case |
+
+Two shared items need further work before final team evaluation. First, current trial YAML cannot move or resize the target region: it supports objects, robot start, and seed. Add region configuration in shared scene code, or support explicitly selected alternative scene files. Changing `expected.region` alone does not change the physical scene.
+
+Second, `eval/metrics.py` does not calculate all course metrics yet. It reports actual/claimed success and several failure/refusal measures. Keep separate A/B/C evaluation records and add missing aggregation, including average completion time and results under different variations. State whether time means simulation time or real elapsed time, and whether averages include only successful tasks.
+
+Each student should include the model/strategy, commands, raw results, and representative failures in their contribution. Share one working setup and record the Git commit used for final experiments.
+
+## 7. Technical reference: use when needed
+
+### Shared files and code boundaries
+
+| File | Purpose |
+| --- | --- |
+| `core/types.py` | Shared observations, scenes, plans, and results |
+| `core/interfaces.py` | Methods A/B/C must implement |
+| `core/validation.py` | Check a plan's format and action requirements |
+| `core/action_targets.py` | Resolve a target ID into a position |
+| `core/env.py` | Public camera and robot methods |
+| `core/skills.py` | Reference motion functions C can reuse |
+| `core/verification.py` | Check placement using perception and holding state |
+| `core/llm_client.py` | Model requests, parsing, cache, and test transport |
+
+Keep real student code in its own directory. Exchange shared data types rather than importing another student's implementation.
+Do not import `core.oracle` or `core.mocks` in real student modules, read simulator object truth through private fields, or use teleport. The simulator's exact answers are **ground truth** and belong in test/evaluation code. The standalone exercises create the world to set up a test; C's real `execute()` receives `env` from the runner.
+
+### Observation fields and units
+
+| Field | Format / meaning |
+| --- | --- |
+| `rgb` | `uint8[480,640,3]`, red/green/blue image |
+| `depth` | `float32[480,640]`, distance along the camera's forward axis in meters; invalid values are NaN |
+| `intrinsics` | 3 × 3 camera matrix, often called K |
+| `t_world_camera` | 4 × 4 matrix converting a camera-relative point to a world position |
+| `frame_id`, `sim_time`, `camera_name` | Image ID, capture time in simulated seconds, and camera name |
+
+World positions use meters with Z up. Angles use radians. Public camera axes are X right, Y down, Z forward. For pixel `(u,v)` with valid depth `d`:
+
+```text
+p_camera = d * inverse(K) @ [u, v, 1]
+p_world  = (T_world_camera @ [p_camera.x, p_camera.y, p_camera.z, 1])[:3]
+```
+
+An image-box center may land on background or an object's front surface. Filter bad depth and explain how you estimate the object center from visible surfaces.
+`env.get_obs()` defaults to the head camera (`onboard` is its alias). C can request `left_wrist` and `right_wrist`. `env.get_obs_multi(["head", "left_wrist", "right_wrist"])` captures all three at the same simulation time.
+
+### Scene fields and IDs
+
+`SceneDescription` contains `objects`, `regions`, `caption`, `ambiguities`, `frame_id`, and `sim_time`. Each object/region has:
+
+| Field | Meaning |
+| --- | --- |
+| `instance_id` | A's stable ID, such as `p0`; not a simulator body ID |
+| `name` | Standard class from `assets/objects.yaml`, such as `stone` |
+| `kind` | `object` or `region` |
+| `bbox_xyxy` | Left/top/right/bottom pixels in the original image |
+| `pos_world` | Estimated object center, or region surface center, in world meters |
+| `confidence`, `source`, `frame_id` | Confidence 0–1, source label, and input frame ID |
+| `region_half_extents_xy` | Optional region half-widths in world X/Y; `(0.08,0.08)` means a 16 cm × 16 cm region |
+
+Use `LOCALIZED` for a reliable 3D position, `UNLOCALIZED` for visible but unreliable position, `AMBIGUOUS` when the target cannot be chosen, and `NOT_FOUND` for no visual evidence. `ground()` normally returns `None` for a missing target.
+Do not replace a missing ID with a different same-name object. Keep scene/image timestamps consistent.
+
+### Action reference
+
+| Skill | Input and behavior |
+| --- | --- |
+| SEARCH | `target="stone"` or another search word; only in `NEEDS_SEARCH` |
+| APPROACH | Located ID or `params.pos`; move the base near the target |
+| REACH | Located ID; move the gripper to its position; explicit position override allowed |
+| GRASP | Located object ID; hand must be empty; grasp and check attachment |
+| MOVE_TO | Located ID or `params.pos`; region ID resolves to surface center + 0.18 m |
+| PLACE | Region ID while holding; optional `params.object` must match the held ID; resolves to surface point, then C chooses a gripper release pose |
+| VERIFY | `params.condition` is `holding`, `object_visible`, or `object_in_region`; the last needs `params.object` and `params.region` IDs |
+| STOP | No params; last action if present; cancel movement without automatically releasing |
+
+`params.pos=[x,y,z]` is a world position in meters and overrides position lookup. Missing/ambiguous targets should trigger a new observation or failure, not a guessed replacement.
+`resolve_action_position` only resolves coordinates; it does not check all holding conditions or prove movement success.
+
+`set_arm_target`, `set_base_target`, `set_gripper`, and `stop_motion` update commands and return immediately. Time and movement advance through `env.step()`. Gripper opening is 0 closed to 1 open. `env.get_robot_state()` reports measured robot state and attachment, without scene-object truth.
+
+### Placement checks and evaluation details
+
+System placement checks require exact object/region IDs, current 3D evidence, release, region containment, and limited movement between observations 0.2 simulated seconds apart. Action-level VERIFY success does not replace the final check.
+The region surface point and half-widths define bounds. For unchanged `red_region`, omitted half-widths use known `(0.08,0.08)` m from the vocabulary. Supply correct sizes for changed/new regions; unknown sizes fail. Current bounds align with world X/Y axes.
+
+The evaluator separately checks the correct grasped object, release, its center within horizontal region bounds, height within `[-0.005,0.12]` m of the surface, and stability for 2 seconds with drift at most 2 cm and speed at most 0.05 m/s. These are project measurement rules, not extra course pass marks.
+
+For A's independent tests, `EvalOracle.associate(scene, camera=obs.camera_name)` matches predicted object boxes to true boxes using overlap (IoU), with threshold 0.30 by default. Call it from evaluation code before stepping the simulation after perception. It associates objects only; evaluate regions separately. Never give true labels to a student module.
+
+Current shared interface version: `CONTRACT_VERSION = 2`. Preserve it in experiment records. More background is in the root [README](../README.md) and [design decisions](DECISIONS.md).
+
+## 8. Common problems
+
+| What you see | What to do |
+| --- | --- |
+| `.venv/bin/python: No such file` | Check the project folder, then follow installation |
+| Missing Python package | Use `.venv/bin/python`; rerun `.venv/bin/python -m pip install -e '.[dev]'` |
+| Missing robot asset | Run `bash scripts/fetch_menagerie.sh` from the project folder |
+| No simulator window | Normal; open saved PNG files |
+| Rendering/EGL error | Tested setup uses Linux and NVIDIA EGL. If OSMesa is installed, try `MUJOCO_GL=osmesa .venv/bin/python -m pytest -q tests/test_env.py`. Otherwise share the full error with the team before changing student code |
+| "requires unimplemented module(s)" / exit code 2 | Implement the named module and set `IMPLEMENTED = True`; use `--mock-all` only for setup checks |
+| API/configuration error | Check model name, service address, credentials, and no-argument constructor configuration |
+| GRASP fails on a visible target | Check A's position and C's reach/attachment result; visible does not necessarily mean reachable |
+| Actions succeed but the task fails | Inspect `trial_record.json`, saved images, object identity, release, and final region position |
+
+Owner: backbone (ALL). Updated 2026-09-07.
