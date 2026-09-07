@@ -386,3 +386,30 @@ Regression cases and a full ID-only episode are in
 `docs/STUDENT_README.md`. Real A/B/C remain stubs. The guide explicitly
 separates mixed-mode integration checks from independent student metrics and
 lists region variation and full Task 5 metrics as remaining evaluation work.
+
+## 14. Qwen planner interface and offline validation (2026-09-07)
+
+Student B now has a configurable Qwen adapter. Its `IMPLEMENTED` flag means
+the interface is present, not that real-model accuracy has been evaluated.
+The user requested offline tests only; A and C's student modules remain stubs.
+
+- Keep the public `plan`/`replan`/`reset` methods and contract-v2 dataclasses.
+  Use an internal, versioned JSON schema for model output. The model selects
+  goal IDs and skill order; Python binds coordinates from A and validates
+  dependencies, then passes the ordinary `Plan` to C.
+- Preserve accepted nonempty goal fields across replans. Holding state never
+  replaces the requested target. Include recent execution errors and preserve
+  clarification. Allow one output repair; service failures remain errors.
+- The shared validator now allows an object absent from the current scene in
+  a future `VERIFY object_in_region` when its exact ID is tracked as held or
+  recently released in `ExecutionContext`. Region references must still exist.
+  This narrow identity exception does not authorize metric actions and does
+  not change final fresh visual verification or independent actual evaluation.
+- Qwen settings require an explicit endpoint and environment-variable key.
+  The generic client supports explicit `json_schema` or `json_object` output
+  mode. Cache format v2 separates live, fixture and custom-transport sources;
+  older cache keys are not reused. Invalid responses retain raw output and
+  usage for repair and audit. No automatic provider/model/rule fallback.
+
+See `docs/STUDENT_B_README.md` for commands and input/output details, and
+`docs/validation/QWEN_B_OFFLINE.md` for the tests and verification boundaries.

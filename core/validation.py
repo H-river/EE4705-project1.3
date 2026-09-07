@@ -233,7 +233,12 @@ def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
                 for key, val in (("object", obj), ("region", region)):
                     if not isinstance(val, str):
                         errors.append(PlanError("BAD_PARAM", i, f"VERIFY object_in_region requires string params[{key!r}]"))
-                    elif _lookup(context, val) is None:
+                    elif (_lookup(context, val) is None and not
+                          (key == "object" and val in
+                           (context.held_instance_id, context.last_release_instance_id))):
+                        # A held/recently released instance may be occluded in
+                        # this planning frame. Its tracked identity permits a
+                        # future VERIFY, never motion or a success claim.
                         errors.append(PlanError("MISSING_REFERENCE", i, f"VERIFY {key} {val!r} not in scene"))
             elif condition == "holding":
                 if held is None:

@@ -111,10 +111,11 @@ You can develop B without waiting for the other students. Start by opening
 `episode.json` and looking at `A.scene`, `B.plan` and `C.end` in `events`.
 This gives you real example inputs and outputs for your planner.
 
-Implement `plan()` and `replan()` in `planner/student_b.py`. Keep their
-existing interfaces. Set `StudentBPlanner.IMPLEMENTED = True` only when
-you have implemented them. Configure any model client in your own module;
-this demo does not create an API connection for you.
+`planner/student_b.py` now implements `plan()` and `replan()` through a Qwen
+adapter. First run its offline tests using the [B guide](STUDENT_B_README.md).
+Configure Qwen environment variables before the command below; it can make
+real API requests. Missing configuration raises an error. Real Qwen accuracy
+has not yet been evaluated.
 
 Then run:
 

@@ -5,9 +5,9 @@ Owner: backbone (ALL)
 Shared infrastructure for the language-instructed tabletop manipulation
 project: frozen data contracts, MuJoCo simulation environment, plan
 validation, orchestration, ground-truth mocks, evaluation/logging, and an
-LLM/VLM client.  The three real modules (Student A perception, Student B
-planner, Student C executor) are **interface stubs** here — see
-"Directory ownership".
+LLM/VLM client. Student A perception and Student C execution remain interface
+stubs. Student B now has a Qwen planner adapter with offline tests; real model
+accuracy is not yet evaluated. See the [B guide](docs/STUDENT_B_README.md).
 
 **Students: start with the [student guide](docs/STUDENT_README.md).**
 It explains each person's task in simple language, with runnable exercises,
@@ -17,7 +17,7 @@ input/output examples, test commands, and steps for connecting A, B, and C.
 shows how to record and replay a real simulated A → B → C episode, including
 one failed grasp followed by a retry. It also lets you plug in your own B
 while using the demo A and C. Its rule-based A/B are teaching baselines,
-separate from the student implementation stubs and course AI evaluation.
+separate from the student implementations and course AI evaluation.
 
 > **Design document note:** `docs/backbone_design_v3.md` was not present at
 > implementation time; contract choices and their sources are recorded in

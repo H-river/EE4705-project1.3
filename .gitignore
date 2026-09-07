@@ -7,3 +7,6 @@ runs/
 # Upstream MuJoCo Menagerie checkout (fetched by scripts/fetch_menagerie.sh
 # at the revision pinned in assets/menagerie_revision.txt).
 assets/menagerie/
+.env
+.env.*
+!.env.example

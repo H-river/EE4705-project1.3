@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from core.llm_client import (
@@ -138,3 +140,60 @@ def test_credentials_never_written_to_cache(tmp_path):
     c.call_llm("q")
     for f in tmp_path.glob("*.json"):
         assert "sk-SECRET" not in f.read_text()
+
+
+def test_qwen_schema_payload_and_explicit_thinking_flag():
+    schema = {"type": "object", "properties": {}, "additionalProperties": False}
+    transport = FakeTransport([FakeTransport.completion('{}')])
+    client = LLMClient(cfg(structured_output_mode="json_schema", enable_thinking=False), transport)
+    assert client.call_llm("JSON please", json_schema=schema).source == "fixture"
+    payload = transport.requests[0]["payload"]
+    assert payload["response_format"] == {"type": "json_schema", "json_schema": {
+        "name": "structured_response", "strict": True, "schema": schema}}
+    assert payload["enable_thinking"] is False
+
+
+@pytest.mark.parametrize("value,schema", [
+    ({"extra": 1}, {"type": "object", "properties": {}, "additionalProperties": False}),
+    ([1, 2], {"type": "array", "items": {"type": "integer"}, "maxItems": 1}),
+    ("long", {"type": "string", "maxLength": 3}),
+    (float('inf'), {"type": "number"}),
+])
+def test_strict_schema_rejects_extras_bounds_and_nonfinite(value, schema):
+    with pytest.raises(SchemaError):
+        validate_schema(value, schema)
+
+
+@pytest.mark.parametrize("content,finish_reason", [('{"a": NaN}', 'stop'), ('{}', 'length'), (None, 'stop')])
+def test_invalid_output_retains_response_and_usage_without_caching(tmp_path, content, finish_reason):
+    status, body = FakeTransport.completion(content, prompt_tokens=23)
+    body["choices"][0]["finish_reason"] = finish_reason
+    client = LLMClient(cfg(cache_dir=str(tmp_path)), FakeTransport([(status, body)]))
+    with pytest.raises(SchemaError) as caught:
+        client.call_llm("JSON", json_schema={"type": "object"})
+    assert caught.value.response.raw == body
+    assert client.stats.prompt_tokens == 23
+    assert not list(tmp_path.glob('*.json'))
+
+
+def test_cache_revalidates_text_and_cannot_cross_fixture_live_boundary(tmp_path):
+    schema = {"type": "object", "properties": {"a": {"type": "string"}}, "required": ["a"]}
+    client = LLMClient(cfg(cache_dir=str(tmp_path)), FakeTransport([FakeTransport.completion('{"a":"ok"}')]))
+    client.call_llm("JSON", json_schema=schema)
+    assert client.call_llm("JSON", json_schema=schema).source == "fixture"
+    live = LLMClient(cfg(cache_only=True, api_key=None, cache_dir=str(tmp_path)))
+    with pytest.raises(CacheMissError):
+        live.call_llm("JSON", json_schema=schema)  # no request and no fixture used as real-model output
+    file = next(tmp_path.glob('*.json'))
+    entry = json.loads(file.read_text())
+    entry["text"] = '{"a": 123}'  # parsed field still contains the valid old value
+    file.write_text(json.dumps(entry))
+    with pytest.raises(SchemaError):
+        client.call_llm("JSON", json_schema=schema)
+
+
+def test_cache_key_covers_output_mode_and_thinking():
+    one = LLMClient(cfg(), FakeTransport())
+    two = LLMClient(cfg(structured_output_mode="json_schema"), FakeTransport())
+    three = LLMClient(cfg(enable_thinking=False), FakeTransport())
+    assert len({c._cache_key([], {}) for c in (one, two, three)}) == 3

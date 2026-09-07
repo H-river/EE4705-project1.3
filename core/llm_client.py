@@ -25,12 +25,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import pathlib
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol
 
-CACHE_FORMAT_VERSION = 1
+CACHE_FORMAT_VERSION = 2
 
 
 class APIError(RuntimeError):
@@ -44,12 +45,16 @@ class CacheMissError(APIError):
 class SchemaError(APIError):
     """The provider response failed structured-output validation."""
 
+    def __init__(self, message, response=None):
+        super().__init__(message)
+        self.response = response  # preserve invalid output for bounded repair/audit
+
 
 @dataclass
 class LLMConfig:
     model: str
     base_url: str  # e.g. "https://api.openai.com/v1"
-    api_key: Optional[str] = None
+    api_key: Optional[str] = field(default=None, repr=False)
     timeout_s: float = 60.0
     max_retries: int = 2  # retries AFTER the first attempt
     retry_backoff_s: float = 1.0
@@ -57,6 +62,16 @@ class LLMConfig:
     max_tokens: int = 1024
     cache_dir: Optional[str] = None
     cache_only: bool = False
+    structured_output_mode: str = "json_object"  # or provider-enforced json_schema
+    enable_thinking: Optional[bool] = None  # Qwen-specific; omitted unless configured
+
+    def __post_init__(self):
+        if self.structured_output_mode not in ("json_object", "json_schema"):
+            raise ValueError("structured_output_mode must be json_object or json_schema")
+        if self.enable_thinking is not None and not isinstance(self.enable_thinking, bool):
+            raise ValueError("enable_thinking must be a boolean or None")
+        if self.timeout_s <= 0 or self.max_retries < 0 or self.max_tokens < 1:
+            raise ValueError("timeout/max_tokens must be positive and max_retries nonnegative")
 
 
 @dataclass
@@ -69,6 +84,7 @@ class LLMResponse:
     latency_s: float = 0.0
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    source: str = "unknown"  # live, fixture, or custom_transport; retained on cache hits
 
 
 @dataclass
@@ -104,7 +120,8 @@ class RequestsTransport:
         import requests
 
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=timeout_s)
+            resp = requests.post(url, headers=headers, json=payload, timeout=timeout_s,
+                                 allow_redirects=False)
         except requests.RequestException as exc:
             raise TransportError(str(exc)) from exc
         try:
@@ -142,7 +159,9 @@ class FakeTransport:
 # ---------------------------------------------------------------- schema
 
 def validate_schema(value: Any, schema: dict, path: str = "$") -> None:
-    """Minimal JSON-schema subset: type, properties, required, items, enum."""
+    """Schema subset: type, properties, required, items, enum, additionalProperties,
+    min/maxItems, min/maxLength. This is not a complete JSON Schema implementation.
+    """
     t = schema.get("type")
     type_map = {"object": dict, "array": list, "string": str, "number": (int, float),
                 "integer": int, "boolean": bool}
@@ -156,6 +175,8 @@ def validate_schema(value: Any, schema: dict, path: str = "$") -> None:
             raise SchemaError(f"{path}: expected {t}, got {type(value).__name__}")
     if "enum" in schema and value not in schema["enum"]:
         raise SchemaError(f"{path}: {value!r} not in enum {schema['enum']}")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise SchemaError(f"{path}: number must be finite")
     if t == "object":
         for key in schema.get("required", []):
             if key not in value:
@@ -163,9 +184,26 @@ def validate_schema(value: Any, schema: dict, path: str = "$") -> None:
         for key, sub in schema.get("properties", {}).items():
             if key in value:
                 validate_schema(value[key], sub, f"{path}.{key}")
+        extra = set(value) - set(schema.get("properties", {}))
+        additional = schema.get("additionalProperties", True)
+        if additional is False and extra:
+            raise SchemaError(f"{path}: unexpected keys {sorted(extra)}")
+        if isinstance(additional, dict):
+            for key in extra:
+                validate_schema(value[key], additional, f"{path}.{key}")
     if t == "array" and "items" in schema:
         for i, item in enumerate(value):
             validate_schema(item, schema["items"], f"{path}[{i}]")
+    for kind, lower, upper in (("array", "minItems", "maxItems"), ("string", "minLength", "maxLength")):
+        if t == kind:
+            if lower in schema and len(value) < schema[lower]:
+                raise SchemaError(f"{path}: violates {lower}={schema[lower]}")
+            if upper in schema and len(value) > schema[upper]:
+                raise SchemaError(f"{path}: violates {upper}={schema[upper]}")
+
+
+def _reject_nonfinite(value):
+    raise SchemaError(f"non-finite JSON constant: {value}")
 
 
 def _extract_json(text: str) -> dict:
@@ -177,13 +215,13 @@ def _extract_json(text: str) -> dict:
             s = s[: -3]
         s = s.strip()
     try:
-        out = json.loads(s)
+        out = json.loads(s, parse_constant=_reject_nonfinite)
     except json.JSONDecodeError as exc:
         # last resort: first {...} span
         start, end = s.find("{"), s.rfind("}")
         if start >= 0 and end > start:
             try:
-                out = json.loads(s[start : end + 1])
+                out = json.loads(s[start : end + 1], parse_constant=_reject_nonfinite)
             except json.JSONDecodeError:
                 raise SchemaError(f"response is not valid JSON: {exc}") from exc
         else:
@@ -202,6 +240,8 @@ class LLMClient:
     def __init__(self, config: LLMConfig, transport: Optional[Transport] = None) -> None:
         self.config = config
         self.transport = transport if transport is not None else RequestsTransport()
+        self.response_source = ("fixture" if isinstance(self.transport, FakeTransport) else
+                                "live" if isinstance(self.transport, RequestsTransport) else "custom_transport")
         self.stats = LLMStats()
         self._cache_dir = pathlib.Path(config.cache_dir) if config.cache_dir else None
         if self._cache_dir is not None:
@@ -245,6 +285,9 @@ class LLMClient:
                 "schema": json_schema,
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
+                "structured_output_mode": self.config.structured_output_mode,
+                "enable_thinking": self.config.enable_thinking,
+                "response_source": self.response_source,  # never replay a fixture as a live model
             },
             sort_keys=True,
         )
@@ -263,8 +306,15 @@ class LLMClient:
         if path is not None and path.exists():
             entry = json.loads(path.read_text())
             resp = LLMResponse(text=entry["text"], parsed=entry.get("parsed"),
-                               raw=entry.get("raw"), cached=True)
+                               raw=entry.get("raw"), cached=True, source=entry.get("source", "unknown"))
             self.stats.cache_hits += 1
+            if json_schema is not None:
+                try:
+                    resp.parsed = _extract_json(resp.text)
+                    validate_schema(resp.parsed, json_schema)
+                except SchemaError as exc:
+                    exc.response = resp
+                    raise
             return resp
 
         if self.config.cache_only:
@@ -281,7 +331,13 @@ class LLMClient:
             "max_tokens": self.config.max_tokens,
         }
         if json_schema is not None:
-            payload["response_format"] = {"type": "json_object"}
+            if self.config.structured_output_mode == "json_schema":
+                payload["response_format"] = {"type": "json_schema", "json_schema": {
+                    "name": "structured_response", "strict": True, "schema": json_schema}}
+            else:
+                payload["response_format"] = {"type": "json_object"}
+        if self.config.enable_thinking is not None:
+            payload["enable_thinking"] = self.config.enable_thinking
 
         url = self.config.base_url.rstrip("/") + "/chat/completions"
         headers = {"Authorization": f"Bearer {self.config.api_key}",
@@ -291,6 +347,7 @@ class LLMClient:
         start = time.monotonic()
         last_error = "no attempt made"
         body: Optional[dict] = None
+        self.stats.live_requests += 1  # transport calls; source separately labels test fixtures
         while attempts <= self.config.max_retries:
             attempts += 1
             self.stats.attempts += 1
@@ -320,21 +377,28 @@ class LLMClient:
         prompt_tokens = int(usage.get("prompt_tokens", 0))
         completion_tokens = int(usage.get("completion_tokens", 0))
 
-        parsed: Optional[dict] = None
-        if json_schema is not None:
-            parsed = _extract_json(text)
-            validate_schema(parsed, json_schema)
-
-        resp = LLMResponse(text=text, parsed=parsed, raw=body, cached=False,
+        resp = LLMResponse(text=text, raw=body, cached=False,
                            attempts=attempts, latency_s=latency,
-                           prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
-        self.stats.live_requests += 1
+                           prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+                           source=self.response_source)
         self.stats.prompt_tokens += prompt_tokens
         self.stats.completion_tokens += completion_tokens
         self.stats.total_latency_s += latency
+        if json_schema is not None:
+            try:
+                if not isinstance(text, str):
+                    raise SchemaError("structured response content must be a string")
+                finish_reason = body["choices"][0].get("finish_reason")
+                if finish_reason not in (None, "stop"):
+                    raise SchemaError(f"response did not finish normally: {finish_reason}")
+                resp.parsed = _extract_json(text)
+                validate_schema(resp.parsed, json_schema)
+            except SchemaError as exc:
+                exc.response = resp
+                raise
 
         if path is not None:
             entry = {"cache_format_version": CACHE_FORMAT_VERSION, "text": text,
-                     "parsed": parsed, "raw": body}
+                     "parsed": resp.parsed, "raw": body, "source": resp.source}
             path.write_text(json.dumps(entry))
         return resp

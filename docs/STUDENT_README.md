@@ -21,7 +21,7 @@ All three students also share the environment/report work in Task 1 and final in
 
 **You can start separately.** A does not need to write robot motion code. B can develop with a small object list before A is ready. C can reuse the existing motion functions before B is ready.
 
-The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. The three student files are currently **stubs**: their method names exist, but their real work still needs to be implemented.
+The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. A and C's student files are still **stubs**. B now has a Qwen interface with offline tests; real Qwen performance still needs evaluation. Start B with the [Qwen guide](STUDENT_B_README.md).
 
 Start with [setup](#1-start-the-project), then read your section: [Student A](#2-student-a-help-the-robot-see), [Student B](#3-student-b-turn-instructions-into-actions), or [Student C](#4-student-c-make-the-robot-act). Use the [technical reference](#7-technical-reference-use-when-needed) when you need exact fields or units.
 
@@ -279,7 +279,7 @@ Later, your model should generate the plan from the instruction and scene rather
 
 ### Your Python interface: input and output
 
-Edit `planner/student_b.py`. Keep the class name `StudentBPlanner`.
+The Qwen adapter is implemented in `planner/student_b.py`. Keep the class name `StudentBPlanner`. Follow the [B guide](STUDENT_B_README.md) for its offline run, exact JSON format and API setup.
 
 | Method | Input | Output |
 | --- | --- | --- |
@@ -304,7 +304,7 @@ Edit `planner/student_b.py`. Keep the class name `StudentBPlanner`.
 | "The stone" could mean either of two stones | `NEEDS_CLARIFICATION`, a question, and no actions |
 | The request is unsupported or clearly impossible | `INFEASIBLE`, a reason, and no actions |
 
-For SEARCH, `target` is a word such as `stone`. For actions on a visible object, use A's ID such as `p0`. Prefer IDs over copying positions into every action: C can look up the latest position before moving.
+For SEARCH, `target` is a word such as `stone`. For actions on a visible object, use A's ID such as `p0`. The Qwen response uses IDs; B's Python compiler fills positions from A. C can refresh them from a newer observation before moving.
 
 **A valid format does not prove a correct plan.** A plan can pass `validate_plan` while choosing the wrong object. Your evaluation must check the instruction's meaning too.
 
@@ -316,13 +316,13 @@ Run the existing planning and model-client checks:
 .venv/bin/python -m pytest -q tests/test_validation.py tests/test_llm_client.py
 ```
 
-Create `tests/test_student_b.py` for your planner. Use saved scenes like the example, and test paraphrases, wrong IDs, impossible requests, ambiguity, malformed output, and replanning while holding an object. **After creating the file**, run:
+`tests/test_student_b.py` now contains offline contract and simulation integration tests. Run them, then add real-model instruction tests with independently labelled answers:
 
 ```bash
 .venv/bin/python -m pytest -q tests/test_student_b.py
 ```
 
-When your real module works, set `IMPLEMENTED = True`, then run:
+B already has `IMPLEMENTED = True` because its interface is implemented. This does not mean real-model accuracy is verified. After configuring Qwen as described in the [B guide](STUDENT_B_README.md), run:
 
 ```bash
 .venv/bin/python -m eval.runner --mode planning --trials eval/trials/smoke --out runs/student_b

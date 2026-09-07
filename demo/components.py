@@ -19,8 +19,9 @@ def load_components(students=(), retry=False):
     components = {"A": RGBDPerception(), "B": DemoPlanner(), "C": DemoExecutor(fail_first_grasp=retry)}
     for role in students:
         components[role] = student_classes[role]()
-    labels = {role: (f"{role}: {type(module).__name__} (student implementation, model use not audited)"
-                     if role in students else module.LABEL) for role, module in components.items()}
+    labels = {role: getattr(module, "LABEL",
+                            f"{role}: {type(module).__name__} (student implementation, model use not audited)")
+              for role, module in components.items()}
     return components, labels
 
 
