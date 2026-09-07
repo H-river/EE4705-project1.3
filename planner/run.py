@@ -8,7 +8,7 @@ from planner.config import QwenPlannerConfig
 from planner.contract import WIRE_SCHEMA
 from planner.fixtures import INSTRUCTION, example_response, example_scene, fixture_planner
 from planner.prompts import json_value
-from planner.student_b import StudentBPlanner
+from planner.student_b import PlannerError, StudentBPlanner
 
 
 def load_scene(path):
@@ -47,7 +47,13 @@ def main(argv=None):
         args.out.mkdir(parents=True, exist_ok=True)
         for name, value in (("scene.json", scene), ("input.json", {"instruction": instruction, "scene": scene})):
             (args.out / name).write_text(json.dumps(json_value(value), indent=2) + "\n")
-        plan = planner.plan(instruction, scene)
+        try:
+            plan = planner.plan(instruction, scene)
+        except PlannerError:
+            if planner.last_diagnostics is not None:
+                (args.out / "diagnostics.json").write_text(json.dumps(planner.last_diagnostics, indent=2) + "\n")
+                print(f"Failure diagnostics: {(args.out / 'diagnostics.json').resolve()}")
+            raise
         (args.out / "plan.json").write_text(json.dumps(json_value(plan), indent=2) + "\n")
         parsed = planner.last_diagnostics["responses"][-1]["response"]["parsed"]
         (args.out / "response.json").write_text(json.dumps(parsed, indent=2) + "\n")

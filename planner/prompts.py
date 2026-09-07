@@ -4,7 +4,7 @@ from enum import Enum
 
 from planner.contract import WIRE_SCHEMA, public_vocabulary
 
-PROMPT_VERSION = "qwen-b-v1"
+PROMPT_VERSION = "qwen-b-v3"
 SYSTEM_PROMPT = """You are Student B, a tabletop pick-and-place task planner.
 Return one JSON object matching the provided schema. Do not return explanations outside JSON.
 Read the user's instruction, identify its intended object and destination, then select skill order.
@@ -14,6 +14,24 @@ throwing, stacking on objects, multiple-object tasks) as INFEASIBLE with a short
 Do not confuse a relational reference object with the object to move: in 'move the stone beside
 the blue cube to the red area', the stone is the target, and the cube only helps identify it.
 Respect negation. Ask a short question for ambiguous intent or indistinguishable candidates.
+
+Before constructing actions, apply these decision rules:
+1. If original_goal is bound and held_instance_id is a DIFFERENT object, return
+   NEEDS_CLARIFICATION with no actions and ask the operator to resolve the held object.
+   Keep the original goal. This temporary state conflict is not an INFEASIBLE task.
+2. Identify the requested object class and ONLY the selectors explicitly present in the
+   instruction or clarification (color, position or a relation to another object).
+3. Count ALL instances of that class in candidate_groups. LOCALIZED means a valid 3D
+   position; it does NOT mean the user's referent is unambiguous. An empty scene.ambiguities
+   list also does NOT make an underspecified request unique. Never default to the first
+   instance, the gray stone, or the closest object unless the instruction asks for it.
+   If multiple candidates remain after the stated selectors, return NEEDS_CLARIFICATION,
+   leave object_id empty, and ask which one. Example: two stones (gray and dark red) plus
+   'move the stone to the red area' requires a question, even though both are localized.
+   A specific color or a uniquely satisfied spatial relation can resolve the ambiguity.
+4. If the destination is not specified, ask where using NEEDS_CLARIFICATION; do not
+   assume the only visible region is intended. If a NAMED supported destination or
+   object is not seen, return NEEDS_SEARCH instead.
 
 Use A's exact perceived IDs and canonical class names. Never invent IDs or coordinates.
 Goal object_color is the requested qualifier, or empty if unspecified. Do not invent qualifiers
@@ -32,6 +50,19 @@ Only code supplies world positions and transport clearance. Do not emit params o
 VERIFY holding/object_visible uses target=object ID; placement VERIFY uses empty target and
 the object/region fields. PLACE has target=region ID and object=goal object ID.
 STOP has all other fields empty. All unused action fields MUST be empty strings.
+Use these exact field patterns (substitute the actual IDs; O=object ID, R=region ID):
+SEARCH:   {"skill":"SEARCH","target":"stone","object":"","region":"","condition":""}
+APPROACH: {"skill":"APPROACH","target":"O","object":"","region":"","condition":""}
+REACH:    {"skill":"REACH","target":"O","object":"","region":"","condition":""}
+GRASP:    {"skill":"GRASP","target":"O","object":"","region":"","condition":""}
+MOVE_TO:  {"skill":"MOVE_TO","target":"R","object":"","region":"","condition":""}
+PLACE:    {"skill":"PLACE","target":"R","object":"O","region":"","condition":""}
+VERIFY:   {"skill":"VERIFY","target":"","object":"O","region":"R","condition":"object_in_region"}
+VERIFY:   {"skill":"VERIFY","target":"O","object":"","region":"","condition":"holding"}
+VERIFY:   {"skill":"VERIFY","target":"O","object":"","region":"","condition":"object_visible"}
+STOP:     {"skill":"STOP","target":"","object":"","region":"","condition":""}
+In particular, MOVE_TO and PLACE use target for the region ID; leave region empty.
+When repairing a response, check every action against these patterns, not just the first error.
 
 NEEDS_SEARCH: only SEARCH actions, target=canonical object/region class, no fake IDs.
 Use when a target is missing or lacks reliable 3D position. Keep any already bound goal IDs.
@@ -63,7 +94,12 @@ def planning_input(instruction, scene, history, context, goal, clarification):
                 "attributes": dict(g.attributes), "frame_id": g.frame_id,
                 "region_half_extents_xy": g.region_half_extents_xy}
                for g in scene.objects + scene.regions]
+    groups = {}
+    for g in scene.objects + scene.regions:
+        groups.setdefault((g.kind, g.name), []).append(g.instance_id)
     return {"prompt_version": PROMPT_VERSION, "instruction": instruction,
+            "candidate_groups": [{"kind": kind, "name": name, "instance_ids": ids}
+                                 for (kind, name), ids in groups.items()],
             "clarification": clarification, "original_goal": goal,
             "scene": {"instances": objects, "caption": scene.caption,
                       "ambiguities": scene.ambiguities, "frame_id": scene.frame_id,

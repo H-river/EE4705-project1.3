@@ -1,0 +1,121 @@
+{
+  "description": "Real Qwen outputs from the first API attempt and its repair. Offline replay tests adapter behavior only.",
+  "source_audit": "runs/qwen_b_audit/de43585132464665b63252f1cf0a99f8/001.json",
+  "source_model": "qwen3.7-plus-2026-05-26",
+  "responses": [
+    {
+      "schema_version": "student-b-plan-v1",
+      "status": "READY",
+      "goal": {
+        "object_id": "p0",
+        "object_name": "stone",
+        "object_color": "gray",
+        "region_id": "p2",
+        "region_name": "red_region"
+      },
+      "actions": [
+        {
+          "skill": "APPROACH",
+          "target": "p0",
+          "object": "p0",
+          "region": "",
+          "condition": ""
+        },
+        {
+          "skill": "GRASP",
+          "target": "p0",
+          "object": "p0",
+          "region": "",
+          "condition": ""
+        },
+        {
+          "skill": "MOVE_TO",
+          "target": "p2",
+          "object": "p0",
+          "region": "p2",
+          "condition": ""
+        },
+        {
+          "skill": "PLACE",
+          "target": "p2",
+          "object": "p0",
+          "region": "p2",
+          "condition": ""
+        },
+        {
+          "skill": "VERIFY",
+          "target": "",
+          "object": "p0",
+          "region": "p2",
+          "condition": "object_in_region"
+        },
+        {
+          "skill": "STOP",
+          "target": "",
+          "object": "",
+          "region": "",
+          "condition": ""
+        }
+      ],
+      "reason": "",
+      "clarification_question": ""
+    },
+    {
+      "schema_version": "student-b-plan-v1",
+      "status": "READY",
+      "goal": {
+        "object_id": "p0",
+        "object_name": "stone",
+        "object_color": "gray",
+        "region_id": "p2",
+        "region_name": "red_region"
+      },
+      "actions": [
+        {
+          "skill": "APPROACH",
+          "target": "p0",
+          "object": "",
+          "region": "",
+          "condition": ""
+        },
+        {
+          "skill": "GRASP",
+          "target": "p0",
+          "object": "",
+          "region": "",
+          "condition": ""
+        },
+        {
+          "skill": "MOVE_TO",
+          "target": "p2",
+          "object": "",
+          "region": "p2",
+          "condition": ""
+        },
+        {
+          "skill": "PLACE",
+          "target": "p2",
+          "object": "p0",
+          "region": "p2",
+          "condition": ""
+        },
+        {
+          "skill": "VERIFY",
+          "target": "",
+          "object": "p0",
+          "region": "p2",
+          "condition": "object_in_region"
+        },
+        {
+          "skill": "STOP",
+          "target": "",
+          "object": "",
+          "region": "",
+          "condition": ""
+        }
+      ],
+      "reason": "",
+      "clarification_question": ""
+    }
+  ]
+}

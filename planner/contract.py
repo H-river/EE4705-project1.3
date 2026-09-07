@@ -1,6 +1,8 @@
 """Qwen wire format -> the existing backbone Plan. No model-written coordinates."""
 from __future__ import annotations
 
+import copy
+
 from core.action_targets import resolve_action_position
 from core.llm_client import validate_schema
 from core.types import Action, GroundStatus, Plan, PlanStatus, Skill
@@ -8,6 +10,7 @@ from core.validation import validate_plan
 from core.vocab import Vocab
 
 WIRE_VERSION = "student-b-plan-v1"
+COMPILER_VERSION = "student-b-compiler-v2"
 
 
 def _object(properties):
@@ -47,9 +50,63 @@ def public_vocabulary():
     return rows
 
 
-def compile_plan(wire, context, locked_goal=None, known=None):
+def _used_fields(item):
+    used = {"skill", "target"}
+    if item["skill"] == "PLACE":
+        used.add("object")
+    elif item["skill"] == "VERIFY":
+        used.add("condition")
+        if item["condition"] == "object_in_region":
+            used.update(("object", "region"))
+            used.remove("target")
+    elif item["skill"] == "STOP":
+        used.remove("target")
+    return used
+
+
+def _normalize_action_fields(wire):
+    """Drop only explicitly allowed, matching duplicate IDs; never infer a target.
+
+    The full goal, holding state, order and grounding checks still run afterwards.
+    Work on a copy so raw model responses remain available for evaluation.
+    """
+    result, changes, errors = copy.deepcopy(wire), [], []
+    for index, item in enumerate(result["actions"]):
+        skill, target = item["skill"], item["target"]
+        duplicates = {}
+        if skill in ("APPROACH", "REACH", "GRASP") or (
+                skill == "VERIFY" and item["condition"] in ("holding", "object_visible")):
+            duplicates["object"] = (target, "target")
+        elif skill == "MOVE_TO":
+            duplicates["object"] = (result["goal"]["object_id"], "goal.object_id")
+            duplicates["region"] = (target, "target")
+        elif skill == "PLACE":
+            duplicates["region"] = (target, "target")
+        used = _used_fields(item)
+        for field in ("target", "object", "region", "condition"):
+            value = item[field]
+            if field in used or not value:
+                continue
+            expected, matches = duplicates.get(field, (None, None))
+            if expected and value == expected:
+                changes.append({"action_index": index, "skill": skill, "field": field,
+                                "from": value, "to": "", "matches": matches})
+                item[field] = ""
+            else:
+                detail = f" or a duplicate of {matches}={expected!r}" if expected else ""
+                errors.append(f"Action {index} ({skill}): {field}={value!r} is not allowed; "
+                              f"expected an empty string{detail}")
+    if errors:
+        raise PlanContractError("; ".join(errors))
+    return result, changes
+
+
+def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=None):
     """Return Plan + validated goal, or reject. This cannot prove language accuracy or IK."""
     validate_schema(wire, WIRE_SCHEMA)
+    wire, changes = _normalize_action_fields(wire)
+    if normalizations is not None:
+        normalizations.extend(changes)
     scene, goal = context.scene, dict(wire["goal"])
     known = known or {}
     status = PlanStatus(wire["status"])
@@ -88,20 +145,14 @@ def compile_plan(wire, context, locked_goal=None, known=None):
     for index, item in enumerate(wire["actions"]):
         skill, target = Skill(item["skill"]), item["target"]
         require(not verified or skill is Skill.STOP, "Only STOP may follow final placement VERIFY")
-        used = {"skill", "target"}
         params = {}
         if skill is Skill.PLACE:
-            used.add("object")
             params["object"] = item["object"]
         elif skill is Skill.VERIFY:
-            used.add("condition")
             params["condition"] = item["condition"]
             if item["condition"] == "object_in_region":
-                used.update(("object", "region"))
                 params.update(object=item["object"], region=item["region"])
                 require(not target, "Placement VERIFY uses object/region fields, with empty target")
-        require(all(not value for key, value in item.items() if key not in used),
-                f"Action {index}: unused fields must be empty strings")
         require(status in (PlanStatus.READY, PlanStatus.NEEDS_SEARCH), "Non-action status must have no actions")
         if status is PlanStatus.NEEDS_SEARCH:
             require(skill is Skill.SEARCH, "NEEDS_SEARCH may only contain SEARCH actions")

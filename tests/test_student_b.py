@@ -42,6 +42,58 @@ def test_compiles_only_a_coordinates_and_records_provenance(tmp_path):
     assert "enable_thinking" not in payload
 
 
+@pytest.mark.parametrize("response_index,normalization_count", [(0, 5), (1, 2)])
+def test_recorded_qwen_duplicates_compile_without_another_model_call(tmp_path, response_index, normalization_count):
+    fixture = json.loads((Path(__file__).parent / "fixtures/qwen_b_redundant_fields.json").read_text())
+    wire = fixture["responses"][response_index]
+    original = copy.deepcopy(wire)
+    planner = fixture_planner([wire], tmp_path)
+    plan = planner.plan(INSTRUCTION, example_scene())
+    assert validate_plan(plan, ExecutionContext(example_scene())) == []
+    assert [a.skill.value for a in plan.actions] == ["APPROACH", "GRASP", "MOVE_TO", "PLACE", "VERIFY", "STOP"]
+    assert plan.actions[1].target == "p0" and plan.actions[3].target == "p2"
+    assert wire == original and json.loads(plan.raw_llm_output) == original
+    assert len(planner.client.transport.requests) == 1
+    assert planner.last_diagnostics["normalization_count"] == normalization_count
+    assert planner.last_diagnostics["repair_count"] == 0
+    assert planner.last_diagnostics["response_source"] == "fixture"
+    assert planner.last_diagnostics["compiler_version"] == "student-b-compiler-v2"
+
+
+@pytest.mark.parametrize("index,field,value", [(0, "object", "p1"), (1, "object", "invented"),
+                                               (2, "object", "p1"), (2, "region", "p1"),
+                                               (3, "region", "p0"), (5, "object", "p0"),
+                                               (4, "target", "p0")])
+def test_normalization_does_not_hide_conflicting_or_unsupported_fields(index, field, value):
+    wire = example_response()
+    wire["actions"][index][field] = value
+    with pytest.raises(PlanContractError, match=f"Action {index}.*{field}="):
+        compile_plan(wire, ExecutionContext(example_scene()))
+
+
+def test_repair_receives_all_field_conflicts_at_once(tmp_path):
+    bad = example_response()
+    bad["actions"][0]["object"] = "p1"
+    bad["actions"][2]["region"] = "p1"
+    bad["actions"][3]["condition"] = "holding"
+    planner = fixture_planner([bad, example_response()], tmp_path)
+    planner.plan(INSTRUCTION, example_scene())
+    repair = json.loads(planner.client.transport.requests[1]["payload"]["messages"][-1]["content"])["repair"]
+    assert all(f"Action {index}" in repair["validation_error"] for index in (0, 2, 3))
+    assert "object='p1'" in repair["validation_error"]
+    assert "region='p1'" in repair["validation_error"]
+    assert "condition='holding'" in repair["validation_error"]
+
+
+def test_duplicate_normalization_keeps_holding_and_goal_checks(tmp_path):
+    wire = example_response()
+    wire["actions"] = wire["actions"][2:]
+    wire["actions"][0]["object"] = "p0"
+    wire["actions"][0]["region"] = "p2"
+    with pytest.raises(PlanContractError, match="Held object differs"):
+        compile_plan(wire, ExecutionContext(example_scene(), held_instance_id="p1"))
+
+
 @pytest.mark.parametrize("damage", ["unknown_id", "coordinates", "order", "wrong_verify", "missing_stop",
                                     "wrong_color", "wrong_kind", "extra_action_field", "missing_field"])
 def test_rejects_bad_output_then_repairs_once(tmp_path, damage):
@@ -61,7 +113,7 @@ def test_rejects_bad_output_then_repairs_once(tmp_path, damage):
     elif damage == "wrong_kind":
         bad["goal"]["region_id"] = "p1"
     elif damage == "extra_action_field":
-        bad["actions"][0]["object"] = "p0"
+        bad["actions"][0]["object"] = "p1"  # a conflicting ID, not a harmless duplicate
     else:
         del bad["status"]
     planner = fixture_planner([bad, example_response()], tmp_path)
@@ -234,6 +286,18 @@ def test_offline_cli_writes_reusable_inputs_and_cannot_overwrite(tmp_path):
         main(["--offline-demo", "--out", str(tmp_path)])
 
 
+def test_cli_retains_failure_diagnostics_in_requested_output(tmp_path, monkeypatch):
+    import planner.run as run_module
+    monkeypatch.setattr(run_module, "fixture_planner",
+                        lambda responses, audit_dir: fixture_planner(["bad JSON", "bad JSON"], audit_dir))
+    with pytest.raises(SystemExit) as caught:
+        main(["--offline-demo", "--out", str(tmp_path)])
+    assert caught.value.code == 2
+    result = json.loads((tmp_path / "diagnostics.json").read_text())
+    assert result["accepted"] is False and len(result["responses"]) == 2
+    assert not (tmp_path / "plan.json").exists()
+
+
 def test_fixture_student_b_connects_to_real_simulated_demo_a_and_c(tmp_path, monkeypatch):
     from demo.run import run_episode
     # Fixed response for this fixed scene: demo A observes stone p0 and region p2.
@@ -249,3 +313,21 @@ def test_fixture_student_b_connects_to_real_simulated_demo_a_and_c(tmp_path, mon
     assert result["actual"]["checks"]["stable"]
     assert result["grasp_records"][0]["held_gt_id"] == "stone"
     assert planner.last_diagnostics["response_source"] == "fixture"
+    assert [e for e in result["events"] if e["type"] == "B.model"]
+
+
+def test_recorded_failed_grasp_actually_replans_through_b(tmp_path, monkeypatch):
+    from demo.run import run_episode
+    planner = fixture_planner([example_response(), example_response()], tmp_path / "audit")
+    import planner.student_b as module
+    class OfflineStudentB:
+        IMPLEMENTED = True
+        def __new__(cls):
+            return planner
+    monkeypatch.setattr(module, "StudentBPlanner", OfflineStudentB)
+    result = run_episode(tmp_path / "episode", scenario="retry", students=["B"], video=False, max_action_attempts=1)
+    assert result["claimed_success"] and result["actual_success"], result["episode"]
+    audits = [e["data"] for e in result["events"] if e["type"] == "B.model"]
+    assert len(audits) == 2
+    assert audits[1]["input"]["original_goal"]["object_id"] == "p0"
+    assert any(r["error_code"] == "GRASP_MISSED" for r in audits[1]["input"]["history_tail"])

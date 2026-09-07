@@ -58,14 +58,25 @@ class ObservedPlanner(Planner):
         self.inner.reset()
 
     def plan(self, instruction, scene):
-        result = self.inner.plan(instruction, scene)
+        try:
+            result = self.inner.plan(instruction, scene)
+        finally:
+            self._record_model()
         self.recorder.on_plan(instruction, scene, result)
         return result
 
     def replan(self, instruction, scene, history, context, clarification=None):
-        result = self.inner.replan(instruction, scene, history, context, clarification)
+        try:
+            result = self.inner.replan(instruction, scene, history, context, clarification)
+        finally:
+            self._record_model()
         self.recorder.on_plan(instruction, scene, result)
         return result
+
+    def _record_model(self):
+        audit = getattr(self.inner, "last_diagnostics", None)
+        if audit:
+            self.recorder.event("B.model", audit)
 
 
 class ObservedExecutor(Executor):

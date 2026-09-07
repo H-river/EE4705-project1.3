@@ -21,7 +21,7 @@ All three students also share the environment/report work in Task 1 and final in
 
 **You can start separately.** A does not need to write robot motion code. B can develop with a small object list before A is ready. C can reuse the existing motion functions before B is ready.
 
-The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. A and C's student files are still **stubs**. B now has a Qwen interface with offline tests; real Qwen performance still needs evaluation. Start B with the [Qwen guide](STUDENT_B_README.md).
+The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. A and C's student files are still **stubs**. B has a live Qwen interface with offline tests and a 32/32 result on a predefined planning set. Start B with the [Qwen guide](STUDENT_B_README.md); the [live report](validation/QWEN_B_LIVE.md) explains what that result covers.
 
 Start with [setup](#1-start-the-project), then read your section: [Student A](#2-student-a-help-the-robot-see), [Student B](#3-student-b-turn-instructions-into-actions), or [Student C](#4-student-c-make-the-robot-act). Use the [technical reference](#7-technical-reference-use-when-needed) when you need exact fields or units.
 
@@ -322,13 +322,15 @@ Run the existing planning and model-client checks:
 .venv/bin/python -m pytest -q tests/test_student_b.py
 ```
 
-B already has `IMPLEMENTED = True` because its interface is implemented. This does not mean real-model accuracy is verified. After configuring Qwen as described in the [B guide](STUDENT_B_README.md), run:
+B already has `IMPLEMENTED = True`. The live adapter passed 32 predefined B cases, but new instructions and A/C integration still need testing. After configuring Qwen as described in the [B guide](STUDENT_B_README.md), run:
 
 ```bash
 .venv/bin/python -m eval.runner --mode planning --trials eval/trials/smoke --out runs/student_b
 ```
 
 This uses prepared A/C replacements, so you can test integration without waiting for teammates.
+For B's meaning and action-order accuracy, run the separately labelled benchmark in
+[Section 6 of the B guide](STUDENT_B_README.md#6-measure-b-without-waiting-for-a-or-c).
 
 For the report, use **at least 20 natural-language instructions**, including paraphrases and invalid/infeasible requests. Label each instruction's intended object, destination, expected status, and required action order before evaluating the model.
 Count a plan as correct only when its format, references, action dependencies, and meaning are correct. Different valid sequences can count as correct; they do not need to match one answer word for word.

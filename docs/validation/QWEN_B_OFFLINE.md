@@ -1,5 +1,8 @@
 # Student B Qwen interface: offline validation
 
+Historical snapshot of the initial offline implementation. Live API evaluation
+was added later the same day; see [QWEN_B_LIVE.md](QWEN_B_LIVE.md) for current results.
+
 Date: 2026-09-07. Working directory: `/home/jiamo/EE4705/project1.3`.
 User requested the interface and offline tests without Qwen credentials.
 No real Qwen request was made. The model identifier in live configuration is

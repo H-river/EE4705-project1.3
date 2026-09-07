@@ -413,3 +413,32 @@ The user requested offline tests only; A and C's student modules remain stubs.
 
 See `docs/STUDENT_B_README.md` for commands and input/output details, and
 `docs/validation/QWEN_B_OFFLINE.md` for the tests and verification boundaries.
+
+## 15. Live Qwen planning evaluation and recorded recovery (2026-09-07)
+
+- A real response selected the correct goal but repeated IDs in unused action
+  fields. Compiler v2 clears only an explicit allowlist of consistent duplicates,
+  preserves the raw response, and logs each normalization. Conflicting IDs,
+  unknown fields and invented coordinates still fail. Repair feedback lists all
+  field conflicts together. Failed CLI runs save diagnostics in their output folder.
+- Prompt `qwen-b-v3` adds scene-derived candidate groups and explicit rules for
+  ambiguous targets, unspecified destinations and a wrongly held object. These
+  changes address two development failures; expected labels never enter B.
+- A separate evaluator scores expected status, goal IDs and action dependencies.
+  The 13-case development set was used for tuning. The 32-case evaluation was
+  frozen before the live run, with source/label snapshots and hashes. All cases,
+  including API errors, stay in the denominator; first-response semantic accuracy
+  is reported separately from structural validity and repaired accuracy.
+- The demo records `B.model` audit events, accepts an independent expected target,
+  and allows one action attempt to exercise B replanning after an injected miss.
+- Demo C opened its gripper after detaching the weld, so closed fingers could
+  eject the released object. It now stops motion and opens the gripper before
+  detaching, waiting at most two simulated seconds for public gripper feedback.
+  The position logic, visual and oracle tolerances are unchanged. The old failed
+  episode is retained; no oracle access was added to A/B/C.
+
+The fixed evaluation passed 32/32; three recorded final-code transfers passed
+both visual and independent physical checks. This remains a curated B planning
+test and demo A/C simulation, not validation of arbitrary instructions, student
+A/C implementations, contact-only grasping or robot hardware. Full evidence and
+reproduction commands: `docs/validation/QWEN_B_LIVE.md`.

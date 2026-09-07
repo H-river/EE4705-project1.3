@@ -114,8 +114,9 @@ This gives you real example inputs and outputs for your planner.
 `planner/student_b.py` now implements `plan()` and `replan()` through a Qwen
 adapter. First run its offline tests using the [B guide](STUDENT_B_README.md).
 Configure Qwen environment variables before the command below; it can make
-real API requests. Missing configuration raises an error. Real Qwen accuracy
-has not yet been evaluated.
+real API requests. Missing configuration raises an error. A predefined B-only
+evaluation passed 32/32; see the [live report](validation/QWEN_B_LIVE.md) for
+the separate planning results and physical episode checks.
 
 Then run:
 
@@ -136,9 +137,17 @@ Look for these signs:
 4. `actual.checks`: the evaluator's separate checks. A valid plan alone
    does not prove that the robot can execute it successfully.
 
-The expected object stays **stone**, even if your planner chooses another
-object. This prevents a wrong-object plan from passing just because it
-placed something in the red area.
+The expected object defaults to **stone**, even if your planner chooses another
+object. Set `--expected-target cube` with an instruction asking for the cube.
+This evaluator-only label never enters B and is never inferred from its answer.
+A wrong-object plan therefore cannot pass just because it placed something.
+
+Use `--scenario retry --attempts-per-action 1` to send the injected first
+`GRASP_MISSED` to B for replanning. The default two attempts retry locally in C.
+Each `B.model` event records the model input, raw response, validation and timing;
+`B.plan` records the compiled actions. The recorded final replan episode passes
+the independent placement check. See the [B guide](STUDENT_B_README.md#7-watch-and-test-recovery)
+for commands and the report containing both successful and failed videos.
 
 The other students can use the same switch:
 

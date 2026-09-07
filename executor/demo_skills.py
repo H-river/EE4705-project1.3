@@ -105,8 +105,17 @@ class DemoExecutor(Executor):
                     primitive = skills.move_to(env, release)
                     if primitive.success:
                         env.stop_motion()
-                        primitive = skills.place(env)
+                        # In weld mode the fingers are cosmetic while attached.
+                        # Open them before restoring object/gripper collisions:
+                        # detaching with closed fingers can eject the object.
                         env.set_gripper("right", 1.)
+                        deadline = env.sim_time() + 2.
+                        while env.sim_time() < deadline and env.get_robot_state().gripper_opening["right"] < .9:
+                            env.step(20)
+                        if env.get_robot_state().gripper_opening["right"] < .9:
+                            return ExecutionResult(action, False, ErrorCode.PLACE_FAILED,
+                                                   info={"detail": "Gripper did not open before release"})
+                        primitive = skills.place(env)
                         # Lift away so final visual verification can see the object.
                         retreat = skills.reach(env, env.get_ee_pos()+[0, 0, .14])
                         env.stop_motion()

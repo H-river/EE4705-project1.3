@@ -12,7 +12,7 @@ from core.interfaces import Planner
 from core.llm_client import APIError, LLMClient, SchemaError
 from core.types import ExecutionContext
 from planner.config import QwenPlannerConfig
-from planner.contract import PlanContractError, WIRE_SCHEMA, compile_plan
+from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan
 from planner.prompts import PROMPT_VERSION, SYSTEM_PROMPT, json_value, planning_input
 
 
@@ -87,20 +87,24 @@ class StudentBPlanner(Planner):
         self._call_index += 1
         data = planning_input(instruction, scene, history, context, self._goal, clarification)
         audit = {"schema": "student-b-audit-v1", "prompt_version": PROMPT_VERSION,
+                 "compiler_version": COMPILER_VERSION,
                  "settings": self.config.public_settings(), "input": data,
                  "system_prompt": SYSTEM_PROMPT, "responses": [], "accepted": False,
                  "response_source": self.client.response_source, "error": None}
         last_error = None
         for attempt in range(self.config.max_repairs + 1):
             response = None
+            normalizations = []
             try:
                 response = self.client.call_llm(json.dumps(data, ensure_ascii=False, allow_nan=False),
                                                 system=SYSTEM_PROMPT, json_schema=WIRE_SCHEMA)
-                plan, goal = compile_plan(response.parsed, context, self._goal, self._known)
+                plan, goal = compile_plan(response.parsed, context, self._goal, self._known,
+                                          normalizations=normalizations)
             except (SchemaError, PlanContractError) as exc:
                 response = response or getattr(exc, "response", None)
                 last_error = str(exc)
-                audit["responses"].append({"response": json_value(response), "validation_error": last_error})
+                audit["responses"].append({"response": json_value(response), "validation_error": last_error,
+                                           "normalizations": normalizations})
                 data = {**data, "repair": {"validation_error": last_error,
                         "previous_output": response.text if response else "",
                         "instruction": "Return corrected JSON; keep the original task and goal."}}
@@ -112,9 +116,11 @@ class StudentBPlanner(Planner):
                 plan.raw_llm_output = response.text
                 self._goal = goal
                 self._known.update({g.instance_id: copy.deepcopy(g) for g in scene.objects + scene.regions})
-                audit["responses"].append({"response": json_value(response), "validation_error": None})
+                audit["responses"].append({"response": json_value(response), "validation_error": None,
+                                           "normalizations": normalizations})
                 audit.update(accepted=True, compiled_plan=json_value(plan), goal=goal,
-                             repair_count=attempt, first_pass_valid=(attempt == 0))
+                             repair_count=attempt, first_pass_valid=(attempt == 0),
+                             normalization_count=len(normalizations))
                 self._save(audit)
                 return plan
         audit.update(error=last_error, repair_count=max(0, len(audit["responses"]) - 1))

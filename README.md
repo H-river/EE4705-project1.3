@@ -6,8 +6,10 @@ Shared infrastructure for the language-instructed tabletop manipulation
 project: frozen data contracts, MuJoCo simulation environment, plan
 validation, orchestration, ground-truth mocks, evaluation/logging, and an
 LLM/VLM client. Student A perception and Student C execution remain interface
-stubs. Student B now has a Qwen planner adapter with offline tests; real model
-accuracy is not yet evaluated. See the [B guide](docs/STUDENT_B_README.md).
+stubs. Student B has a live Qwen planner adapter: 32/32 predefined planning
+cases passed in the recorded evaluation. This is a small B-only test set;
+see the [B guide](docs/STUDENT_B_README.md) and
+[live results](docs/validation/QWEN_B_LIVE.md) for scope, commands and episodes.
 
 **Students: start with the [student guide](docs/STUDENT_README.md).**
 It explains each person's task in simple language, with runnable exercises,

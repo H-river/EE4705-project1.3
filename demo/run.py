@@ -39,7 +39,8 @@ class DemoOrchestrator(Orchestrator):
         self.recorder.event("backbone." + kind, data)
 
 
-def run_episode(out, scenario="success", instruction="Move the stone to the red area.", video=True, fps=10, students=()):
+def run_episode(out, scenario="success", instruction="Move the stone to the red area.", video=True, fps=10, students=(),
+                expected_target="stone", max_action_attempts=2):
     components, labels = load_components(students, retry=scenario == "retry")
     out = pathlib.Path(out).resolve()
     # An episode is an evidence bundle: never mix a new run with old artifacts.
@@ -56,6 +57,8 @@ def run_episode(out, scenario="success", instruction="Move the stone to the red 
         env = RobotEnv(world, store=store)
         recorder = Recorder(world, out, instruction, scenario, fps=fps, video=video)
         recorder.module_modes = " | ".join(f"{r}: {'student' if r in students else 'demo'}" for r in "ABC")
+        if "B" in students and hasattr(components["B"], "client"):
+            recorder.module_modes = recorder.module_modes.replace("B: student", "B: Qwen/" + components["B"].client.response_source)
         world.recorder = recorder
         perception = ObservedPerception(components["A"], recorder, store)
         planner = ObservedPlanner(components["B"], recorder)
@@ -64,14 +67,16 @@ def run_episode(out, scenario="success", instruction="Move the stone to the red 
         spy = GraspSpyExecutor(executor, oracle)
         recorder.capture(hold=.5, snapshot="start.png")
         result = DemoOrchestrator(perception, planner, spy, env, NoClarification(),
-                                  config=OrchestratorConfig(max_replans=1, max_search_attempts=1),
+                                  config=OrchestratorConfig(max_replans=1, max_search_attempts=1,
+                                                            max_action_attempts=max_action_attempts),
                                   store=store, recorder=recorder).run(instruction)
         recorder.stage = "EVALUATOR / CHECK"
         recorder.message = "Independent truth check: object identity, destination, release, and 2 s stability"
-        recorder.event("eval.start", {"target": "stone", "region": "red_region"}, hold=.6)
-        # This intentionally remains a STONE demo. A changed instruction cannot
-        # silently redefine the expected object to agree with a wrong planner.
-        actual = evaluate_actual(oracle, {"target": "stone", "region": "red_region"}, result.outcome,
+        expected = {"target": expected_target, "region": "red_region"}
+        recorder.event("eval.start", expected, hold=.6)
+        # Expected identity is an explicit evaluator label, never inferred from
+        # the model's plan and never passed to the student modules.
+        actual = evaluate_actual(oracle, expected, result.outcome,
                                  spy.grasp_records, result.clarifications)
         recorder.stage = "DONE / " + ("PASS" if result.claimed_success and actual.actual_success else "FAIL")
         recorder.message = f"Visual claim: {result.claimed_success} | Independent actual success: {actual.actual_success} | {actual.checks.get('stability_detail', '')}"
@@ -81,6 +86,7 @@ def run_episode(out, scenario="success", instruction="Move the stone to the red 
         recorder.close()
         summary = recorder.save({
             "schema": "abc-demo-v1", "scenario": scenario, "instruction": instruction,
+            "expected": expected, "max_action_attempts": max_action_attempts,
             "scene_config": config, "modules": labels, "student_modules": list(students),
             "fault_injection": "First GRASP returns GRASP_MISSED before motion" if scenario == "retry" else None,
             "claimed_success": result.claimed_success, "actual_success": actual.actual_success,
@@ -101,14 +107,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=pathlib.Path, required=True, help="New/empty episode directory")
     parser.add_argument("--scenario", choices=["success", "retry"], default="success")
-    parser.add_argument("--instruction", default="Move the stone to the red area.", help="Stone-to-red-area wording; evaluator target remains stone")
+    parser.add_argument("--instruction", default="Move the stone to the red area.", help="Task instruction")
+    parser.add_argument("--expected-target", choices=["stone", "stone2", "cube", "bottle"], default="stone",
+                        help="Independent evaluator label; never sent to A/B/C")
+    parser.add_argument("--attempts-per-action", type=int, choices=[1, 2], default=2,
+                        help="Use 1 with --scenario retry to force a B replan after the injected grasp failure")
     parser.add_argument("--no-video", action="store_true", help="Write JSON, observations and snapshots without ffmpeg")
     parser.add_argument("--fps", type=int, default=10, choices=[5, 10, 20, 25])
     parser.add_argument("--student", action="append", choices=["A", "B", "C"], default=[],
                         help="Replace a demo with its implemented student module; repeat for multiple roles")
     args = parser.parse_args(argv)
     try:
-        summary = run_episode(args.out, args.scenario, args.instruction, not args.no_video, args.fps, args.student)
+        summary = run_episode(args.out, args.scenario, args.instruction, not args.no_video, args.fps, args.student,
+                              args.expected_target, args.attempts_per_action)
     except (ValueError, RuntimeError) as exc:
         parser.exit(2, f"Demo setup/recording error: {exc}\n")
     print(f"{summary['outcome']}: claimed={summary['claimed_success']}, actual={summary['actual_success']}")
