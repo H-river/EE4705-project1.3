@@ -1,5 +1,10 @@
 # Student Guide: Build the Robot Task Together
 
+**Watch an example first:** the [offline demo guide](DEMO_README.md) has
+commands for a recorded A → B → C workflow and a browser replay. Student B
+can also run their own planner with demo A and C before the other modules
+are ready. The demo's A and B use rules; they do not complete the AI tasks.
+
 Our goal is to make a simulated robot follow an instruction such as:
 
 > "Find the stone, pick it up, and put it in the red area."

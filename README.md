@@ -13,6 +13,12 @@ planner, Student C executor) are **interface stubs** here — see
 It explains each person's task in simple language, with runnable exercises,
 input/output examples, test commands, and steps for connecting A, B, and C.
 
+**Want to watch the workflow first?** The [offline demo guide](docs/DEMO_README.md)
+shows how to record and replay a real simulated A → B → C episode, including
+one failed grasp followed by a retry. It also lets you plug in your own B
+while using the demo A and C. Its rule-based A/B are teaching baselines,
+separate from the student implementation stubs and course AI evaluation.
+
 > **Design document note:** `docs/backbone_design_v3.md` was not present at
 > implementation time; contract choices and their sources are recorded in
 > `docs/DECISIONS.md` §0.  If the v3 document is added later, reconcile

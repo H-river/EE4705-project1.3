@@ -28,11 +28,13 @@ packages = [
     "perception",
     "planner",
     "executor",
+    "demo",
     "eval",
     "eval.trials",
 ]
 
 [tool.setuptools.package-data]
+"demo" = ["replay.html"]
 "eval.trials" = ["**/*.yaml"]
 
 [tool.pytest.ini_options]
