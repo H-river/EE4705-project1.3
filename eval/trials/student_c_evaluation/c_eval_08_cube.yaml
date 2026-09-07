@@ -1,0 +1,30 @@
+id: c_eval_08_cube
+instruction: Move the blue cube to the red area.
+category: frozen_additional_c_evaluation
+scene:
+  seed: 708
+  robot_init:
+    x: -0.076
+    y: 0.014
+    yaw: -0.167
+  objects:
+  - name: stone
+    pos:
+    - 0.431
+    - -0.138
+    - 0.88
+  - name: cube
+    pos:
+    - 0.473
+    - 0.112
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.59
+    - -0.328
+    - 0.915
+expected:
+  feasible: true
+  target: cube
+  region: red_region
+  claimed_success: true

@@ -21,7 +21,7 @@ All three students also share the environment/report work in Task 1 and final in
 
 **You can start separately.** A does not need to write robot motion code. B can develop with a small object list before A is ready. C can reuse the existing motion functions before B is ready.
 
-The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. A and C's student files are still **stubs**. B has a live Qwen interface with offline tests and a 32/32 result on a predefined planning set. Start B with the [Qwen guide](STUDENT_B_README.md); the [live report](validation/QWEN_B_LIVE.md) explains what that result covers.
+The project already provides the simulator, cameras, robot controller, shared Python data types, and a program that connects A, B, and C. We call this shared code the **backbone**. All three student interfaces now have starting implementations. C has a tested simulation executor; A has a Qwen-VL adapter with offline tests but no live visual accuracy result yet. B has a live Qwen interface with a 32/32 result on a predefined planning set. Use the detailed [A guide](STUDENT_A_README.md), [B guide](STUDENT_B_README.md), and [C guide](STUDENT_C_README.md). The [C/A report](validation/AC_REFINEMENT.md) separates tested behavior from remaining work.
 
 Start with [setup](#1-start-the-project), then read your section: [Student A](#2-student-a-help-the-robot-see), [Student B](#3-student-b-turn-instructions-into-actions), or [Student C](#4-student-c-make-the-robot-act). Use the [technical reference](#7-technical-reference-use-when-needed) when you need exact fields or units.
 
@@ -151,7 +151,7 @@ Expected shapes are RGB `(480, 640, 3)` and depth `(480, 640)`. Rerunning this e
 
 ### Your Python interface: input and output
 
-Edit `perception/student_a.py`. Keep the class name `StudentAPerception`.
+Start from `perception/student_a.py`, which now implements the Qwen-VL adapter. Keep the class name `StudentAPerception`. The [A guide](STUDENT_A_README.md) gives the offline command and API setup.
 
 | Method | Input | Output |
 | --- | --- | --- |
@@ -191,13 +191,13 @@ Run the camera and model-client checks now:
 .venv/bin/python -m pytest -q tests/test_env.py tests/test_cam_sync.py tests/test_llm_client.py
 ```
 
-These test shared tools. Create `tests/test_student_a.py` for your parser, bad depth values, missing objects, similar objects, stable IDs, and reset. **After creating that file**, run:
+These test shared tools. The existing `tests/test_student_a.py` covers the parser, bad depth, missing objects, ambiguous references, stable IDs and reset. Run:
 
 ```bash
 .venv/bin/python -m pytest -q tests/test_student_a.py
 ```
 
-When your real module works, change its `IMPLEMENTED = False` to `True`. Then run:
+The adapter already has `IMPLEMENTED = True`. After configuring and checking the real API, you can exercise it through the workflow:
 
 ```bash
 .venv/bin/python -m eval.runner --mode grounding --trials eval/trials/smoke --out runs/student_a
@@ -398,7 +398,7 @@ The **end effector**, or **TCP**, is the point near the gripper fingers that the
 
 ### Your Python interface: input and output
 
-Edit `executor/student_c.py`. Keep the class name `StudentCExecutor`.
+Start from `executor/student_c.py`, which selects the working `executor/closed_loop.py` implementation. Keep the class name `StudentCExecutor`. The [C guide](STUDENT_C_README.md) gives recording commands, recovery details and measured results.
 
 ```text
 execute(action, env, perception) -> ExecutionResult
@@ -457,16 +457,16 @@ To explore which positions the arm can reach:
 
 Read the printed output path and open the plot and CSV under `runs/ik_reach/`. Start near working points before trying difficult positions.
 
-Create `tests/test_student_c.py` to call your executor on individual actions. Use prepared perception in test code to isolate movement problems. Include failed grasps, lost targets, unreachable points, stopping during motion, and release. **After creating the file**, run:
+The existing `tests/test_student_c.py` checks individual actions and a real simulated transfer. It includes failed grasps, lost targets, stalled motion, stopping and release. Extend it when you add behavior. Run:
 
 ```bash
 .venv/bin/python -m pytest -q tests/test_student_c.py
 ```
 
-When your real module works, set `IMPLEMENTED = True`, then run:
+C already has `IMPLEMENTED = True`. Test it with prepared A/B inputs:
 
 ```bash
-.venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/smoke --out runs/student_c
+.venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/student_c --out runs/student_c
 ```
 
 This uses prepared A/B replacements with your real executor. `TeleportExecutor` is a replacement that skips physical movement; do not use it as your real implementation.
@@ -530,7 +530,7 @@ Use prepared responses for parser/error tests and your actual chosen model for r
 | `e2e` | Your real A | Your real B | Your real C |
 
 All modes run the same overall workflow. They test how a module connects to the others; they are **not separate automatic scorers for the course's A/B/C metrics**.
-Real-student commands stop with exit code 2 while a required module is marked `IMPLEMENTED = False`. This is expected until you implement it.
+All three adapters now have `IMPLEMENTED = True`. A/B still require API configuration. If a module is marked unimplemented during development, commands report that error rather than substituting a mock.
 
 Once A, B, and C work individually, run all three together:
 

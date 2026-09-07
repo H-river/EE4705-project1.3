@@ -225,12 +225,36 @@ class Orchestrator:
                 while attempts < cfg.max_action_attempts:
                     attempts += 1
                     actions_executed += 1
+                    attached_before = self.env.is_attached()
                     exec_result = self.executor.execute(action, self.env, self.perception)
                     history.append(exec_result)
                     self._event(result, "action", skill=action.skill.value, target=action.target,
                                 success=exec_result.success, error=exec_result.error_code.value,
                                 attempt=attempts, frame_id=exec_result.post_frame_id)
                     self._mark(exec_result.post_frame_id)
+                    # A composite skill can fail AFTER attaching or releasing.
+                    # Synchronize physical state before deciding whether to retry
+                    # that same action; C's perceived ID is a belief, never oracle truth.
+                    changed_state = False
+                    attached_after = self.env.is_attached()
+                    if (not exec_result.success and action.skill is Skill.GRASP
+                            and not attached_before and attached_after
+                            and exec_result.info.get("held_instance_id") == action.target):
+                        context.held_instance_id = action.target
+                        grasp_target = action.target
+                        changed_state = True
+                    if not attached_after and context.held_instance_id is not None:
+                        previous = context.held_instance_id
+                        context.held_instance_id = None
+                        context.last_release_instance_id = previous if action.skill is Skill.PLACE else None
+                        if action.skill is Skill.PLACE:
+                            place_region = action.target
+                        changed_state = True
+                    if changed_state and not exec_result.success:
+                        self._event(result, "partial_action_state", skill=action.skill.value,
+                                    held_instance_id=context.held_instance_id,
+                                    last_release_instance_id=context.last_release_instance_id)
+                        break  # Replan from the new state; do not grasp/release twice.
                     if exec_result.success:
                         break
                     if exec_result.error_code in (
@@ -246,7 +270,8 @@ class Orchestrator:
                         context.held_instance_id = action.target
                         grasp_target = action.target
                     elif action.skill is Skill.PLACE:
-                        context.last_release_instance_id = context.held_instance_id
+                        if context.held_instance_id is not None:
+                            context.last_release_instance_id = context.held_instance_id
                         context.held_instance_id = None
                         place_region = action.target
                     elif action.skill is Skill.SEARCH:

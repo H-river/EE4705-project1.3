@@ -256,3 +256,33 @@ def test_in_plan_verify_cannot_bypass_final_check(standard_world, env, oracle):
     assert not episode.claimed_success and episode.outcome is not TrialOutcome.CLAIMED_SUCCESS
     assert episode.verification is not None and not episode.verification.passed
     assert not oracle.object_in_region("stone")
+
+
+@pytest.mark.parametrize('failed_skill', [Skill.GRASP, Skill.PLACE])
+def test_partial_skill_failure_replans_with_actual_attachment_state(standard_world,env,oracle,failed_skill):
+    from core.types import PlanStatus
+    class RecordingPlanner(RulePlanner):
+        def replan(self,instruction,scene,history,context,clarification=None):
+            self.seen=(context.held_instance_id,context.last_release_instance_id)
+            return Plan(status=PlanStatus.INFEASIBLE,reason='End this focused state handoff test')
+    class FailureAfterEffect(TeleportExecutor):
+        def execute(self,action,env,perception):
+            result=super().execute(action,env,perception)
+            if action.skill is failed_skill and result.success:
+                self.target=action.target
+                result.success=False
+                result.error_code=ErrorCode.TIMEOUT
+                if action.skill is Skill.GRASP:
+                    result.info['held_instance_id']=action.target
+            return result
+    planner,executor=RecordingPlanner(),FailureAfterEffect(standard_world)
+    episode=Orchestrator(GTPerception(oracle),planner,executor,env,ScriptedClarifier([])).run(
+        'move the stone onto the red region')
+    assert episode.outcome is TrialOutcome.REFUSED,episode
+    if failed_skill is Skill.GRASP:
+        assert planner.seen==(executor.target,None) and env.is_attached()
+    else:
+        assert planner.seen[0] is None and planner.seen[1] is not None and not env.is_attached()
+    attempts=[e for e in episode.events if e['type']=='action' and e['skill']==failed_skill.value]
+    assert len(attempts)==1  # No second GRASP/PLACE using the obsolete state.
+    assert any(e['type']=='partial_action_state' for e in episode.events)

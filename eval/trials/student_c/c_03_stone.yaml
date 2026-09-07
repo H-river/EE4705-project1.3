@@ -1,0 +1,36 @@
+id: c_03_stone
+category: c_scene_variation
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 103
+  objects:
+  - name: stone
+    pos:
+    - 0.38
+    - -0.22
+    - 0.88
+    yaw: -0.3
+  - name: cube
+    pos:
+    - 0.4
+    - 0.15
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.55
+    - -0.35
+    - 0.915
+  robot_init:
+    x: -0.15
+    y: -0.04
+    yaw: 0.0
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP

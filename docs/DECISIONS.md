@@ -442,3 +442,49 @@ both visual and independent physical checks. This remains a curated B planning
 test and demo A/C simulation, not validation of arbitrary instructions, student
 A/C implementations, contact-only grasping or robot hardware. Full evidence and
 reproduction commands: `docs/validation/QWEN_B_LIVE.md`.
+
+## 16. Closed-loop Student C and partial action state (2026-09-07)
+
+- `StudentCExecutor` now selects a working shared `ClosedLoopExecutor`.
+  Demo C inherits that implementation and keeps only demo fault injection.
+  The eight skill names and contract-v2 input/output dataclasses are unchanged.
+- Fresh target checks, measured TCP arrival, grasp/lift checks, opening before
+  release, strict visual placement checks and measured STOP settling replace
+  optimistic primitive completion. Missed grasps can retry once; stalled
+  transport can repark once; an unseen placement can use two nearby views.
+  Position tolerances and oracle success conditions are not relaxed.
+- Failed actions can have physical effects. The orchestrator now updates held
+  or released state from public attachment feedback and C's tracked ID, then
+  replans instead of repeating GRASP while attached or PLACE after release.
+- The evaluator records every C result and oracle-only final XY placement
+  error after stability checking. `eval.skill_metrics` counts failed action
+  attempts in the denominator and distinguishes task completion from recovery.
+- Ten development trials cover objects and initial poses; their old failures
+  are retained. Ten additional layouts were frozen after control changes and
+  before evaluation. Neither suite measures contact-only or hardware grasping.
+  The demo can record a simple YAML scene with `--scene-trial`.
+
+See `docs/STUDENT_C_README.md` and `docs/validation/AC_REFINEMENT.md`.
+
+## 17. Student A Qwen-VL adapter and labelled-image evaluation (2026-09-07)
+
+- Keep A independent of B's configuration: explicit compatible endpoint,
+  default `qwen3-vl-plus`, JSON-object output and thinking disabled. The VLM
+  supplies image boxes and selected detection indices; it never supplies IDs
+  or world coordinates. The local parser checks bounds and allows one repair.
+- Local RGB-D fitting uses the project's known class dimensions and color
+  masks only inside model boxes. Incomplete depth/geometry stays UNLOCALIZED.
+  IDs are assigned locally, with conservative spatial association for repeated
+  class/color objects. Identical RGB/query reuse still recomputes geometry.
+- Preserve raw responses and their origin (live, fixture or custom transport),
+  current RGB/depth/calibration, errors and source settings without credentials.
+  API errors do not become missing-object claims. Offline fixtures are explicit.
+- `eval.grounding capture` prepares 20 labelled images without a model call.
+  The separate `run` command sends only images and questions to A, checks
+  capture hashes, keeps errors in the denominator and scores selections by
+  image-box overlap. It saves scene answers but does not claim VQA accuracy.
+- The real visual API was not available in this refinement session. Passing
+  offline tests and setting IMPLEMENTED=True establish the adapter, not Task 2
+  completion. Live model accuracy and full live ABC remain to be evaluated.
+
+See `docs/STUDENT_A_README.md` and `docs/validation/AC_REFINEMENT.md`.

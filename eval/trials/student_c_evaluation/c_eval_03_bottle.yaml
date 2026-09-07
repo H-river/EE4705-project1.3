@@ -1,0 +1,30 @@
+id: c_eval_03_bottle
+instruction: Move the green bottle to the red area.
+category: frozen_additional_c_evaluation
+scene:
+  seed: 703
+  robot_init:
+    x: -0.105
+    y: 0.034
+    yaw: 0.032
+  objects:
+  - name: stone
+    pos:
+    - 0.481
+    - -0.119
+    - 0.88
+  - name: cube
+    pos:
+    - 0.461
+    - 0.079
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.582
+    - -0.284
+    - 0.915
+expected:
+  feasible: true
+  target: bottle
+  region: red_region
+  claimed_success: true

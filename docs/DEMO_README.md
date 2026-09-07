@@ -76,7 +76,7 @@ If a port is already in use, choose another port in the command and URL.
 | --- | --- | --- | --- | --- |
 | A | Find the visible objects and estimate where they are. | Head-camera RGB, depth, camera calibration. | `SceneDescription`: names, perceived IDs, image boxes, world positions, confidence and frame ID. | `perception/demo_rgbd.py` |
 | B | Turn the instruction into an ordered list of actions. | Instruction text and A's scene. On replanning: action results and held-object state. | `Plan`: status, actions, target IDs and parameters. | `planner/demo_rules.py` |
-| C | Carry out each action and say whether it worked. | One `Action`, the public `RobotEnv`, and A's perception interface. | `ExecutionResult`: success, error code, new observation ID and details. | `executor/demo_skills.py` |
+| C | Carry out each action and say whether it worked. | One `Action`, the public `RobotEnv`, and A's perception interface. | `ExecutionResult`: success, error code, new observation ID and details. | `executor/closed_loop.py` (shared by demo and Student C) |
 
 For this example, B produces:
 
@@ -213,3 +213,23 @@ The replay contains display pauses so that outputs can be read. Its
 3–5 minute uncut assessment demo, and these two episodes do not replace
 the course's trial counts or AI-model requirements. Use the
 [student guide](STUDENT_README.md) for the full student tasks and tests.
+
+
+## Use the refined Student C
+
+```bash
+.venv/bin/python -m demo.run --student C --out "runs/c_demo_$(date +%Y%m%d_%H%M%S)"
+.venv/bin/python -m demo.run --student C \
+  --scene-trial eval/trials/student_c/c_04_stone.yaml \
+  --out "runs/c_varied_$(date +%Y%m%d_%H%M%S)"
+```
+
+These use RGB-D demo A, rule-based demo B and the refined Student C. Add
+`--student B` for live Qwen planning after configuring B. Student C performs
+fresh target checks, grasp/lift checks, bounded transport recovery and visual
+placement verification. The injected `--scenario retry` still belongs to Demo C;
+it cannot be combined with `--student C`.
+
+See the [C guide](STUDENT_C_README.md) and [refinement report](validation/AC_REFINEMENT.md).
+A also has an adapter now, but its live visual accuracy remains untested; see
+[the A guide](STUDENT_A_README.md) before using `--student A`.

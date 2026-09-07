@@ -16,13 +16,11 @@ All primitives:
 from __future__ import annotations
 
 import math
-from typing import Optional
-
 import numpy as np
 
 from core.g1 import ARM_WORKSPACE_OFFSET, approach_base_pose
 from core.interfaces import Perception, RobotEnvProtocol
-from core.types import ErrorCode, GroundedObject, SkillResult
+from core.types import ErrorCode, GroundStatus, SkillResult
 
 BASE_POS_TOL = 0.02  # m
 BASE_YAW_TOL = 0.05  # rad
@@ -31,8 +29,8 @@ DEFAULT_TIMEOUT_S = 12.0  # sim seconds per primitive
 # APPROACH parks the base so the target lands at ARM_WORKSPACE_OFFSET in the
 # base frame (right-arm workspace, see core.g1); this is the xy distance.
 APPROACH_STANDOFF = float(np.linalg.norm(ARM_WORKSPACE_OFFSET))
-# GRASP reaches with the palm reference point this far ABOVE the object
-# center (still inside ATTACH_RADIUS) so the fingers/thumb stay clear of
+# GRASP reaches with the pinch TCP this far ABOVE the object
+# center (still inside ATTACH_RADIUS) so the fingers stay clear of
 # the support surface.
 GRASP_DESCEND_OFFSET = 0.02
 SETTLE_STEPS = 375  # 0.75 s at the 2 ms timestep
@@ -174,27 +172,44 @@ def search(env: RobotEnvProtocol, perception: Perception, target: str,
     exceptions surface as SEARCH_FATAL."""
     deadline = env.sim_time() + timeout_s
     base = env.get_base_pose()
-    found: Optional[GroundedObject] = None
-    for k in range(max_views):
-        if env.sim_time() >= deadline:
-            return SkillResult(False, ErrorCode.TIMEOUT, {"primitive": "search", "views": k})
-        obs = env.get_obs()
-        try:
-            found = perception.ground(obs, target)
-        except Exception as exc:  # fatal: perception itself failed
-            return SkillResult(False, ErrorCode.SEARCH_FATAL,
-                               {"primitive": "search", "detail": f"{type(exc).__name__}: {exc}"})
-        if found is not None:
-            return SkillResult(True, ErrorCode.NONE,
-                               {"primitive": "search", "grounded": found, "frame_id": obs.frame_id, "views": k + 1})
-        # rotate to the next view (wrap yaw into the joint range)
-        yaw = base[2] + step_rad * (k + 1)
-        yaw = math.atan2(math.sin(yaw), math.cos(yaw))
-        env.set_base_target(float(base[0]), float(base[1]), yaw)
+    views, last_status = 0, "NOT_FOUND"
+    try:
+        env.stop_motion()
+        for k in range(max_views):
+            if env.sim_time() >= deadline:
+                return SkillResult(False, ErrorCode.TIMEOUT, {"primitive": "search", "views": views})
+            obs = env.get_obs()
+            try:
+                found = perception.ground(obs, target)
+            except Exception as exc:
+                return SkillResult(False, ErrorCode.SEARCH_FATAL,
+                                   {"primitive": "search", "detail": f"{type(exc).__name__}: {exc}"})
+            views += 1
+            if found is not None:
+                last_status = found.status.value
+                if found.frame_id >= 0 and found.frame_id != obs.frame_id:
+                    return SkillResult(False, ErrorCode.SEARCH_FATAL,
+                                       {"primitive": "search", "detail": "Stale grounding", "views": views})
+                pos = np.asarray(found.pos_world, dtype=float)
+                if (found.status is GroundStatus.LOCALIZED and pos.shape == (3,)
+                        and np.all(np.isfinite(pos))):
+                    return SkillResult(True, ErrorCode.NONE,
+                                       {"primitive": "search", "grounded": found, "frame_id": obs.frame_id, "views": views})
+            if k + 1 == max_views:
+                break  # Do not turn to a viewpoint that will never be observed.
+            yaw = math.atan2(math.sin(base[2] + step_rad * (k+1)),
+                             math.cos(base[2] + step_rad * (k+1)))
+            env.set_base_target(float(base[0]), float(base[1]), yaw)
 
-        def turned() -> bool:
-            b = env.get_base_pose()
-            return abs(math.atan2(math.sin(b[2] - yaw), math.cos(b[2] - yaw))) < BASE_YAW_TOL
+            def turned() -> bool:
+                b = env.get_base_pose()
+                return abs(math.atan2(math.sin(b[2]-yaw), math.cos(b[2]-yaw))) < BASE_YAW_TOL
 
-        _step_until(env, turned, timeout_s=4.0)
-    return SkillResult(False, ErrorCode.SEARCH_NOT_FOUND, {"primitive": "search", "views": max_views})
+            if not _step_until(env, turned, timeout_s=min(4., max(0., deadline-env.sim_time())), chunk=1):
+                return SkillResult(False, ErrorCode.TIMEOUT,
+                                   {"primitive": "search", "views": views, "detail": "Viewpoint motion timed out"})
+            env.stop_motion()
+        return SkillResult(False, ErrorCode.SEARCH_NOT_FOUND,
+                           {"primitive": "search", "views": views, "last_ground_status": last_status})
+    finally:
+        env.stop_motion()

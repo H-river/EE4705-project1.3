@@ -69,13 +69,18 @@ class GraspSpyExecutor(Executor):
         self._inner = inner
         self._oracle = oracle
         self.grasp_records: list[dict] = []
+        self.execution_records: list[dict] = []
 
     def reset(self) -> None:
         self._inner.reset()
         self.grasp_records = []
+        self.execution_records = []
 
     def execute(self, action: Action, env: RobotEnvProtocol, perception: Perception) -> ExecutionResult:
+        start = env.sim_time()
         result = self._inner.execute(action, env, perception)
+        self.execution_records.append({"start_sim_s": start, "end_sim_s": env.sim_time(),
+                                       "result": to_json_safe(result)})
         if action.skill is Skill.GRASP and result.success:
             self.grasp_records.append({
                 "held_gt_id": self._oracle.held_gt_id(),
@@ -255,6 +260,23 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     record.actual_success = actual.actual_success
     record.extra["actual_checks"] = to_json_safe(actual.checks)
     record.extra["grasp_records"] = to_json_safe(spy.grasp_records)
+    record.extra["execution_records"] = spy.execution_records
+    # Evaluation-only numerical placement evidence, after the stability check.
+    # These labels and positions never enter A, B, C, or the orchestrator.
+    if expected.get("feasible", True) and expected.get("target"):
+        import math
+        target = expected["target"]
+        region = oracle.region_bounds(expected.get("region", "red_region"))
+        pos = oracle.object_pos(target)
+        offset = [float(pos[0]-region.center_xy[0]), float(pos[1]-region.center_xy[1]),
+                  float(pos[2]-region.support_z)]
+        record.extra["placement_geometry"] = {
+            "source": "evaluation_oracle_after_stability_check", "target_gt_id": target,
+            "object_center_world": pos.tolist(), "offset_from_region_support_m": offset,
+            "center_xy_error_m": math.hypot(*offset[:2]),
+            "height_above_support_m": offset[2], "speed_m_s": oracle.object_speed(target),
+            "sim_time": world.sim_time,
+        }
     record.extra["wrong_object"] = actual.wrong_object
     record.extra["refusal_correct"] = actual.refusal_correct
     record.extra["clarification_correct"] = actual.clarification_correct

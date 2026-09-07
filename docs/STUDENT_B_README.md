@@ -113,7 +113,7 @@ region positions are support points. `MOVE_TO` uses the region support point
 plus the public 0.18 m transport clearance. Every positional action is bound
 from the current scene, never from remembered coordinates.
 C may refresh an action's position from newer perception before moving;
-see `executor/demo_skills.py` for an example.
+see `executor/closed_loop.py` for the current shared C implementation.
 
 ## 3. What is checked before C runs
 

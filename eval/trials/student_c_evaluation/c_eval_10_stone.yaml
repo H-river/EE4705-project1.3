@@ -1,0 +1,30 @@
+id: c_eval_10_stone
+instruction: Move the gray stone to the red area.
+category: frozen_additional_c_evaluation
+scene:
+  seed: 710
+  robot_init:
+    x: -0.11
+    y: 0.025
+    yaw: -0.14
+  objects:
+  - name: stone
+    pos:
+    - 0.398
+    - -0.087
+    - 0.88
+  - name: cube
+    pos:
+    - 0.412
+    - 0.116
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.518
+    - -0.351
+    - 0.915
+expected:
+  feasible: true
+  target: stone
+  region: red_region
+  claimed_success: true

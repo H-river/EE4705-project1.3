@@ -40,7 +40,7 @@ class DemoOrchestrator(Orchestrator):
 
 
 def run_episode(out, scenario="success", instruction="Move the stone to the red area.", video=True, fps=10, students=(),
-                expected_target="stone", max_action_attempts=2):
+                expected_target="stone", max_action_attempts=2, scene_config=None):
     components, labels = load_components(students, retry=scenario == "retry")
     out = pathlib.Path(out).resolve()
     # An episode is an evidence bundle: never mix a new run with old artifacts.
@@ -50,7 +50,7 @@ def run_episode(out, scenario="success", instruction="Move the stone to the red 
     world = RecordedWorld()
     recorder = None
     try:
-        config = demo_scene()
+        config = scene_config or demo_scene()
         world.reset(config)
         world.step(500)  # settle for 1 s before the recorded episode starts
         store = ObservationStore(persist_dir=out / "observations")
@@ -116,10 +116,22 @@ def main(argv=None):
     parser.add_argument("--fps", type=int, default=10, choices=[5, 10, 20, 25])
     parser.add_argument("--student", action="append", choices=["A", "B", "C"], default=[],
                         help="Replace a demo with its implemented student module; repeat for multiple roles")
+    parser.add_argument("--scene-trial", type=pathlib.Path,
+                        help="Use a trial YAML's scene, instruction and target label; A/B/C choices stay explicit")
     args = parser.parse_args(argv)
     try:
+        scene_config = None
+        if args.scene_trial:
+            import yaml
+            from eval.runner import scene_config_from_spec
+            trial = yaml.safe_load(args.scene_trial.read_text())
+            if trial.get("clarification_responses") or trial.get("fault_injection"):
+                raise ValueError("Recorded scene trials currently support direct instructions without scripted faults/clarifications")
+            scene_config = scene_config_from_spec(trial["scene"])
+            args.instruction = trial["instruction"]
+            args.expected_target = trial["expected"]["target"]
         summary = run_episode(args.out, args.scenario, args.instruction, not args.no_video, args.fps, args.student,
-                              args.expected_target, args.attempts_per_action)
+                              args.expected_target, args.attempts_per_action, scene_config)
     except (ValueError, RuntimeError) as exc:
         parser.exit(2, f"Demo setup/recording error: {exc}\n")
     print(f"{summary['outcome']}: claimed={summary['claimed_success']}, actual={summary['actual_success']}")

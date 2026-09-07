@@ -5,11 +5,14 @@ Owner: backbone (ALL)
 Shared infrastructure for the language-instructed tabletop manipulation
 project: frozen data contracts, MuJoCo simulation environment, plan
 validation, orchestration, ground-truth mocks, evaluation/logging, and an
-LLM/VLM client. Student A perception and Student C execution remain interface
-stubs. Student B has a live Qwen planner adapter: 32/32 predefined planning
-cases passed in the recorded evaluation. This is a small B-only test set;
-see the [B guide](docs/STUDENT_B_README.md) and
-[live results](docs/validation/QWEN_B_LIVE.md) for scope, commands and episodes.
+LLM/VLM client. Student C now has a working closed-loop simulation executor:
+10/10 development trials completed, with retries and failures reported separately.
+Student A has a Qwen-VL adapter and offline tests; live visual accuracy remains
+unverified. Student B's earlier live Qwen evaluation passed 32/32 predefined
+planning cases. These are separate component results, not a full ABC score.
+
+Start with the [A guide](docs/STUDENT_A_README.md), [B guide](docs/STUDENT_B_README.md),
+[C guide](docs/STUDENT_C_README.md), and [C/A refinement report](docs/validation/AC_REFINEMENT.md).
 
 **Students: start with the [student guide](docs/STUDENT_README.md).**
 It explains each person's task in simple language, with runnable exercises,
@@ -111,19 +114,12 @@ Evaluation modes: `grounding` (real A + mock B/C), `planning` (mock A +
 real B + mock C), `manipulation` (mock A/B + real C), `e2e` (all real).
 `--mock-all` replaces all three modules with mocks.
 
-### Stub-related mode failures (expected today)
+### Module configuration
 
-Without `--mock-all`, any mode that needs an unimplemented Student module
-exits with **code 2** and names the missing module, e.g.:
-
-```
-ERROR: mode 'e2e' requires unimplemented module(s):
-  - Student A perception (perception/student_a.py)
-  ...
-Use --mock-all to run an infrastructure check with mocks instead.
-```
-
-Mocks are never substituted silently.
+A, B and C adapters now exist. A/B modes require explicitly configured Qwen
+credentials and endpoints; C's isolated manipulation mode runs offline. Missing
+configuration is an error. No student module is silently replaced by a mock.
+`IMPLEMENTED = True` records interface availability, not completed course validation.
 
 ## Mock-only versus real-system results
 

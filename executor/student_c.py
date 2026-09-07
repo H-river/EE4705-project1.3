@@ -1,22 +1,14 @@
 # Owner: Student C
-"""Student C's real executor module (closed-loop motion skills).  NOT part
-of the backbone deliverable; this stub only pins the contract."""
-
-from __future__ import annotations
-
-from core.interfaces import Executor, Perception, RobotEnvProtocol
-from core.types import Action, ExecutionResult
+"""Working C starting point. Extend the shared closed-loop simulation skills here."""
+from executor.closed_loop import ClosedLoopExecutor
 
 
-class StudentCExecutor(Executor):
-    """Owner: Student C.  Real closed-loop executor. Unimplemented."""
+class StudentCExecutor(ClosedLoopExecutor):
+    """Eight bounded skills, with public sensor checks and one local grasp retry.
 
-    IMPLEMENTED = False
+    Tested initially with weld attachment. This flag enables the interface;
+    it does not certify contact-only grasping or the full course evaluation.
+    """
 
-    def execute(
-        self,
-        action: Action,
-        env: RobotEnvProtocol,
-        perception: Perception,
-    ) -> ExecutionResult:
-        raise NotImplementedError("Student C: Executor.execute is not implemented yet")
+    IMPLEMENTED = True
+    LABEL = "C: Student C closed-loop baseline (simulation / weld)"
