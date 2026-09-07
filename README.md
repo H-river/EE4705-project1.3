@@ -6,7 +6,8 @@ Shared infrastructure for the language-instructed tabletop manipulation
 project: frozen data contracts, MuJoCo simulation environment, plan
 validation, orchestration, ground-truth mocks, evaluation/logging, and an
 LLM/VLM client. Student C now has a working closed-loop simulation executor:
-10/10 development trials completed, with retries and failures reported separately.
+10/10 development trials and 9/10 additional frozen layouts completed, with
+retries and failures reported separately.
 Student A has a Qwen-VL adapter and offline tests; live visual accuracy remains
 unverified. Student B's earlier live Qwen evaluation passed 32/32 predefined
 planning cases. These are separate component results, not a full ABC score.
@@ -43,6 +44,72 @@ NVIDIA EGL); `ffmpeg` on PATH for `sync.mp4` (GIF fallback otherwise).
 MuJoCo `>=3.1` is required but only 3.12.0 is verified — do not assume
 every later version behaves identically (the depth-conversion check in
 `docs/DECISIONS.md` §4 must be repeated when upgrading).
+
+## API configuration (optional for offline work)
+
+Offline tests, the default demo, A's fixture demo, and isolated C evaluation
+need no API key. Live A/B calls require credentials exported in the terminal:
+
+```bash
+# Enter the key without displaying it or putting it in shell history.
+read -rsp 'Qwen API key: ' DASHSCOPE_API_KEY
+export DASHSCOPE_API_KEY
+printf '\n'
+
+# International endpoint; use the matching endpoint for your account region.
+export EE4705_QWEN_BASE_URL='https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+export EE4705_QWEN_MODEL='qwen3.7-plus-2026-05-26'
+export EE4705_QWEN_OUTPUT_MODE='json_schema'
+export EE4705_VLM_BASE_URL="$EE4705_QWEN_BASE_URL"
+export EE4705_VLM_MODEL='qwen3-vl-plus'
+```
+
+A uses JSON-object output with thinking disabled; it does not inherit B's
+model or output mode. See the [A guide](docs/STUDENT_A_README.md) and
+[B guide](docs/STUDENT_B_README.md) for account-specific settings, input/output,
+request auditing and tests. No credentials or authenticated sessions belong
+in Git. API availability and cost depend on your configured account.
+
+## What this GitHub repository contains
+
+The repository includes source, tests, labelled trial definitions, configuration,
+generated robot XML, student guides and validation reports. Small selected
+validation images/CSVs under `docs/validation/` are included as report evidence.
+
+`runs/`, `.venv/`, caches, local logs, credentials and the course PDF are
+excluded. The ignored MuJoCo Menagerie checkout must be fetched using the
+installation command above. Historical reports refer to local absolute paths,
+`runs/` bundles and `localhost` replay servers: those links are records of the
+original machine, **not hosted GitHub artifacts**. After cloning, replace
+`/home/jiamo/EE4705/project1.3` in example commands with your checkout path.
+
+Generate your own offline artifacts from the repository root:
+
+```bash
+.venv/bin/python -m pytest -q
+.venv/bin/python -m perception.run --offline-demo --out runs/my_a_fixture
+.venv/bin/python -m eval.runner --mode manipulation \
+  --trials eval/trials/student_c --out runs/my_c_trials
+.venv/bin/python -m demo.run --student C --out runs/my_c_episode
+.venv/bin/python -m http.server 8768 --bind 127.0.0.1 --directory runs/my_c_episode
+```
+
+Open `http://127.0.0.1:8768/` on the machine running that server. Recording
+MP4 requires `ffmpeg` on PATH; choose a fresh output directory for each run.
+Live B/A reproduction commands are in their guides and require real model
+calls. The original paid-response bundles are not included. Fixture, mock,
+and weld-simulation results are not evidence of real-model or hardware success.
+
+## Third-party resources and licensing
+
+`assets/menagerie_revision.txt` pins the upstream G1 and Robotiq resources.
+The fetching script downloads that exact revision; meshes are not vendored
+or stored with Git LFS. Original notices are retained in
+[Unitree G1's license](assets/licenses/unitree_g1.txt) (BSD-3-Clause) and
+[Robotiq's license](assets/licenses/robotiq_2f85.txt) (BSD-2-Clause).
+See [asset provenance](assets/README.md) for generated adaptations and archives.
+No repository-wide license has been assigned to the original coursework code;
+this private upload does not declare the project an open-source release.
 
 ## Headless rendering
 

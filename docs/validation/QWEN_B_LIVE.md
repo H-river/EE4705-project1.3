@@ -1,5 +1,10 @@
 # Student B: live Qwen validation
 
+> Repository distribution note: `runs/` bundles and localhost replay servers
+> are local artifacts and are not uploaded to GitHub. See the repository
+> README for offline reproduction; live-model runs require your own API setup.
+
+
 Date: September 7, 2026. Workspace: `/home/jiamo/EE4705/project1.3`.
 The requested target was **B planning accuracy above 90%**, meaning the correct
 target, destination, status and action order. Work started at 05:40 UTC.

@@ -10,3 +10,29 @@ assets/menagerie/
 .env
 .env.*
 !.env.example
+
+# Local credentials and authentication handoffs (never project inputs).
+.qwen-session.json
+.qwen-session*.json
+.qwen-session*
+credentials.json
+credentials*.json
+secrets.json
+secrets*.json
+*.pem
+*.key
+
+# Local build, editor and analysis output.
+build/
+dist/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.log
+*.tmp
+*.swp
+.DS_Store
+
+# Course handout stays local; do not distribute it with the project.
+/EE4705_Project1.3 S1 AY2627.pdf

@@ -1,5 +1,10 @@
 # Watch the A → B → C workflow
 
+> Repository distribution note: `runs/` bundles and localhost replay servers
+> are local artifacts and are not uploaded to GitHub. See the repository
+> README for offline reproduction; live-model runs require your own API setup.
+
+
 This demo moves the gray stone into the red area. You can watch the robot,
 see what A detected, read B's plan, and inspect each result from C.
 You do not need an API key or a model server for the default demo.

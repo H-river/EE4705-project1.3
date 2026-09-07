@@ -1,5 +1,10 @@
 # Student B Qwen interface: offline validation
 
+> Repository distribution note: `runs/` bundles and localhost replay servers
+> are local artifacts and are not uploaded to GitHub. See the repository
+> README for offline reproduction; live-model runs require your own API setup.
+
+
 Historical snapshot of the initial offline implementation. Live API evaluation
 was added later the same day; see [QWEN_B_LIVE.md](QWEN_B_LIVE.md) for current results.
 

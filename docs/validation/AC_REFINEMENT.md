@@ -1,5 +1,10 @@
 # C refinement and A preparation — 7 September 2026
 
+> Repository distribution note: `runs/` bundles and localhost replay servers
+> are local artifacts and are not uploaded to GitHub. See the repository
+> README for offline reproduction; live-model runs require your own API setup.
+
+
 Student C now has a working executor with feedback checks and bounded recovery.
 Its ten development trials completed successfully. After freezing the control
 code, ten additional layouts completed **9/10**, with the failed bottle case
