@@ -5,6 +5,7 @@ import numpy as np
 from core import skills
 from core.action_targets import TargetResolutionError, resolve_action_position
 from core.types import ErrorCode, ExecutionResult, GroundStatus, Skill, SkillResult
+from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 
 class StudentCExecutor(ClosedLoopExecutor):
