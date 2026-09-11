@@ -33,6 +33,9 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         elif action.skill is Skill.MOVE_TO:
             return self._move_to(action, env, perception)
+
+        elif action.skill is Skill.PLACE:
+            return self._place(action, env, perception)
         
         return super()._execute(action, env, perception)
 
@@ -135,6 +138,7 @@ class StudentCExecutor(ClosedLoopExecutor):
                 # A closed gripper near the object is not proof of a grasp:
                 # lift a bit and re-check that the attachment survives it.
                 self._held_id = action.target
+                self._held_offset = pos - env.get_ee_pos()   # <-- new: needed by PLACE
                 lift_target = env.get_ee_pos() + [0.0, 0.0, self._LIFT_CHECK_M]
                 primitive = skills.move_to(env, lift_target)
                 env.step(50)
@@ -221,4 +225,84 @@ class StudentCExecutor(ClosedLoopExecutor):
         return ExecutionResult(action, success, error_code,
                             recovery_attempted=recovery_attempted, info=info)
 
-    
+#PLACE function: move above the destination surface (never into it), release, let the object settle, then confirm placement from a fresh observation.
+    _RELEASE_HEIGHT_M = 0.06
+    _RETREAT_HEIGHT_M = 0.14
+    _NOT_VISIBLE_DETAIL = "exact object or region instance is not visible"
+
+    def _place(self, action, env, perception):
+        """PLACE: move above the destination surface, release, let the
+        object settle, then confirm placement from a fresh observation.
+        If the object simply isn't in view after retreating, try up to two
+        nearby headings before accepting failure."""
+
+        if not env.is_attached():
+            return ExecutionResult(action, False, ErrorCode.NOT_HOLDING)
+
+        scene = self._scene(env, perception)
+        region_pos = resolve_action_position(action, scene)
+
+        obj_id = action.params.get("object") or self._held_id
+        if not obj_id or obj_id != self._held_id:
+            return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
+                                   info={"detail": "PLACE object differs from C's tracked grasp target"})
+
+        release_pos = region_pos + np.array([0.0, 0.0, self._RELEASE_HEIGHT_M]) - self._held_offset
+        primitive = skills.move_to(env, release_pos)
+
+        if primitive.success and not env.is_attached():
+            return ExecutionResult(action, False, ErrorCode.NOT_HOLDING,
+                                   info={**primitive.info, "detail": "Attachment lost while moving to the release pose"})
+
+        ee_error = float(np.linalg.norm(env.get_ee_pos() - release_pos))
+        if primitive.success and ee_error >= skills.EE_POS_TOL:
+            primitive = SkillResult(False, ErrorCode.UNREACHABLE,
+                                    {**primitive.info, "detail": "TCP did not reach the release pose"})
+        if not primitive.success:
+            return ExecutionResult(action, False, primitive.error_code,
+                                   info={**primitive.info, "ee_error_m": ee_error})
+
+        if not self._open(env):
+            return ExecutionResult(action, False, ErrorCode.TIMEOUT,
+                                   info={"detail": "Gripper did not open before release"})
+
+        release_result = skills.place(env)
+        if not release_result.success:
+            # Never overwrite a failed detach with a successful retreat.
+            return ExecutionResult(action, False, release_result.error_code, info=release_result.info)
+
+        retreat_pos = env.get_ee_pos() + np.array([0.0, 0.0, self._RETREAT_HEIGHT_M])
+        skills.reach(env, retreat_pos)
+        env.stop_motion()
+        env.step(100)
+
+        # First visual check from the retreat viewpoint.
+        check = closed_loop.verify_placement(env, perception, obj_id, action.target)
+
+        # Only retry the VIEW for "not visible" -- that's a camera-framing
+        # problem. "Outside region" / drift are real placement errors that
+        # a different heading cannot fix, so we do not retry those.
+        view_attempts = 0
+        if not check.passed and check.detail == self._NOT_VISIBLE_DETAIL:
+            base = np.asarray(self._view_pose)
+            bearing = np.arctan2(region_pos[1] - base[1], region_pos[0] - base[0]) - base[2]
+            direction = np.sign(np.sin(bearing)) or 1.0
+            for offset in (direction * 0.2, -direction * 0.2):
+                view_attempts += 1
+                view = self._restore_view(env, yaw_offset=offset)
+                if not view.success:
+                    break  # couldn't even get to the new viewpoint; stop trying
+                check = closed_loop.verify_placement(env, perception, obj_id, action.target)
+                if check.passed or check.detail != self._NOT_VISIBLE_DETAIL:
+                    break  # resolved, or failing for a different (non-view) reason now
+
+        return ExecutionResult(
+            action=action,
+            success=check.passed,
+            error_code=ErrorCode.NONE if check.passed else ErrorCode.PLACE_FAILED,
+            recovery_attempted=view_attempts > 0,
+            info={"detail": check.detail, "verification_frame_id": check.frame_id,
+                  "view_recovery_attempts": view_attempts},
+        )
+
+#
