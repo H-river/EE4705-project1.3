@@ -30,6 +30,9 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         elif action.skill is Skill.GRASP:
             return self._grasp(action, env, perception)
+
+        elif action.skill is Skill.MOVE_TO:
+            return self._move_to(action, env, perception)
         
         return super()._execute(action, env, perception)
 
@@ -156,4 +159,66 @@ class StudentCExecutor(ClosedLoopExecutor):
             info={**primitive.info, "grasp_attempts": attempts},
         )    
 
-        
+#MOVE_TO function: move the TCP to the target's current position, retrying once if the base's parking pose caused a stall.
+    def _move_to(self, action, env, perception):
+        if not env.is_attached():
+            return ExecutionResult(action, False, ErrorCode.NOT_HOLDING)
+
+        # self._scene() (inherited) does describe() + the staleness check and
+        # raises TargetResolutionError on failure; execute()'s outer wrapper
+        # catches that, so no try/except is needed here.
+        scene = self._scene(env, perception)
+        pos = resolve_action_position(action, scene)  # also raises on missing/unlocalized
+
+        primitive_result = skills.move_to(env, pos)
+        recovery_attempted = False
+        motion_recovery_info = None
+        base_repositioned = None
+
+        # A stalled/unreachable reach can be a consequence of the base's
+        # CURRENT parking pose, not a genuinely unreachable target.
+        # Re-park once and retry a single reach before giving up.
+        if not primitive_result.success and primitive_result.error_code in (
+            ErrorCode.TIMEOUT, ErrorCode.UNREACHABLE,
+        ):
+            motion_recovery_info = {"error_code": primitive_result.error_code.value, **primitive_result.info}
+            recovery_attempted = True
+            env.stop_motion()
+            if not env.is_attached():
+                # Recovery is pointless if the object was lost during the failed attempt.
+                return ExecutionResult(
+                    action, False, ErrorCode.NOT_HOLDING,
+                    recovery_attempted=recovery_attempted,
+                    info={"motion_recovery": motion_recovery_info,
+                          "detail": "Attachment lost before recovery could be attempted"},
+                )
+            parking = skills.approach(env, pos)
+            env.stop_motion()
+            env.step(100)  # let the new base pose settle before reaching again
+            base_repositioned = parking.success
+            primitive_result = skills.reach(env, pos) if parking.success else parking
+
+        # Independent post-motion checks — never just trust the primitive's own flag.
+        ee_error = float(np.linalg.norm(env.get_ee_pos() - pos))
+        still_holding = env.is_attached()
+
+        if primitive_result.success and not still_holding:
+            success, error_code = False, ErrorCode.NOT_HOLDING
+            detail = "Attachment lost during transport"
+        elif primitive_result.success and ee_error >= skills.EE_POS_TOL:
+            success, error_code = False, ErrorCode.UNREACHABLE
+            detail = "TCP did not reach the requested point"
+        else:
+            success = primitive_result.success
+            error_code = primitive_result.error_code
+            detail = primitive_result.info.get("detail", "")
+
+        info = {**primitive_result.info, "ee_error_m": ee_error, "detail": detail}
+        if motion_recovery_info is not None:
+            info["motion_recovery"] = motion_recovery_info
+            info["base_repositioned"] = base_repositioned
+
+        return ExecutionResult(action, success, error_code,
+                            recovery_attempted=recovery_attempted, info=info)
+
+    
