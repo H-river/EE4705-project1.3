@@ -7,6 +7,7 @@ from core.action_targets import TargetResolutionError, resolve_action_position
 from core.types import ErrorCode, ExecutionResult, GroundStatus, Skill, SkillResult
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
+from core.verification import verify_placement
 
 class StudentCExecutor(ClosedLoopExecutor):
     """Eight bounded skills, with public sensor checks and one local grasp retry.
@@ -40,6 +41,9 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         elif action.skill is Skill.SEARCH:
             return self._search(action, env, perception)
+
+        elif action.skill is Skill.VERIFY:
+            return self._verify(action, env, perception)
         
         return super()._execute(action, env, perception)
 
@@ -354,5 +358,60 @@ class StudentCExecutor(ClosedLoopExecutor):
             recovery_attempted=views_taken > 1,
             info=primitive.info,
         )
+
+# VERIFY function: check a claimed condition against FRESH evidence.
+# Never trust an earlier action's own success flag -- re-observe.
+    def _verify(self, action, env, perception):
+        condition = (action.params or {}).get("condition")
+
+        if condition == "object_in_region":
+            obj_id = action.params.get("object")
+            region_id = action.params.get("region")
+            if not obj_id or not region_id:
+                return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
+                                       info={"detail": "object_in_region VERIFY needs object and region IDs"})
+            # verify_placement does its own two-frame fresh check (release,
+            # region containment, <=2cm drift over 0.2s) -- we don't
+            # duplicate that logic, just convert its result.
+            check = verify_placement(env, perception, obj_id, region_id)
+            return ExecutionResult(
+                action=action,
+                success=check.passed,
+                error_code=ErrorCode.NONE if check.passed else ErrorCode.VERIFY_FAILED,
+                post_frame_id=check.frame_id,
+                info={"detail": check.detail, "condition": condition,
+                      "object": obj_id, "region": region_id},
+            )
+
+        if condition == "holding":
+            # env.is_attached() alone proves SOMETHING is held, not that it's
+            # the object C believes it is holding -- check the tracked ID too.
+            ok = env.is_attached() and bool(action.target) and action.target == self._held_id
+            return ExecutionResult(
+                action=action,
+                success=ok,
+                error_code=ErrorCode.NONE if ok else ErrorCode.VERIFY_FAILED,
+                info={"condition": condition, "target": action.target,
+                      "attached": env.is_attached(), "held_instance_id": self._held_id},
+            )
+
+        if condition == "object_visible":
+            # 2D evidence is enough here -- UNLOCALIZED still counts as visible,
+            # per core/validation.py's ref_errors(need_located=False).
+            scene = self._scene(env, perception)  # fresh obs, staleness-checked
+            ref = scene.find(action.target or "")
+            ok = (ref is not None
+                  and ref.status in (GroundStatus.LOCALIZED, GroundStatus.UNLOCALIZED)
+                  and (ref.frame_id < 0 or ref.frame_id == scene.frame_id))
+            return ExecutionResult(
+                action=action,
+                success=ok,
+                error_code=ErrorCode.NONE if ok else ErrorCode.VERIFY_FAILED,
+                info={"condition": condition, "target": action.target,
+                      "status": ref.status.value if ref else "NOT_FOUND"},
+            )
+
+        return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
+                               info={"detail": f"Unknown VERIFY condition {condition!r}"})
 
 #
