@@ -37,6 +37,9 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         elif action.skill is Skill.PLACE:
             return self._place(action, env, perception)
+
+        elif action.skill is Skill.SEARCH:
+            return self._search(action, env, perception)
         
         return super()._execute(action, env, perception)
 
@@ -304,6 +307,52 @@ class StudentCExecutor(ClosedLoopExecutor):
             recovery_attempted=view_attempts > 0,
             info={"detail": check.detail, "verification_frame_id": check.frame_id,
                   "view_recovery_attempts": view_attempts},
+        )
+
+#SEARCH function: rotate the base through nearby viewpoints until perception
+#reports a fresh, unambiguous 3D position for the target CLASS (not an
+#instance ID — SEARCH only appears in a NEEDS_SEARCH plan, before anything
+#has been grounded, so B hands us a canonical name like "stone" or "red_region").
+    def _search(self, action, env, perception):
+        """SEARCH: bounded scan for a target class.
+
+        skills.search does the actual work: it stops base motion between
+        views, re-observes with a fresh image at each stop, calls
+        perception.ground(obs, target) on that image, and only accepts a
+        result that is LOCALIZED (a valid 3D position), matches the CURRENT
+        observation's frame_id (rejects a stale/mismatched grounding), and
+        is found within the view/time budget. We don't re-implement any of
+        that here — we just call it and translate the result.
+        """
+        target_class = action.target or ""
+        if not target_class:
+            return ExecutionResult(
+                action, False, ErrorCode.INVALID_ACTION,
+                info={"detail": "SEARCH requires a target class name"},
+            )
+
+        # Bounds match the C guide: up to 13 views, 30 simulated seconds total.
+        primitive = skills.search(env, perception, target_class,
+                                  max_views=13, timeout_s=30.)
+
+        if primitive.success:
+            # The robot's viewpoint just changed (possibly a lot). Remember
+            # this as the new "home" view so a later PLACE view-recovery
+            # (_restore_view) returns here, not to wherever the episode
+            # originally started from.
+            self._view_pose = tuple(env.get_base_pose())
+
+        # views > 1 means the target was NOT visible from the very first
+        # (current) viewpoint and the robot actually had to scan for it —
+        # worth flagging to B/the orchestrator as more than a trivial check.
+        views_taken = primitive.info.get("views", 0)
+
+        return ExecutionResult(
+            action=action,
+            success=primitive.success,
+            error_code=primitive.error_code,
+            recovery_attempted=views_taken > 1,
+            info=primitive.info,
         )
 
 #
