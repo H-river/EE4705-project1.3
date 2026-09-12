@@ -21,6 +21,17 @@ class StudentCExecutor(ClosedLoopExecutor):
 
     _LIFT_CHECK_M = 0.12  # how high to lift to prove a REAL GRASP, not just "gripper closed near it"
 
+    _RELEASE_HEIGHT_M = 0.06 #PLACE parameters
+    _RETREAT_HEIGHT_M = 0.14
+    _NOT_VISIBLE_DETAIL = "exact object or region instance is not visible"
+
+    _STOP_SETTLE_S = 2.0          # total time budget to observe settling     #STOP parameters
+    _STOP_SAMPLE_S = 0.1          # spacing between settling checks
+    _STOP_BASE_POS_TOL = 0.003    # m, base xy drift per sample
+    _STOP_BASE_YAW_TOL = 0.01     # rad, base yaw drift per sample
+    _STOP_EE_DRIFT_TOL = 0.005    # m, end-effector drift per sample
+    _STOP_STABLE_SAMPLES_REQUIRED = 2
+
     def _execute(self, action, env, perception):
         # Dispatch skills you've overridden yourself; everything else falls
         # through to the shared closed_loop.py reference implementation.
@@ -44,6 +55,9 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         elif action.skill is Skill.VERIFY:
             return self._verify(action, env, perception)
+
+        elif action.skill is Skill.STOP:
+            return self._stop(action, env)
         
         return super()._execute(action, env, perception)
 
@@ -234,10 +248,6 @@ class StudentCExecutor(ClosedLoopExecutor):
                             recovery_attempted=recovery_attempted, info=info)
 
 #PLACE function: move above the destination surface (never into it), release, let the object settle, then confirm placement from a fresh observation.
-    _RELEASE_HEIGHT_M = 0.06
-    _RETREAT_HEIGHT_M = 0.14
-    _NOT_VISIBLE_DETAIL = "exact object or region instance is not visible"
-
     def _place(self, action, env, perception):
         """PLACE: move above the destination surface, release, let the
         object settle, then confirm placement from a fresh observation.
@@ -414,4 +424,57 @@ class StudentCExecutor(ClosedLoopExecutor):
         return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
                                info={"detail": f"Unknown VERIFY condition {condition!r}"})
 
-#
+# STOP function: cancel motion and confirm the robot actually settled.
+# env.stop_motion() only cancels targets — it does not prove anything has
+# stopped moving. A body under load (e.g. from residual velocity or a
+# held object's inertia) can keep drifting for a bit afterward. We treat
+# STOP as successful only once we've directly observed two consecutive
+# quiet samples, not just because the command was issued.
+    def _stop(self, action, env):
+        """STOP: cancel all commanded motion, then confirm settling from
+        fresh proprioception before declaring success. Attachment is never
+        dropped by this action; if it's lost anyway (e.g. the object was
+        already slipping), that's reported as a failure, not silently
+        ignored."""
+
+        env.stop_motion()
+        was_attached = env.is_attached()
+
+        deadline = env.sim_time() + self._STOP_SETTLE_S
+        stable_samples = 0
+        before = env.get_robot_state()
+        info = {}
+
+        while env.sim_time() < deadline:
+            # Step a fixed slice of sim time between checks rather than a
+            # fixed step count, so the sampling interval is stable regardless
+            # of the simulator's timestep.
+            env.step(max(1, round(self._STOP_SAMPLE_S / env.timestep())))
+            after = env.get_robot_state()
+
+            base_delta = np.asarray(after.base_pose) - np.asarray(before.base_pose)
+            yaw_drift = abs(float(np.arctan2(np.sin(base_delta[2]), np.cos(base_delta[2]))))
+            base_drift = float(np.linalg.norm(base_delta[:2]))
+            ee_drift = float(np.linalg.norm(np.asarray(after.ee_pos) - np.asarray(before.ee_pos)))
+
+            settled = (base_drift < self._STOP_BASE_POS_TOL
+                    and yaw_drift < self._STOP_BASE_YAW_TOL
+                    and ee_drift < self._STOP_EE_DRIFT_TOL)
+            stable_samples = stable_samples + 1 if settled else 0
+
+            info = {"base_drift_m": base_drift, "yaw_drift_rad": yaw_drift,
+                    "ee_drift_m": ee_drift, "stable_samples": stable_samples}
+
+            # Attachment must not silently disappear during a stop. Report it
+            # immediately rather than waiting out the rest of the settle budget.
+            if was_attached and not env.is_attached():
+                return ExecutionResult(action, False, ErrorCode.NOT_HOLDING, info=info)
+
+            if stable_samples >= self._STOP_STABLE_SAMPLES_REQUIRED:
+                return ExecutionResult(action, True, info=info)
+
+            before = after
+
+        # Ran out of settle budget without two consecutive quiet samples.
+        return ExecutionResult(action, False, ErrorCode.TIMEOUT, info=info)
+
