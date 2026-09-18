@@ -17,6 +17,7 @@ API and visual accuracy have not been tested in this refinement session.
 ```bash
 cd /home/jiamo/EE4705/project1.3
 source .venv/bin/activate
+sudo apt install ffmpeg                 #Need to install this for rendering MuJoCo backend 
 .venv/bin/python -m pytest -q tests/test_student_a.py
 
 a_out="runs/my_a_offline_$(date +%Y%m%d_%H%M%S)"
