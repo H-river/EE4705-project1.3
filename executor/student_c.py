@@ -40,6 +40,9 @@ class StudentCExecutor(ClosedLoopExecutor):
     _STOP_STABLE_SAMPLES_REQUIRED = 2
 
     def _execute(self, action, env, perception):
+        if self._initial_base_pose is None:
+            self._initial_base_pose = tuple(env.get_base_pose())
+
         # Dispatch skills you've overridden yourself; everything else falls
         # through to the shared closed_loop.py reference implementation.
         if action.skill is Skill.APPROACH:
@@ -72,6 +75,7 @@ class StudentCExecutor(ClosedLoopExecutor):
         super().reset()
         self._arm_tucked = False
         self._search_memory = {}
+        self._initial_base_pose = None
 
     def _install_search_memory(self, perception):
         if getattr(perception, "_student_c_search_memory", None) is self:
@@ -154,6 +158,31 @@ class StudentCExecutor(ClosedLoopExecutor):
             ), tuck_error
         self._arm_tucked = True
         return None, tuck_error
+
+    def _return_to_initial_pose(self, env):
+        """Return the base to its pose when this episode first started."""
+        initial_pose = np.asarray(self._initial_base_pose, dtype=float)
+        env.set_base_target(*initial_pose)
+
+        deadline = env.sim_time() + skills.DEFAULT_TIMEOUT_S
+        while env.sim_time() < deadline:
+            current = np.asarray(env.get_base_pose(), dtype=float)
+            yaw_error = abs(float(np.arctan2(np.sin(current[2] - initial_pose[2]),
+                                             np.cos(current[2] - initial_pose[2]))))
+            if (np.linalg.norm(current[:2] - initial_pose[:2]) < skills.BASE_POS_TOL
+                    and yaw_error < skills.BASE_YAW_TOL):
+                env.stop_motion()
+                return SkillResult(True, ErrorCode.NONE, {
+                    "returned_to_initial_pose": True,
+                    "initial_base_pose": initial_pose.tolist(),
+                })
+            env.step(10)
+
+        env.stop_motion()
+        return SkillResult(False, ErrorCode.TIMEOUT, {
+            "detail": "Base did not return to its initial pose",
+            "initial_base_pose": initial_pose.tolist(),
+        })
 
 #APPROACH function: park the base so the target lands inside the right arm's workspace.
     def _approach(self, action, env, perception):
@@ -265,6 +294,16 @@ class StudentCExecutor(ClosedLoopExecutor):
                 if not env.is_attached():
                     primitive = SkillResult(False, ErrorCode.GRASP_MISSED,
                                             {"detail": "Attachment lost during lift check"})
+                else:
+                    retreat = self._return_to_initial_pose(env)
+                    if not retreat.success:
+                        primitive = retreat
+                    else:
+                        primitive = SkillResult(
+                            True,
+                            ErrorCode.NONE,
+                            {**primitive.info, **retreat.info},
+                        )
                 break
 
             if primitive.success:
