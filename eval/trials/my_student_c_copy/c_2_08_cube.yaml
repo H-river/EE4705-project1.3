@@ -1,0 +1,41 @@
+id: c_2_08_cube
+category: c_scene_variation
+instruction: Move the blue cube to the red area.
+scene:
+  seed: 208
+  objects:
+  - name: stone
+    pos:
+    - 0.4
+    - -0.15
+    - 0.88
+  - name: stone2
+    pos:
+    - 0.2
+    - -0.2
+    - 0.88
+  - name: cube
+    pos:
+    - 0.36
+    - 0.2
+    - 0.88
+    yaw: -0.2
+  - name: bottle
+    pos:
+    - 0.55
+    - -0.35
+    - 0.915
+  robot_init:
+    x: -0.05
+    y: -0.2
+    yaw: 0.2
+clarification_responses: []
+expected:
+  target: cube
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP
