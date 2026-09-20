@@ -6,7 +6,7 @@ scene:
   objects:
   - name: stone
     pos:
-    - 0.2
+    - 0.47
     - -0.2
     - 0.88
   - name: stone2

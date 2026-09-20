@@ -21,6 +21,12 @@ class StudentCExecutor(ClosedLoopExecutor):
 
     _LIFT_CHECK_M = 0.12  # how high to lift to prove a REAL GRASP, not just "gripper closed near it"
 
+    # Keep the right hand tucked beside the torso while the base moves.  This
+    # is deliberately high above the table and close to the shoulder rather
+    # than a tabletop waypoint, so approach cannot sweep the hand through an
+    # object.
+    _ARM_TUCK_OFFSET = np.array([0.16, -0.10, 1.12])
+
     _RELEASE_HEIGHT_M = 0.06 #PLACE parameters
     _RETREAT_HEIGHT_M = 0.14
     _NOT_VISIBLE_DETAIL = "exact object or region instance is not visible"
@@ -64,6 +70,41 @@ class StudentCExecutor(ClosedLoopExecutor):
 #APPROACH function: park the base so the target lands inside the right arm's workspace.
     def _approach(self, action, env, perception):
         """Park the base so the target lands inside the right arm's workspace."""
+        # Retract the arm before translating the base.  The arm may still be
+        # extended after a previous REACH/GRASP/PLACE action.
+        base = env.get_base_pose()
+        c, s = np.cos(base[2]), np.sin(base[2])
+        local_x, local_y, tuck_z = self._ARM_TUCK_OFFSET
+        tuck_pos = np.array([
+            base[0] + c * local_x - s * local_y,
+            base[1] + s * local_x + c * local_y,
+            tuck_z,
+        ])
+        try:
+            env.set_arm_target(tuck_pos)
+        except ValueError as exc:
+            return ExecutionResult(
+                action=action,
+                success=False,
+                error_code=ErrorCode.UNREACHABLE,
+                info={"detail": f"Could not tuck arm before approach: {exc}"},
+            )
+
+        tuck_deadline = env.sim_time() + 5.0
+        while env.sim_time() < tuck_deadline:
+            if np.linalg.norm(env.get_ee_pos() - tuck_pos) < skills.EE_POS_TOL:
+                break
+            env.step(10)
+        tuck_error = float(np.linalg.norm(env.get_ee_pos() - tuck_pos))
+        if tuck_error >= skills.EE_POS_TOL:
+            env.stop_motion()
+            return ExecutionResult(
+                action=action,
+                success=False,
+                error_code=ErrorCode.TIMEOUT,
+                info={"detail": "Arm did not tuck before approach", "tuck_error_m": tuck_error},
+            )
+
         # 1. Fresh observation + scene: never reuse a stale/cached position.
         obs = env.get_obs()
         scene = perception.describe(obs)
@@ -97,7 +138,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             success=primitive_result.success,
             error_code=primitive_result.error_code,
             post_frame_id=post.frame_id,
-            info=primitive_result.info,
+            info={**primitive_result.info, "arm_tucked": True, "tuck_error_m": tuck_error},
         )
 
 #REACH function: move the TCP to the target's current position, then independently confirm the measured position actually got there.

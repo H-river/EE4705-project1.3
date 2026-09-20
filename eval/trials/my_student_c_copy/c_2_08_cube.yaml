@@ -11,7 +11,7 @@ scene:
     - 0.88
   - name: stone2
     pos:
-    - 0.2
+    - 0.51
     - -0.2
     - 0.88
   - name: cube
