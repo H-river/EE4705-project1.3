@@ -4,7 +4,8 @@ import numpy as np
 
 from core import skills
 from core.action_targets import TargetResolutionError, resolve_action_position
-from core.types import ErrorCode, ExecutionResult, GroundStatus, Skill, SkillResult
+from core.types import (ErrorCode, ExecutionResult, GroundedObject, GroundStatus,
+                        SceneDescription, Skill, SkillResult)
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
@@ -67,9 +68,56 @@ class StudentCExecutor(ClosedLoopExecutor):
         
         return super()._execute(action, env, perception)
 
-#APPROACH function: park the base so the target lands inside the right arm's workspace.
-    def _approach(self, action, env, perception):
-        """Park the base so the target lands inside the right arm's workspace."""
+    def reset(self):
+        super().reset()
+        self._arm_tucked = False
+        self._search_memory = {}
+
+    def _install_search_memory(self, perception):
+        if getattr(perception, "_student_c_search_memory", None) is self:
+            return
+
+        describe = perception.describe
+
+        def describe_with_memory(obs, *args, **kwargs):
+            scene = describe(obs, *args, **kwargs)
+            objects = list(scene.objects)
+            regions = list(scene.regions)
+            present_ids = {item.instance_id for item in objects + regions}
+            for item in self._search_memory.values():
+                if item.instance_id in present_ids:
+                    continue
+                remembered = GroundedObject(
+                    item.instance_id, item.name, item.status,
+                    bbox_xyxy=item.bbox_xyxy, pos_world=item.pos_world,
+                    confidence=item.confidence, source=item.source,
+                    kind=item.kind, frame_id=scene.frame_id,
+                    attributes=dict(item.attributes),
+                    region_half_extents_xy=item.region_half_extents_xy,
+                )
+                (regions if remembered.kind == "region" else objects).append(remembered)
+            return SceneDescription(
+                objects=objects,
+                regions=regions,
+                caption=scene.caption,
+                ambiguities=scene.ambiguities,
+                frame_id=scene.frame_id,
+                sim_time=scene.sim_time,
+            )
+
+        perception.describe = describe_with_memory
+        perception._student_c_search_memory = self
+
+    def _remember_search_result(self, perception, grounded):
+        if grounded is None or grounded.status is not GroundStatus.LOCALIZED:
+            return
+        self._search_memory[grounded.instance_id] = grounded
+        self._install_search_memory(perception)
+
+    def _tuck_arm(self, action, env):
+        if self._arm_tucked:
+            return None, 0.0
+
         # Retract the arm before translating the base.  The arm may still be
         # extended after a previous REACH/GRASP/PLACE action.
         base = env.get_base_pose()
@@ -87,8 +135,8 @@ class StudentCExecutor(ClosedLoopExecutor):
                 action=action,
                 success=False,
                 error_code=ErrorCode.UNREACHABLE,
-                info={"detail": f"Could not tuck arm before approach: {exc}"},
-            )
+                info={"detail": f"Could not tuck arm before search/approach: {exc}"},
+            ), None
 
         tuck_deadline = env.sim_time() + 5.0
         while env.sim_time() < tuck_deadline:
@@ -103,7 +151,16 @@ class StudentCExecutor(ClosedLoopExecutor):
                 success=False,
                 error_code=ErrorCode.TIMEOUT,
                 info={"detail": "Arm did not tuck before approach", "tuck_error_m": tuck_error},
-            )
+            ), tuck_error
+        self._arm_tucked = True
+        return None, tuck_error
+
+#APPROACH function: park the base so the target lands inside the right arm's workspace.
+    def _approach(self, action, env, perception):
+        """Park the base so the target lands inside the right arm's workspace."""
+        tuck_result, tuck_error = self._tuck_arm(action, env)
+        if tuck_result is not None:
+            return tuck_result
 
         # 1. Fresh observation + scene: never reuse a stale/cached position.
         obs = env.get_obs()
@@ -379,6 +436,10 @@ class StudentCExecutor(ClosedLoopExecutor):
         is found within the view/time budget. We don't re-implement any of
         that here — we just call it and translate the result.
         """
+        tuck_result, tuck_error = self._tuck_arm(action, env)
+        if tuck_result is not None:
+            return tuck_result
+
         target_class = action.target or ""
         if not target_class:
             return ExecutionResult(
@@ -391,6 +452,7 @@ class StudentCExecutor(ClosedLoopExecutor):
                                   max_views=13, timeout_s=30.)
 
         if primitive.success:
+            self._remember_search_result(perception, primitive.info.get("grounded"))
             # The robot's viewpoint just changed (possibly a lot). Remember
             # this as the new "home" view so a later PLACE view-recovery
             # (_restore_view) returns here, not to wherever the episode
@@ -407,7 +469,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             success=primitive.success,
             error_code=primitive.error_code,
             recovery_attempted=views_taken > 1,
-            info=primitive.info,
+            info={**primitive.info, "arm_tucked": True, "tuck_error_m": tuck_error},
         )
 
 # VERIFY function: check a claimed condition against FRESH evidence.
