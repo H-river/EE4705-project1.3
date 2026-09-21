@@ -59,6 +59,7 @@ class StudentAPerception(Perception):
         A unique class/color can move across the scene and keep its ID. Multiple
         identical objects require separated 3D evidence (15 cm gate, 3 cm margin).
         These are association limits, not proof of permanent physical identity.
+
         """
         prepared = []
         for d in detections:
@@ -97,13 +98,24 @@ class StudentAPerception(Perception):
         for i, (d, box, pos, detail) in enumerate(prepared):
             instance_id = assigned[i]
             status = GroundStatus.LOCALIZED if pos is not None else GroundStatus.UNLOCALIZED
+            memory_attrs = {} #Enable the program to "Remember"
             if i in ambiguous:
                 status, pos = GroundStatus.AMBIGUOUS, None
                 detail = 'cannot associate identical objects confidently across frames'
             else:
                 previous = self._tracks.get(instance_id, {})
                 self._tracks[instance_id] = {'key': (d['name'], d['color']),
-                                            'pos': pos if pos is not None else previous.get('pos')}
+                                             'pos': pos if pos is not None else previous.get('pos'),
+                                             'last_localized_frame': obs.frame_id if pos is not None else previous.get('last_localized_frame'),
+                                             'last_localized_sim_time': obs.sim_time if pos is not None else previous.get('last_localized_sim_time')
+                }
+                #This cause the program remember an object previous position and last seen time
+                if pos is None and previous.get('last_localized_frame') is not None:
+                    memory_attrs = {
+                        'memory_last_localized_pos': previous['pos'],
+                        'memory_last_localized_frame': previous['last_localized_frame'],
+                        'memory_note': 'not confrimed this frame; last confrimed position shown for reference only'
+                    }
             region = d['name'] == 'red_region'
             result.append(GroundedObject(instance_id, d['name'], status,
                 bbox_xyxy=box, pos_world=pos, confidence=d['confidence'],
@@ -112,6 +124,26 @@ class StudentAPerception(Perception):
                 attributes={'color': d['color'], 'localization': detail},
                 region_half_extents_xy=(.08, .08) if region and pos is not None else None))
         return result
+
+    def recall(self, name, color=None):
+        """Best-effort memory lookup — NOT part of the Perception contract.
+
+        Returns the last confirmed position/time for a tracked class, or None
+        if nothing of that class has ever been localized this episode. This is
+        never a substitute for a live ground()/describe() call: a caller must
+        re-confirm with a live observation before acting (grasping, placing)
+        on anything returned here.
+        """
+        candidates = [(iid, t) for iid, t in self._tracks.items()
+                      if t['key'][0] == name and (color is None or t['key'][1] == color)
+                      and t.get('last_localized_frame') is not None]
+        if not candidates:
+            return None
+        iid, t = max(candidates, key=lambda kv: kv[1]['last_localized_sim_time'])
+        return {'instance_id': iid, 'pos_world': t['pos'],
+                'last_localized_frame': t['last_localized_frame'],
+                'last_localized_sim_time': t['last_localized_sim_time'],
+                'confidence_note': 'memory only — not a live observation'}
 
     def _observe(self, obs, query, grounding=False):
         buffer = io.BytesIO()
