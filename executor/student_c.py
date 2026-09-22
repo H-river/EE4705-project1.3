@@ -163,6 +163,7 @@ class StudentCExecutor(ClosedLoopExecutor):
         self._back_off_from_contact(env)
         return True
 
+    # disabled: executor must not modify perception output (no call sites remain)
     def _install_search_memory(self, perception):
         if getattr(perception, "_student_c_search_memory", None) is self:
             return
@@ -198,6 +199,7 @@ class StudentCExecutor(ClosedLoopExecutor):
         perception.describe = describe_with_memory
         perception._student_c_search_memory = self
 
+    # disabled: executor must not modify perception output (no call sites remain)
     def _remember_search_result(self, perception, grounded):
         if grounded is None or grounded.status is not GroundStatus.LOCALIZED:
             return
@@ -618,7 +620,8 @@ class StudentCExecutor(ClosedLoopExecutor):
                                           "contacts": exc.contacts})
 
         if primitive.success:
-            self._remember_search_result(perception, primitive.info.get("grounded"))
+            # disabled: executor must not modify perception output
+            # self._remember_search_result(perception, primitive.info.get("grounded"))
             # The robot's viewpoint just changed (possibly a lot). Remember
             # this as the new "home" view so a later PLACE view-recovery
             # (_restore_view) returns here, not to wherever the episode
