@@ -47,7 +47,7 @@ If `DASHSCOPE_API_KEY` or `EE4705_QWEN_API_KEY` is already exported in this
 terminal, A can reuse it. Otherwise enter the key without displaying it:
 
 ```bash
-read -rsp 'Qwen API key: ' DASHSCOPE_API_KEY
+read -rsp 'Qwen API key: ' https://ws-aukj7p1ui5jgekf6.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
 export DASHSCOPE_API_KEY
 printf '\n'
 ```
