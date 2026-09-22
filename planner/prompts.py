@@ -91,7 +91,8 @@ def planning_input(instruction, scene, history, context, goal, clarification):
     objects = [{"instance_id": g.instance_id, "name": g.name, "kind": g.kind,
                 "status": g.status.value, "pos_world": g.pos_world,
                 "bbox_xyxy": g.bbox_xyxy, "confidence": g.confidence,
-                "attributes": dict(g.attributes), "frame_id": g.frame_id,
+                "attributes": {k: v for k, v in g.attributes.items() if k in ("color",)},
+                "frame_id": g.frame_id,
                 "region_half_extents_xy": g.region_half_extents_xy}
                for g in scene.objects + scene.regions]
     groups = {}
