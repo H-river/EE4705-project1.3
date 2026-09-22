@@ -121,7 +121,7 @@ class StudentAPerception(Perception):
                 bbox_xyxy=box, pos_world=pos, confidence=d['confidence'],
                 source=f'qwen_vlm:{source}',
                 kind='region' if region else 'object', frame_id=obs.frame_id,
-                attributes={'color': d['color'], 'localization': detail},
+                attributes={'color': d['color'], 'localization': detail, **memory_attrs},
                 region_half_extents_xy=(.08, .08) if region and pos is not None else None))
         return result
 
