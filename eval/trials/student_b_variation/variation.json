@@ -1,0 +1,2111 @@
+{
+ "schema": "student-b-labelled-suite-v1",
+ "split": "variation",
+ "description": "Night-run variation suite (2026-09-23): 4 cases each of paraphrase, relational reference, colour negation, infeasible request and ambiguous reference. Instructions and expected labels written by hand before any model run; scenes reuse the evaluation-suite layouts. Input scenes use world meters.",
+ "cases": [
+  {
+   "id": "var_01",
+   "category": "paraphrase",
+   "instruction": "Could you shift the pebble onto the red square?",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v704",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v373",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v851",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v817",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v704",
+    "region_id": "v817"
+   }
+  },
+  {
+   "id": "var_02",
+   "category": "paraphrase",
+   "instruction": "Grab the block and drop it in the red zone.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v893",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v687",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v609",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v121",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v687",
+    "region_id": "v121"
+   }
+  },
+  {
+   "id": "var_03",
+   "category": "paraphrase",
+   "instruction": "Please set the flask down on the red target.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v270",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v177",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v135",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v776",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v135",
+    "region_id": "v776"
+   }
+  },
+  {
+   "id": "var_04",
+   "category": "paraphrase",
+   "instruction": "I'd like the grey rock moved onto the red marker.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v657",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v129",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v823",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v516",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v657",
+    "region_id": "v516"
+   }
+  },
+  {
+   "id": "var_05",
+   "category": "relation",
+   "instruction": "Move the stone next to the blue cube to the red area.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v642",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v256",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v213",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v186",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v123",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v642",
+    "region_id": "v123"
+   }
+  },
+  {
+   "id": "var_06",
+   "category": "relation",
+   "instruction": "Put the stone beside the green bottle on the red region.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v844",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v731",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v285",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v662",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v187",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v662",
+    "region_id": "v187"
+   }
+  },
+  {
+   "id": "var_07",
+   "category": "relation",
+   "instruction": "Take the stone farthest from the bottle to the red zone.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v194",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v934",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v476",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v514",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v318",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v194",
+    "region_id": "v318"
+   }
+  },
+  {
+   "id": "var_08",
+   "category": "relation",
+   "instruction": "Move the stone closest to the bottle onto the red area.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v398",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v862",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v111",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v108",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v789",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v108",
+    "region_id": "v789"
+   }
+  },
+  {
+   "id": "var_09",
+   "category": "color_negation",
+   "instruction": "Move the stone that is not red to the red area.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v280",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v759",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v528",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v134",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v721",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v280",
+    "region_id": "v721"
+   }
+  },
+  {
+   "id": "var_10",
+   "category": "color_negation",
+   "instruction": "Put the stone, not the gray one, on the red region.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v494",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v420",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v824",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v124",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v210",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v124",
+    "region_id": "v210"
+   }
+  },
+  {
+   "id": "var_11",
+   "category": "color_negation",
+   "instruction": "Move the other stone, not the dark red one, to the red zone.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v825",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v233",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v867",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v181",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v554",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v825",
+    "region_id": "v554"
+   }
+  },
+  {
+   "id": "var_12",
+   "category": "color_negation",
+   "instruction": "Take the stone that isn't gray to the red area.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v417",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v587",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v802",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v190",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v916",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "READY",
+    "object_id": "v190",
+    "region_id": "v916"
+   }
+  },
+  {
+   "id": "var_13",
+   "category": "infeasible",
+   "instruction": "Stack the cube on top of the bottle.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v930",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v345",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v330",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v768",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "INFEASIBLE"
+   }
+  },
+  {
+   "id": "var_14",
+   "category": "infeasible",
+   "instruction": "Throw the stone off the table.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v828",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v913",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v899",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v221",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "INFEASIBLE"
+   }
+  },
+  {
+   "id": "var_15",
+   "category": "infeasible",
+   "instruction": "Move the purple sphere to the red area.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v472",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v732",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v830",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v387",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "INFEASIBLE"
+   }
+  },
+  {
+   "id": "var_16",
+   "category": "infeasible",
+   "instruction": "Break the cube into two pieces.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v965",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v300",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v766",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.55,
+       -0.35,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v564",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "INFEASIBLE"
+   }
+  },
+  {
+   "id": "var_17",
+   "category": "ambiguous",
+   "instruction": "Move the stone to the red area.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v468",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v332",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v189",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v179",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v317",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "NEEDS_CLARIFICATION",
+    "unbound_roles": [
+     "object"
+    ]
+   }
+  },
+  {
+   "id": "var_18",
+   "category": "ambiguous",
+   "instruction": "Put the rock on the red zone.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v306",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v700",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v720",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v734",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v244",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "NEEDS_CLARIFICATION",
+    "unbound_roles": [
+     "object"
+    ]
+   }
+  },
+  {
+   "id": "var_19",
+   "category": "ambiguous",
+   "instruction": "Could you move that stone to the red area?",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v565",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v573",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v656",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v619",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v563",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "NEEDS_CLARIFICATION",
+    "unbound_roles": [
+     "object"
+    ]
+   }
+  },
+  {
+   "id": "var_20",
+   "category": "ambiguous",
+   "instruction": "Transfer the stone over to the red square.",
+   "scene": {
+    "objects": [
+     {
+      "instance_id": "v695",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.15,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "gray"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v560",
+      "name": "cube",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       -0.1,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "blue"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v283",
+      "name": "bottle",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.18,
+       0.915
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "green"
+      },
+      "region_half_extents_xy": null
+     },
+     {
+      "instance_id": "v814",
+      "name": "stone",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.62,
+       0.12,
+       0.875
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "object",
+      "frame_id": 7,
+      "attributes": {
+       "color": "dark_red"
+      },
+      "region_half_extents_xy": null
+     }
+    ],
+    "regions": [
+     {
+      "instance_id": "v159",
+      "name": "red_region",
+      "status": "LOCALIZED",
+      "bbox_xyxy": null,
+      "pos_world": [
+       0.4,
+       0.3,
+       0.853
+      ],
+      "confidence": 0.95,
+      "source": "labelled_scene",
+      "kind": "region",
+      "frame_id": 7,
+      "attributes": {},
+      "region_half_extents_xy": null
+     }
+    ],
+    "caption": "",
+    "ambiguities": [],
+    "frame_id": 7,
+    "sim_time": 1.0
+   },
+   "expected": {
+    "status": "NEEDS_CLARIFICATION",
+    "unbound_roles": [
+     "object"
+    ]
+   }
+  }
+ ]
+}
