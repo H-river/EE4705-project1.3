@@ -401,7 +401,16 @@ class StudentCExecutor(ClosedLoopExecutor):
                 elif primitive.success:
                     retreat = self._return_to_initial_pose(env)
                     if not retreat.success:
-                        primitive = retreat
+                        # A failed retreat does not undo a verified grasp:
+                        # keep success and report the retreat separately.
+                        primitive = SkillResult(
+                            True,
+                            ErrorCode.NONE,
+                            {**primitive.info, "return_to_initial_pose": {
+                                "success": False,
+                                "error_code": retreat.error_code.value,
+                                **retreat.info}},
+                        )
                     else:
                         primitive = SkillResult(
                             True,
