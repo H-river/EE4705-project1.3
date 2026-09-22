@@ -1,13 +1,46 @@
 # executor/student_c.py
 """Working C starting point. Extend the shared closed-loop simulation skills here."""
+import math
+
 import numpy as np
 
 from core import skills
 from core.action_targets import TargetResolutionError, resolve_action_position
-from core.types import ErrorCode, ExecutionResult, GroundStatus, Skill, SkillResult
+from core.types import (ErrorCode, ExecutionResult, GroundedObject, GroundStatus,
+                        SceneDescription, Skill, SkillResult)
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
+
+
+class _BodyTableContact(RuntimeError):
+    def __init__(self, contacts):
+        super().__init__("robot body contacted the table")
+        self.contacts = contacts
+
+
+class _ContactGuard:
+    """Proxy that interrupts shared motion primitives after each step."""
+
+    def __init__(self, env, contact_reader):
+        self._env = env
+        self._contact_reader = contact_reader
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+
+    def __setattr__(self, name, value):
+        if name in {"_env", "_contact_reader"}:
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._env, name, value)
+
+    def step(self, n=1):
+        self._env.step(n)
+        contacts = self._contact_reader()
+        if contacts:
+            self._env.stop_motion()
+            raise _BodyTableContact(contacts)
 
 class StudentCExecutor(ClosedLoopExecutor):
     """Eight bounded skills, with public sensor checks and one local grasp retry.
@@ -20,6 +53,13 @@ class StudentCExecutor(ClosedLoopExecutor):
     LABEL = "C: Student C closed-loop baseline (simulation / weld)"
 
     _LIFT_CHECK_M = 0.12  # how high to lift to prove a REAL GRASP, not just "gripper closed near it"
+    _CONTACT_BACKOFF_M = 0.100  # reverse clearance, based on the object size scale in objects.yaml
+
+    # Keep the right hand tucked beside the torso while the base moves.  This
+    # is deliberately high above the table and close to the shoulder rather
+    # than a tabletop waypoint, so approach cannot sweep the hand through an
+    # object.
+    _ARM_TUCK_OFFSET = np.array([0.16, -0.10, 1.12])
 
     _RELEASE_HEIGHT_M = 0.06 #PLACE parameters
     _RETREAT_HEIGHT_M = 0.14
@@ -33,6 +73,9 @@ class StudentCExecutor(ClosedLoopExecutor):
     _STOP_STABLE_SAMPLES_REQUIRED = 2
 
     def _execute(self, action, env, perception):
+        if self._initial_base_pose is None:
+            self._initial_base_pose = tuple(env.get_base_pose())
+
         # Dispatch skills you've overridden yourself; everything else falls
         # through to the shared closed_loop.py reference implementation.
         if action.skill is Skill.APPROACH:
@@ -61,9 +104,179 @@ class StudentCExecutor(ClosedLoopExecutor):
         
         return super()._execute(action, env, perception)
 
+    def reset(self):
+        super().reset()
+        self._arm_tucked = False
+        self._search_memory = {}
+        self._initial_base_pose = None
+
+    @staticmethod
+    def _table_contacts(env):
+        """Read only the existing simulator diagnostics; mocks report none."""
+        public_reader = getattr(env, "get_table_contacts", None)
+        if callable(public_reader):
+            return list(public_reader())
+        world = getattr(env, "_world", None)
+        robot_contacts = getattr(world, "robot_contacts", None)
+        if not callable(robot_contacts):
+            return []
+        monitored = ("torso_link", "waist_yaw_link", "waist_roll_link",
+                     "left_shoulder", "left_elbow", "left_wrist", "lg_")
+        contacts = []
+        for body_a, body_b, distance in robot_contacts():
+            if "table" not in (body_a, body_b):
+                continue
+            body = body_b if body_a == "table" else body_a
+            if body.startswith(monitored):
+                contacts.append((body, "table", distance))
+        return contacts
+
+    def _contact_guard(self, env):
+        return _ContactGuard(env, lambda: self._table_contacts(env))
+
+    def _back_off_from_contact(self, env):
+        """Move 0.050 m away from the tableward displacement before recovery."""
+        initial = np.asarray(self._initial_base_pose, dtype=float)
+        current = np.asarray(env.get_base_pose(), dtype=float)
+        displacement = current[:2] - initial[:2]
+        distance = float(np.linalg.norm(displacement))
+        if distance <= 1e-9:
+            return
+
+        direction_away = -displacement / distance
+        target_xy = current[:2] + direction_away * self._CONTACT_BACKOFF_M
+        env.set_base_target(float(target_xy[0]), float(target_xy[1]), float(current[2]))
+        deadline = env.sim_time() + min(2.0, skills.DEFAULT_TIMEOUT_S)
+        while env.sim_time() < deadline:
+            current = np.asarray(env.get_base_pose(), dtype=float)
+            if np.linalg.norm(current[:2] - target_xy) < skills.BASE_POS_TOL:
+                env.stop_motion()
+                return
+            env.step(10)
+        env.stop_motion()
+
+    def _restore_after_contact(self, env):
+        """Back off before the next planned action."""
+        env.stop_motion()
+        if env.is_attached():
+            return False
+        self._back_off_from_contact(env)
+        return True
+
+    def _install_search_memory(self, perception):
+        if getattr(perception, "_student_c_search_memory", None) is self:
+            return
+
+        describe = perception.describe
+
+        def describe_with_memory(obs, *args, **kwargs):
+            scene = describe(obs, *args, **kwargs)
+            objects = list(scene.objects)
+            regions = list(scene.regions)
+            present_ids = {item.instance_id for item in objects + regions}
+            for item in self._search_memory.values():
+                if item.instance_id in present_ids:
+                    continue
+                remembered = GroundedObject(
+                    item.instance_id, item.name, item.status,
+                    bbox_xyxy=item.bbox_xyxy, pos_world=item.pos_world,
+                    confidence=item.confidence, source=item.source,
+                    kind=item.kind, frame_id=scene.frame_id,
+                    attributes=dict(item.attributes),
+                    region_half_extents_xy=item.region_half_extents_xy,
+                )
+                (regions if remembered.kind == "region" else objects).append(remembered)
+            return SceneDescription(
+                objects=objects,
+                regions=regions,
+                caption=scene.caption,
+                ambiguities=scene.ambiguities,
+                frame_id=scene.frame_id,
+                sim_time=scene.sim_time,
+            )
+
+        perception.describe = describe_with_memory
+        perception._student_c_search_memory = self
+
+    def _remember_search_result(self, perception, grounded):
+        if grounded is None or grounded.status is not GroundStatus.LOCALIZED:
+            return
+        self._search_memory[grounded.instance_id] = grounded
+        self._install_search_memory(perception)
+
+    def _tuck_arm(self, action, env):
+        if self._arm_tucked:
+            return None, 0.0
+
+        # Retract the arm before translating the base.  The arm may still be
+        # extended after a previous REACH/GRASP/PLACE action.
+        base = env.get_base_pose()
+        c, s = np.cos(base[2]), np.sin(base[2])
+        local_x, local_y, tuck_z = self._ARM_TUCK_OFFSET
+        tuck_pos = np.array([
+            base[0] + c * local_x - s * local_y,
+            base[1] + s * local_x + c * local_y,
+            tuck_z,
+        ])
+        try:
+            env.set_arm_target(tuck_pos)
+        except ValueError as exc:
+            return ExecutionResult(
+                action=action,
+                success=False,
+                error_code=ErrorCode.UNREACHABLE,
+                info={"detail": f"Could not tuck arm before search/approach: {exc}"},
+            ), None
+
+        tuck_deadline = env.sim_time() + 5.0
+        while env.sim_time() < tuck_deadline:
+            if np.linalg.norm(env.get_ee_pos() - tuck_pos) < skills.EE_POS_TOL:
+                break
+            env.step(10)
+        tuck_error = float(np.linalg.norm(env.get_ee_pos() - tuck_pos))
+        if tuck_error >= skills.EE_POS_TOL:
+            env.stop_motion()
+            return ExecutionResult(
+                action=action,
+                success=False,
+                error_code=ErrorCode.TIMEOUT,
+                info={"detail": "Arm did not tuck before approach", "tuck_error_m": tuck_error},
+            ), tuck_error
+        self._arm_tucked = True
+        return None, tuck_error
+
+    def _return_to_initial_pose(self, env):
+        """Return the base to its pose when this episode first started."""
+        initial_pose = np.asarray(self._initial_base_pose, dtype=float)
+        env.set_base_target(*initial_pose)
+
+        deadline = env.sim_time() + skills.DEFAULT_TIMEOUT_S
+        while env.sim_time() < deadline:
+            current = np.asarray(env.get_base_pose(), dtype=float)
+            yaw_error = abs(float(np.arctan2(np.sin(current[2] - initial_pose[2]),
+                                             np.cos(current[2] - initial_pose[2]))))
+            if (np.linalg.norm(current[:2] - initial_pose[:2]) < skills.BASE_POS_TOL
+                    and yaw_error < skills.BASE_YAW_TOL):
+                env.stop_motion()
+                return SkillResult(True, ErrorCode.NONE, {
+                    "returned_to_initial_pose": True,
+                    "initial_base_pose": initial_pose.tolist(),
+                })
+            env.step(10)
+
+        env.stop_motion()
+        return SkillResult(False, ErrorCode.TIMEOUT, {
+            "detail": "Base did not return to its initial pose",
+            "initial_base_pose": initial_pose.tolist(),
+        })
+
 #APPROACH function: park the base so the target lands inside the right arm's workspace.
     def _approach(self, action, env, perception):
         """Park the base so the target lands inside the right arm's workspace."""
+        tuck_result, tuck_error = self._tuck_arm(action, env)
+        if tuck_result is not None:
+            return tuck_result
+
         # 1. Fresh observation + scene: never reuse a stale/cached position.
         obs = env.get_obs()
         scene = perception.describe(obs)
@@ -82,8 +295,24 @@ class StudentCExecutor(ClosedLoopExecutor):
                 info={"detail": "Failed to resolve action target"}
             )
 
-        # 3. Run the reference motion primitive (bounded, timeout-guarded).
-        primitive_result = skills.approach(env, pos)
+        # 3. Run the reference motion primitive with body/table contact checks.
+        try:
+            primitive_result = skills.approach(self._contact_guard(env), pos)
+        except _BodyTableContact as exc:
+            recovered = self._restore_after_contact(env)
+            if recovered:
+                primitive_result = SkillResult(
+                    True, ErrorCode.NONE,
+                    {"contact_recovery": True,
+                     "contacts": exc.contacts,
+                     "detail": "Table contact detected; backed off before the next planned action"},
+                )
+            else:
+                primitive_result = SkillResult(
+                    False, ErrorCode.TIMEOUT,
+                    {"detail": "Table contact detected; recovery was not possible",
+                     "contact_recovery": False, "contacts": exc.contacts},
+                )
 
         # 4. Let the base settle before returning, so a following action's
         #    fresh perception capture isn't taken mid-drift.
@@ -97,7 +326,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             success=primitive_result.success,
             error_code=primitive_result.error_code,
             post_frame_id=post.frame_id,
-            info=primitive_result.info,
+            info={**primitive_result.info, "arm_tucked": True, "tuck_error_m": tuck_error},
         )
 
 #REACH function: move the TCP to the target's current position, then independently confirm the measured position actually got there.
@@ -167,6 +396,16 @@ class StudentCExecutor(ClosedLoopExecutor):
                 if not env.is_attached():
                     primitive = SkillResult(False, ErrorCode.GRASP_MISSED,
                                             {"detail": "Attachment lost during lift check"})
+                elif primitive.success:
+                    retreat = self._return_to_initial_pose(env)
+                    if not retreat.success:
+                        primitive = retreat
+                    else:
+                        primitive = SkillResult(
+                            True,
+                            ErrorCode.NONE,
+                            {**primitive.info, **retreat.info},
+                        )
                 break
 
             if primitive.success:
@@ -196,7 +435,15 @@ class StudentCExecutor(ClosedLoopExecutor):
         scene = self._scene(env, perception)
         pos = resolve_action_position(action, scene)  # also raises on missing/unlocalized
 
-        primitive_result = skills.move_to(env, pos)
+        try:
+            primitive_result = skills.move_to(self._contact_guard(env), pos)
+        except _BodyTableContact as exc:
+            env.stop_motion()
+            primitive_result = SkillResult(
+                False, ErrorCode.TIMEOUT,
+                {"detail": "Table contact detected during transport; held object preserved",
+                 "contacts": exc.contacts},
+            )
         recovery_attempted = False
         motion_recovery_info = None
         base_repositioned = None
@@ -204,9 +451,11 @@ class StudentCExecutor(ClosedLoopExecutor):
         # A stalled/unreachable reach can be a consequence of the base's
         # CURRENT parking pose, not a genuinely unreachable target.
         # Re-park once and retry a single reach before giving up.
-        if not primitive_result.success and primitive_result.error_code in (
+        if (not primitive_result.success
+            and "contacts" not in primitive_result.info
+            and primitive_result.error_code in (
             ErrorCode.TIMEOUT, ErrorCode.UNREACHABLE,
-        ):
+            )):
             motion_recovery_info = {"error_code": primitive_result.error_code.value, **primitive_result.info}
             recovery_attempted = True
             env.stop_motion()
@@ -338,6 +587,10 @@ class StudentCExecutor(ClosedLoopExecutor):
         is found within the view/time budget. We don't re-implement any of
         that here — we just call it and translate the result.
         """
+        tuck_result, tuck_error = self._tuck_arm(action, env)
+        if tuck_result is not None:
+            return tuck_result
+
         target_class = action.target or ""
         if not target_class:
             return ExecutionResult(
@@ -346,10 +599,26 @@ class StudentCExecutor(ClosedLoopExecutor):
             )
 
         # Bounds match the C guide: up to 13 views, 30 simulated seconds total.
-        primitive = skills.search(env, perception, target_class,
-                                  max_views=13, timeout_s=30.)
+        try:
+            primitive = skills.search(self._contact_guard(env), perception, target_class,
+                                      max_views=13, timeout_s=30.)
+        except _BodyTableContact as exc:
+            recovered = self._restore_after_contact(env)
+            if recovered and not env.is_attached():
+                try:
+                    primitive = skills.search(self._contact_guard(env), perception, target_class,
+                                              max_views=13, timeout_s=30.)
+                except _BodyTableContact:
+                    primitive = SkillResult(False, ErrorCode.TIMEOUT,
+                                           {"detail": "Repeated table contact during SEARCH"})
+                primitive.info.update({"contact_recovery": True, "contacts": exc.contacts})
+            else:
+                primitive = SkillResult(False, ErrorCode.TIMEOUT,
+                                         {"detail": "Table contact detected; recovery was not possible",
+                                          "contacts": exc.contacts})
 
         if primitive.success:
+            self._remember_search_result(perception, primitive.info.get("grounded"))
             # The robot's viewpoint just changed (possibly a lot). Remember
             # this as the new "home" view so a later PLACE view-recovery
             # (_restore_view) returns here, not to wherever the episode
@@ -366,7 +635,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             success=primitive.success,
             error_code=primitive.error_code,
             recovery_attempted=views_taken > 1,
-            info=primitive.info,
+            info={**primitive.info, "arm_tucked": True, "tuck_error_m": tuck_error},
         )
 
 # VERIFY function: check a claimed condition against FRESH evidence.
@@ -478,3 +747,4 @@ class StudentCExecutor(ClosedLoopExecutor):
         # Ran out of settle budget without two consecutive quiet samples.
         return ExecutionResult(action, False, ErrorCode.TIMEOUT, info=info)
 
+ 
