@@ -36,3 +36,4 @@ htmlcov/
 
 # Course handout stays local; do not distribute it with the project.
 /EE4705_Project1.3 S1 AY2627.pdf
+.vscode/
