@@ -167,3 +167,9 @@ ad404ec Student C: GRASP function added (Version 1.0)
 4e614cf Student C: REACH functionadded (Version 1.0)
 445ca38 Student C: APPROACH code added (Version 1)
 ```
+
+## 7. STAGE 9 — B report material (appended)
+
+- 9.1 `82557a9` [B] `eval/b_metrics.py` → `docs/validation/B_METRICS.md`. Over all 168 B planner calls tonight: first-pass-valid 163/168 (97.0%), repair 5/168, repaired and accepted 3/5, accepted 166/168. **Validator ablation: 5/168 first responses were rejected by the contract.** Without the validator the robot would have run them unchanged: 2 goal-colour mismatches, 1 target without a current 3D position, and 2 that named an unsupported class (these 2 are the contract's own false rejections, see §5 item 5). Normalisations: 0. Tokens/latency per call type are in B_METRICS.md (initial plan ≈ 2.5k prompt / 1.1k completion tokens, ~17 s; post-clarification ≈ 2.8k / 1.5k, ~22 s).
+- 9.2 `eval/trials/student_b_variation/variation.json` (20 new cases): **19/20** live (runs/night/planning_variation). ambiguous 4/4, colour negation 4/4, paraphrase 4/4, relation 4/4, infeasible 3/4. The miss (var_15 "Move the purple sphere to the red area.") is the same contract rejection as test_26: the repaired answer was a correct INFEASIBLE but was rejected with "Unknown object class 'sphere'". This is now 2 independent cases for §5 item 5.
+- Live calls for Stage 9: 21. **Final total: 556 / 600** (A 397, B 159).

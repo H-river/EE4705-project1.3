@@ -141,3 +141,15 @@
 - verdict: better (0/4 → 3/4 claimed). KEPT.
 - live calls after round: 535 → 65 left < 80 → FIX LOOP STOPPED after round 1.
 - K3 (A class/colour palette) was also prepared and tested (full suite 234 passed, 1 skipped) but NOT committed, because its reruns (c_2_06, c_2_07) could not be afforded. Patch saved for the owner: runs/night/pending_K3_class_color.patch (apply with `git apply`, then rerun c_2_06/c_2_07).
+
+## STAGE 8 — REPORT
+- end 01:42. runs/night/REPORT.md written; copies in docs/night_run/ (commit e5571b0); pushed: git push -u origin e2e → new branch origin/e2e.
+- RESULT: DONE
+
+## STAGE 9 — B REPORT MATERIAL
+- start 01:45 / end 01:47. Gate: STAGE 8 done ✔, 65 calls left ≥ 60 ✔, time ✔.
+- 9.1 [B] 82557a9 eval/b_metrics.py + docs/validation/B_METRICS.md (0 live)
+- 9.2 [B] 0ecc0f2 variation suite, 20 cases: 19/20 live (21 calls). var_15 = contract rejects a correct INFEASIBLE (same as test_26).
+- (one aborted launch before 9.2: a shell-variable mistake in my command left the config unset; it failed before any request, 0 calls)
+- final live calls: 556 / 600
+- RESULT: DONE; REPORT.md §7 appended; pushed again.
