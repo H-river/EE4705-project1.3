@@ -134,6 +134,11 @@ See `E2E_TABLE.md` (copied in full below). Rule-based attribution follows the pl
 ## 6. `git log --oneline main..e2e`
 
 ```
+(as of the final push; later commits: see §7)
+ae417e9 [chore] Update night-run report with Stage 9 results
+0ecc0f2 [B] Add 20-case B variation suite and its live results
+82557a9 [B] Add eval/b_metrics.py and B planner metrics from the night run
+e5571b0 [chore] Add night-run report, progress log, e2e table and pending K3 patch
 2fe1fc8 [C-fix] round 1: retry PLACE verification from the last localized view when unlocalized
 3258089 [A-fix] 2.8: drop degenerate unselected bboxes instead of rejecting the frame
 5686bd7 [chore] Untrack .vscode, drop duplicate trial set, rename C's new trials to student_c_v2
