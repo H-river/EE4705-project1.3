@@ -64,6 +64,7 @@ class StudentCExecutor(ClosedLoopExecutor):
     _RELEASE_HEIGHT_M = 0.06 #PLACE parameters
     _RETREAT_HEIGHT_M = 0.14
     _NOT_VISIBLE_DETAIL = "exact object or region instance is not visible"
+    _UNLOCALIZED_DETAIL = "reliable 3D grounding is required"
 
     _STOP_SETTLE_S = 2.0          # total time budget to observe settling     #STOP parameters
     _STOP_SAMPLE_S = 0.1          # spacing between settling checks
@@ -561,21 +562,28 @@ class StudentCExecutor(ClosedLoopExecutor):
         # First visual check from the retreat viewpoint.
         check = closed_loop.verify_placement(env, perception, obj_id, action.target)
 
-        # Only retry the VIEW for "not visible" -- that's a camera-framing
-        # problem. "Outside region" / drift are real placement errors that
-        # a different heading cannot fix, so we do not retry those.
+        # Only retry the VIEW for camera-framing problems: "not visible", or
+        # visible but unlocalized (e.g. the region box touches the image edge
+        # from the post-place pose). "Outside region" / drift are real
+        # placement errors that a different heading cannot fix.
+        view_problems = (self._NOT_VISIBLE_DETAIL, self._UNLOCALIZED_DETAIL)
         view_attempts = 0
-        if not check.passed and check.detail == self._NOT_VISIBLE_DETAIL:
+        if not check.passed and check.detail in view_problems:
             base = np.asarray(self._view_pose)
             bearing = np.arctan2(region_pos[1] - base[1], region_pos[0] - base[0]) - base[2]
             direction = np.sign(np.sin(bearing)) or 1.0
-            for offset in (direction * 0.2, -direction * 0.2):
+            offsets = (direction * 0.2, -direction * 0.2)
+            if check.detail == self._UNLOCALIZED_DETAIL:
+                # First return to the exact viewpoint where the scene was last
+                # localized (episode start or last successful SEARCH).
+                offsets = (0.0,) + offsets
+            for offset in offsets:
                 view_attempts += 1
                 view = self._restore_view(env, yaw_offset=offset)
                 if not view.success:
                     break  # couldn't even get to the new viewpoint; stop trying
                 check = closed_loop.verify_placement(env, perception, obj_id, action.target)
-                if check.passed or check.detail != self._NOT_VISIBLE_DETAIL:
+                if check.passed or check.detail not in view_problems:
                     break  # resolved, or failing for a different (non-view) reason now
 
         return ExecutionResult(
