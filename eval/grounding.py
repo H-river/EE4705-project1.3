@@ -29,43 +29,59 @@ def empty_dir(path):
     return path
 
 
-def capture_dataset(out):
+#Changed to having 30 balanced cases instead of 20 unblanced cases
+def capture_dataset(out, per_kind=10):
     from core.env import RobotEnv
     from core.world import SimWorld
     out=empty_dir(out)
-    world=SimWorld();oracle=EvalOracle(world);cases=[]
+    world=SimWorld();oracle=EvalOracle(world)
+    buckets={'unique':[],'missing':[],'ambiguous':[]}
+    attempts=[]
+    for view,yaw in enumerate((-.15,.05,.25,.50,.35,-.30,.15,.60,.45,-.05)):
+        for setup in range(6):
+            dx=.01*(view-1);dy=.015*(setup-2)
+            stone=SceneObjectSpec('stone',(.4+dx,-.10+dy,.88))
+            cube=SceneObjectSpec('cube',(.43,.12+dy,.88))
+            bottle=SceneObjectSpec('bottle',(.54,-.28,.915))
+            stone2=SceneObjectSpec('stone2',(.53+dx,.02+dy,.88))
+            recipes=[
+                ([stone,cube,bottle],'the gray stone',['stone']),
+                ([stone,cube,bottle],'the blue cube',['cube']),
+                ([stone,cube],'the green bottle',['bottle']),
+                ([cube,bottle],'the gray stone',['stone']),
+                ([stone,cube,bottle,stone2],'the stone',['stone','stone2']),
+                ([stone,bottle,stone2],'the stone',['stone','stone2']),
+            ]
+            objects,target,possible=recipes[setup]
+            attempts.append((view,yaw,setup,dx,dy,objects,target,possible))
+
+    number=0
     try:
-        # Four views x five object/target setups. Labels are derived before any model run.
-        for view,yaw in enumerate((-.15,.05,.25,.50)):
-            for setup in range(5):
-                number=view*5+setup
-                dx=.01*(view-1);dy=.015*(setup-2)
-                objects=[SceneObjectSpec('stone',(.4+dx,-.10+dy,.88)),
-                         SceneObjectSpec('cube',(.43,.12+dy,.88)),
-                         SceneObjectSpec('bottle',(.54,-.28,.915))]
-                if setup==2: objects.append(SceneObjectSpec('stone2',(.53,.02,.88)))
-                if setup==3: objects=[o for o in objects if o.name!='bottle']
-                target,possible=(('the gray stone',['stone']) if setup==0 else
-                                 ('the blue cube',['cube']) if setup==1 else
-                                 ('the stone',['stone','stone2']) if setup==2 else
-                                 ('the green bottle',['bottle']))
-                world.reset(SceneConfig(seed=100+number,robot_init={'x':-.12-.01*view,'y':0.,'yaw':yaw},objects=objects))
-                world.step(500)
-                obs=RobotEnv(world).get_obs('head')
-                folder=out/f'a_{number+1:02d}'
-                files=persist_observation(obs,folder)
-                boxes=oracle.gt_bboxes('head')
-                candidates=[name for name in possible if name in boxes]
-                kind='missing' if not candidates else 'unique' if len(candidates)==1 else 'ambiguous'
-                case={'id':folder.name,'target':target,'query':'What supported objects and colors are visible?',
-                      'expected_kind':kind,'candidate_gt_ids':candidates,
-                      'gt_bboxes':boxes,'gt_centers_world':{name:oracle.object_pos(name).tolist() for name in boxes if name!='red_region'},
-                      'scene_config':to_json_safe(asdict(SceneConfig(seed=100+number,
-                        robot_init={'x':-.12-.01*view,'y':0.,'yaw':yaw},objects=objects))),
-                      'files':{k:str(Path(v).relative_to(out)) for k,v in files.items()}}
-                case['sha256']={k:hashlib.sha256((out/v).read_bytes()).hexdigest() for k,v in case['files'].items()}
-                cases.append(case)
+        for view,yaw,setup,dx,dy,objects,target,possible in attempts:
+            world.reset(SceneConfig(seed=100+number,robot_init={'x':-.12-.01*view,'y':0.,'yaw':yaw},objects=objects))
+            world.step(500)
+            obs=RobotEnv(world).get_obs('head')
+            boxes=oracle.gt_bboxes('head')
+            candidates=[name for name in possible if name in boxes]
+            kind='missing' if not candidates else 'unique' if len(candidates)==1 else 'ambiguous'
+            number+=1
+            if len(buckets[kind])>=per_kind: continue
+            folder=out/f'a_{sum(len(v) for v in buckets.values())+1:02d}'
+            files=persist_observation(obs,folder)
+            case={'id':folder.name,'target':target,'query':'What supported objects and colors are visible?',
+                  'expected_kind':kind,'candidate_gt_ids':candidates,
+                  'gt_bboxes':boxes,'gt_centers_world':{n:oracle.object_pos(n).tolist() for n in boxes if n!='red_region'},
+                  'scene_config':to_json_safe(asdict(SceneConfig(seed=100+number,
+                    robot_init={'x':-.12-.01*view,'y':0.,'yaw':yaw},objects=objects))),
+                  'files':{k:str(Path(v).relative_to(out)) for k,v in files.items()}}
+            case['sha256']={k:hashlib.sha256((out/v).read_bytes()).hexdigest() for k,v in case['files'].items()}
+            buckets[kind].append(case)
+            if all(len(v)>=per_kind for v in buckets.values()): break
     finally: world.close()
+
+    short=[k for k,v in buckets.items() if len(v)<per_kind]
+    if short: raise ValueError(f'Could not reach {per_kind} cases for: {short} -- add more recipe variety')
+    cases=buckets['unique']+buckets['missing']+buckets['ambiguous']
     manifest={'version':1,'role':'A development dataset; not a model result',
               'label_source':'evaluation oracle at the same camera capture; >=30 visible pixels',
               'n_cases':len(cases),'cases':cases}
