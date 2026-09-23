@@ -730,21 +730,6 @@ class StudentCExecutor(ClosedLoopExecutor):
             info={**primitive.info, "arm_tucked": True, "tuck_error_m": tuck_error},
         )
 
-    _RECENTRE_MAX_RAD = math.radians(20)
-    _RECENTRE_MIN_RAD = math.radians(2)  # a smaller turn would give the same view
-
-    @staticmethod
-    def _bearing_to_box(obs, bbox):
-        """World-azimuth offset (rad, + = turn left) from the camera heading to
-        the ray through the box centre. Uses the full camera rotation, so the
-        head's downward pitch does not distort the horizontal angle."""
-        k, t = obs.intrinsics, obs.t_world_camera
-        u, v = (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
-        ray = t[:3, :3] @ np.array([(u - k[0, 2]) / k[0, 0], (v - k[1, 2]) / k[1, 1], 1.0])
-        fwd = t[:3, 2]
-        delta = math.atan2(ray[1], ray[0]) - math.atan2(fwd[1], fwd[0])
-        return math.atan2(math.sin(delta), math.cos(delta))
-
     def _table_sweep(self, env, perception, target, max_views=13, timeout_s=30.):
         """Round 6 (1b): skills.search with tabletop-only viewpoints.
 
@@ -753,12 +738,6 @@ class StudentCExecutor(ClosedLoopExecutor):
         search_views(): ±60° around the table bearing, views that cannot
         contain the table skipped. The old sweep turned 0.5 rad per view
         through a full circle, so about half its views showed only the floor.
-
-        Round 6 (step 4): a view that sees the target but cannot localize it
-        (a box, no 3D position, typically clipped by the image edge) is not
-        "not found": turn toward the box centre by min(20°, its bearing) and
-        take one extra view, which counts toward ``max_views``. At most one
-        re-centre per planned view.
         """
         deadline = env.sim_time() + timeout_s
         env.stop_motion()
@@ -766,65 +745,37 @@ class StudentCExecutor(ClosedLoopExecutor):
         views, plan = search_views(env.get_base_pose(), first.t_world_camera, first.intrinsics,
                                    n_views=max_views)
         base = env.get_base_pose()
-        info = {"primitive": "search", "views": 0, "recentred": 0, "sweep": plan}
-        state = {"last": "NOT_FOUND"}
-
-        def turn_to(yaw):
-            env.set_base_target(float(base[0]), float(base[1]), yaw)
-
-            def turned():
-                b = env.get_base_pose()
-                return abs(math.atan2(math.sin(b[2] - yaw), math.cos(b[2] - yaw))) < skills.BASE_YAW_TOL
-
-            ok = skills._step_until(env, turned, timeout_s=min(4., max(0., deadline - env.sim_time())), chunk=1)
-            env.stop_motion()
-            return ok
-
-        def look():
-            """(SkillResult to return now or None, grounding, observation)."""
-            obs = env.get_obs()
-            try:
-                found = perception.ground(obs, target)
-            except Exception as exc:
-                return SkillResult(False, ErrorCode.SEARCH_FATAL,
-                                   {**info, "detail": f"{type(exc).__name__}: {exc}"}), None, obs
-            info["views"] += 1
-            if found is None:
-                return None, None, obs
-            state["last"] = found.status.value
-            if found.frame_id >= 0 and found.frame_id != obs.frame_id:
-                return SkillResult(False, ErrorCode.SEARCH_FATAL, {**info, "detail": "Stale grounding"}), found, obs
-            pos = np.asarray(found.pos_world, dtype=float)
-            if found.status is GroundStatus.LOCALIZED and pos.shape == (3,) and np.all(np.isfinite(pos)):
-                return SkillResult(True, ErrorCode.NONE, {**info, "grounded": found, "frame_id": obs.frame_id}), found, obs
-            return None, found, obs
-
+        info = {"primitive": "search", "views": 0, "sweep": plan}
+        last_status = "NOT_FOUND"
         try:
             for yaw, _ in views:
-                if info["views"] >= max_views:
-                    break
                 if env.sim_time() >= deadline:
                     return SkillResult(False, ErrorCode.TIMEOUT, info)
-                if not turn_to(yaw):
+                env.set_base_target(float(base[0]), float(base[1]), yaw)
+
+                def turned():
+                    b = env.get_base_pose()
+                    return abs(math.atan2(math.sin(b[2] - yaw), math.cos(b[2] - yaw))) < skills.BASE_YAW_TOL
+
+                if not skills._step_until(env, turned, timeout_s=min(4., max(0., deadline - env.sim_time())), chunk=1):
                     return SkillResult(False, ErrorCode.TIMEOUT, {**info, "detail": "Viewpoint motion timed out"})
-                done, found, obs = look()
-                if done is not None:
-                    return done
-                if (found is None or found.status is not GroundStatus.UNLOCALIZED or not found.bbox_xyxy
-                        or info["views"] >= max_views or env.sim_time() >= deadline):
+                env.stop_motion()
+                obs = env.get_obs()
+                try:
+                    found = perception.ground(obs, target)
+                except Exception as exc:
+                    return SkillResult(False, ErrorCode.SEARCH_FATAL,
+                                       {**info, "detail": f"{type(exc).__name__}: {exc}"})
+                info["views"] += 1
+                if found is None:
                     continue
-                bearing = self._bearing_to_box(obs, found.bbox_xyxy)
-                if abs(bearing) < self._RECENTRE_MIN_RAD:
-                    continue
-                turn = math.copysign(min(self._RECENTRE_MAX_RAD, abs(bearing)), bearing)
-                current = env.get_base_pose()[2]
-                if not turn_to(math.atan2(math.sin(current + turn), math.cos(current + turn))):
-                    return SkillResult(False, ErrorCode.TIMEOUT, {**info, "detail": "Viewpoint motion timed out"})
-                info["recentred"] += 1
-                done, _, _ = look()
-                if done is not None:
-                    return done
-            return SkillResult(False, ErrorCode.SEARCH_NOT_FOUND, {**info, "last_ground_status": state["last"]})
+                last_status = found.status.value
+                if found.frame_id >= 0 and found.frame_id != obs.frame_id:
+                    return SkillResult(False, ErrorCode.SEARCH_FATAL, {**info, "detail": "Stale grounding"})
+                pos = np.asarray(found.pos_world, dtype=float)
+                if found.status is GroundStatus.LOCALIZED and pos.shape == (3,) and np.all(np.isfinite(pos)):
+                    return SkillResult(True, ErrorCode.NONE, {**info, "grounded": found, "frame_id": obs.frame_id})
+            return SkillResult(False, ErrorCode.SEARCH_NOT_FOUND, {**info, "last_ground_status": last_status})
         finally:
             env.stop_motion()
 
