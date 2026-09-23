@@ -8,6 +8,36 @@ def pixel_box(box, width=640, height=480):
             min(width,int(np.ceil(x2*width/1000))),min(height,int(np.ceil(y2*height/1000))))
 
 
+def color_mask(rgb, color):
+    """Pixels of a public class colour inside an RGB patch, or None if unsupported."""
+    rgb=rgb.astype(float)
+    r,g,b=rgb[...,0],rgb[...,1],rgb[...,2]
+    masks={'gray':lambda:(np.maximum.reduce([r,g,b])-np.minimum.reduce([r,g,b])<18)&(r>40),
+           'dark_red':lambda:(r>1.7*g)&(r>1.8*b)&(r>55),
+           'red':lambda:(r>160)&(g<110)&(b<110)&(r-g>100),
+           'blue':lambda:(b>1.4*r)&(b>1.25*g)&(b>65),
+           'green':lambda:(g>1.4*r)&(g>1.25*b)&(g>55)}
+    return masks[color]() if color in masks else None
+
+
+def backproject(obs, bbox, mask=None):
+    """World points of the valid-depth pixels in a box (optionally masked), or None."""
+    x1,y1,x2,y2=bbox
+    if x2<=x1 or y2<=y1: return None
+    depth=obs.depth[y1:y2,x1:x2]
+    valid=np.isfinite(depth)&(depth>0)
+    if mask is not None: valid&=mask
+    k,t=obs.intrinsics,obs.t_world_camera
+    if (not np.any(valid) or not np.all(np.isfinite(k)) or not np.all(np.isfinite(t))
+            or k[0,0]<=0 or k[1,1]<=0):
+        return None
+    yy,xx=np.mgrid[y1:y2,x1:x2]
+    z=depth[valid];u=xx[valid];v=yy[valid]
+    pc=np.column_stack(((u-k[0,2])*z/k[0,0],(v-k[1,2])*z/k[1,1],z))
+    cloud=pc@t[:3,:3].T+t[:3,3]
+    return cloud if np.all(np.isfinite(cloud)) else None
+
+
 def localize(obs, bbox, name, color):
     """Return estimated center/support or None when geometry cannot be supported.
 
@@ -19,15 +49,9 @@ def localize(obs, bbox, name, color):
         return None, 'box touches image boundary'
     yy,xx=np.mgrid[y1:y2,x1:x2]
     depth=obs.depth[y1:y2,x1:x2]
-    rgb=obs.rgb[y1:y2,x1:x2].astype(float)
-    r,g,b=rgb[...,0],rgb[...,1],rgb[...,2]
-    masks={'gray':(np.maximum.reduce([r,g,b])-np.minimum.reduce([r,g,b])<18)&(r>40),
-           'dark_red':(r>1.7*g)&(r>1.8*b)&(r>55),
-           'red':(r>160)&(g<110)&(b<110)&(r-g>100),
-           'blue':(b>1.4*r)&(b>1.25*g)&(b>65),
-           'green':(g>1.4*r)&(g>1.25*b)&(g>55)}
-    if color not in masks: return None,'no supported color segmentation for metric estimate'
-    valid=np.isfinite(depth)&(depth>0)&masks[color]
+    mask=color_mask(obs.rgb[y1:y2,x1:x2],color)
+    if mask is None: return None,'no supported color segmentation for metric estimate'
+    valid=np.isfinite(depth)&(depth>0)&mask
     if np.count_nonzero(valid)<24: return None,'too few valid foreground depth pixels'
     k,t=obs.intrinsics,obs.t_world_camera
     if (not np.all(np.isfinite(k)) or not np.all(np.isfinite(t))

@@ -22,7 +22,8 @@ from core.llm_client import APIError, ContentFiltered, LLMClient, SchemaError
 from core.obs_store import persist_observation
 from core.types import CONTENT_FILTERED_NOTE, GroundedObject, GroundStatus, SceneDescription
 from perception.config import VisionConfig
-from perception.depth_geometry import localize, pixel_box
+from core.scene_geometry import table_top_z
+from perception.depth_geometry import backproject, color_mask, localize, pixel_box
 from perception.vision_contract import SCHEMA, SYSTEM, VERSION, validate_wire
 
 
@@ -71,6 +72,58 @@ def partial_region_center(obs, bbox):
     return tuple(float(c) for c in center), 'partial RGB-D fit of the visible region part'
 
 
+# Round 6 (1a): every supported object/region rests on the table top or is held
+# above it, so a detection whose estimated 3D centre lies outside this band
+# (relative to the table top read from the scene MJCF) is a hallucination on
+# the floor, a wall or the robot's shadow. It is dropped before tracking so it
+# can neither claim an identity nor make a real instance AMBIGUOUS.
+TABLE_BAND_M = (-.05, .30)
+MIN_CENTER_PIXELS = 24
+
+
+def estimate_center_z(obs, box, name, color, fit=None):
+    """(z, basis) of a detection's 3D centre: the class-geometry fit when it
+    succeeds, else the median height of the box's valid-depth pixels (colour
+    pixels first). (None, reason) when the depth gives no evidence.
+    ``fit`` is a precomputed localize() result for the same box."""
+    pos, _ = fit if fit is not None else localize(obs, box, name, color)
+    if pos is not None:
+        return pos[2], 'class_fit'
+    x1, y1, x2, y2 = box
+    if x2 <= x1 or y2 <= y1:
+        return None, 'empty box'
+    mask = color_mask(obs.rgb[y1:y2, x1:x2], color)
+    for m, basis in ((mask, 'color_pixels'), (None, 'box_pixels')):
+        if m is not None and np.count_nonzero(m) < MIN_CENTER_PIXELS:
+            continue
+        cloud = backproject(obs, box, m)
+        if cloud is not None and len(cloud) >= MIN_CENTER_PIXELS:
+            return float(np.median(cloud[:, 2])), basis
+    return None, 'too few valid depth pixels'
+
+
+def drop_off_table(wire, obs, fits=None):
+    """Wire without off-table detections (``selected`` re-mapped), the audit
+    records of what was dropped, and the kept detections' localize() fits."""
+    top = table_top_z()
+    if fits is None:
+        fits = [localize(obs, pixel_box(d['bbox']), d['name'], d['color']) for d in wire['detections']]
+    keep, dropped = [], []
+    for i, d in enumerate(wire['detections']):
+        z, basis = estimate_center_z(obs, pixel_box(d['bbox']), d['name'], d['color'], fits[i])
+        if z is not None and not top + TABLE_BAND_M[0] <= z <= top + TABLE_BAND_M[1]:
+            dropped.append({'index': i, 'detection': d, 'reason': 'off_table',
+                            'center_z': z, 'center_basis': basis, 'table_top_z': top})
+        else:
+            keep.append(i)
+    if not dropped:
+        return wire, [], fits
+    remap = {old: new for new, old in enumerate(keep)}
+    return ({**wire, 'detections': [wire['detections'][i] for i in keep],
+             'selected': [remap[i] for i in wire['selected'] if i in remap]}, dropped,
+            [fits[i] for i in keep])
+
+
 def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2, allow_nan=False,
                                    default=lambda x: x.value if hasattr(x, 'value') else asdict(x)))
@@ -98,7 +151,7 @@ class StudentAPerception(Perception):
         self._next_id += 1
         return instance_id
 
-    def _track(self, detections, obs, source):
+    def _track(self, detections, obs, source, fits=None):
         """One-to-one spatial association; uncertain duplicate identities stay ambiguous.
 
         A unique class/color can move across the scene and keep its ID. Multiple
@@ -107,9 +160,9 @@ class StudentAPerception(Perception):
 
         """
         prepared = []
-        for d in detections:
+        for i, d in enumerate(detections):
             box = pixel_box(d['bbox'])
-            pos, detail = localize(obs, box, d['name'], d['color'])
+            pos, detail = fits[i] if fits is not None else localize(obs, box, d['name'], d['color'])
             partial = False
             if pos is None and d['name'] == 'red_region' and detail == 'box touches image boundary':
                 pos, detail = partial_region_center(obs, box)
@@ -254,14 +307,16 @@ class StudentAPerception(Perception):
                 if len(self._predictions) > 16:
                     self._predictions.popitem(last=False)
             audit['response_source'] = source
-            objects = self._track(wire['detections'], obs, source)
+            audit['wire'] = wire
+            wire, audit['dropped_detections'], fits = drop_off_table(wire, obs)
+            objects = self._track(wire['detections'], obs, source, fits)
             ambiguities = [g.attributes['localization'] for g in objects if g.status is GroundStatus.AMBIGUOUS]
             if grounding and len(wire['selected']) > 1:
                 ambiguities.append('Several visible detections match the target phrase')
             scene = SceneDescription([g for g in objects if g.kind == 'object'],
                                      [g for g in objects if g.kind == 'region'], wire['answer'],
                                      ambiguities, obs.frame_id, obs.sim_time)
-            audit.update(wire=wire, scene=asdict(scene), status='ok')
+            audit.update(scene=asdict(scene), status='ok')
             return scene, objects, wire['selected']
         except Exception as exc:
             error = str(exc).replace(self.config.llm.api_key, '[REDACTED]') if self.config.llm.api_key else str(exc)
