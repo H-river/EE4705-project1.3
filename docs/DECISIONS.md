@@ -488,3 +488,21 @@ See `docs/STUDENT_C_README.md` and `docs/validation/AC_REFINEMENT.md`.
   completion. Live model accuracy and full live ABC remain to be evaluated.
 
 See `docs/STUDENT_A_README.md` and `docs/validation/AC_REFINEMENT.md`.
+
+## 18. Tracking hint, contract v3 (2026-09-23, night-run round 6)
+
+`Perception.describe(obs, query=None, *, hint=None)` takes an optional
+`TrackingHint(held_object_id, held_pos_world, released)` from the
+orchestrator; `released` is a `ReleasedHint(instance_id, expected_pos_world)`.
+The orchestrator builds it from `ExecutionContext.held_instance_id` /
+`last_release_instance_id` and the public end-effector position
+(`RobotEnv.get_ee_pos()`, taken right after the release for `released`). These
+are the system's own beliefs about its actions, never oracle state.
+Backward compatible: `core.interfaces.describe_with_hint` passes the keyword
+only to implementations whose `describe` accepts it, so pre-v3 perceptions
+(and the test stubs with `describe(self, obs)`) keep working. The executor's
+own describe()/ground() calls carry no hint; Student A keeps the last hint in
+force until the next one. `CONTRACT_VERSION = 3`. Why: after a failed PLACE,
+A re-identified the released stone (a11 → a16) and B's contract, which pins the
+goal id, rejected every replan (smoke_4, round 3). See
+docs/night_run/CHANGES.md row 18.
