@@ -9,9 +9,12 @@ VERSION='qwen-a-v1'
 #This is the basic output of one detection of an object for basic detection
 ITEM={'type':'object','additionalProperties':False,'required':['name','color','bbox','confidence'],
       'properties':{'name':{'type':'string','enum':['stone','cube','bottle','red_region']},
-                    'color':{'type':'string','enum':['gray','dark_red','blue','green','red','']},
-                    'bbox':{'type':'array','minItems':4,'maxItems':4,
-                            'items':{'type':'number','minimum':0,'maximum':1000}},
+                    # Structure only: the colour vocabulary and the 4-number bbox are
+                    # enforced in validate_wire, so ONE malformed detection can be
+                    # dropped instead of the provider's schema check killing the frame
+                    # (live: color 'empty', bbox with fewer than 4 numbers).
+                    'color':{'type':'string'},
+                    'bbox':{'type':'array','items':{'type':'number','minimum':0,'maximum':1000}},
                     'confidence':{'type':'number','minimum':0,'maximum':1}}}
 
 #This is the advance output for VQA/captioning
@@ -59,14 +62,21 @@ def _class_palette():
 CLASS_COLORS=_class_palette()
 
 
+# Words the model uses for "no colour" instead of the empty string.
+EMPTY_COLORS={'empty','none','unknown','n/a','na','null'}
+
+
 def normalise_class_color(d):
     """Return the detection with a public colour for its class, or None when
     the class/colour pair cannot exist (e.g. a 'red cube' is the red square
     misread). 'red' on a class whose only reddish member is dark_red becomes
     dark_red. An empty colour is kept."""
+    color=d['color'].strip().lower().replace(' ','_')
+    if color in EMPTY_COLORS: color=''
+    if color!=d['color']: d={**d,'color':color}
     allowed=CLASS_COLORS.get(d['name'])
-    if not d['color'] or allowed is None or d['color'] in allowed: return d
-    if d['color']=='red' and 'dark_red' in allowed: return {**d,'color':'dark_red'}
+    if not color or allowed is None or color in allowed: return d
+    if color=='red' and 'dark_red' in allowed: return {**d,'color':'dark_red'}
     return None
 
 
@@ -81,6 +91,11 @@ def validate_wire(wire):
     validate_schema(wire,SCHEMA)
     dropped=set()
     for i,d in enumerate(wire['detections']):
+        if len(d['bbox'])!=4:
+            # Structurally unusable. Same policy as a degenerate box: drop it,
+            # unless it is the grounding answer, where a repair is worth one call.
+            if i in wire['selected']: raise ValueError('bbox must have exactly 4 numbers')
+            dropped.add(i); continue
         x1,y1,x2,y2=d['bbox']
         if any(not 0 <= x <= 1000 for x in d['bbox']): raise ValueError('bbox coordinates must be in 0..1000')
         if not 0 <= d['confidence'] <= 1: raise ValueError('confidence must be in 0..1')
