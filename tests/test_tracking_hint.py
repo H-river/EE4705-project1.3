@@ -61,7 +61,7 @@ def a_before_frame_24(tmp_path, wire):
 
 
 def test_contract_version_bumped():
-    assert CONTRACT_VERSION == 3
+    assert CONTRACT_VERSION >= 3  # v3 added the hint (v4: REJECTED plans)
 
 
 def test_without_hint_the_released_stone_is_reidentified(reid_frame, tmp_path):

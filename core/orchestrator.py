@@ -203,6 +203,19 @@ class Orchestrator:
                 self._event(result, "refused", reason=plan.reason)
                 return result
 
+            if plan.status is PlanStatus.REJECTED:
+                # v4: the planner could not produce a valid plan. Same budget
+                # and history as a plan that fails validation; not ERROR.
+                self._event(result, "plan_rejected", reason=plan.reason)
+                replans += 1
+                if replans > cfg.max_replans:
+                    result.outcome = TrialOutcome.LIMIT_EXCEEDED
+                    return result
+                history.append(ExecutionResult(
+                    action=Action(Skill.STOP), success=False, error_code=ErrorCode.INVALID_ACTION,
+                    info={"planner_rejected": plan.reason}))
+                continue
+
             if plan.status is PlanStatus.NEEDS_CLARIFICATION:
                 if clarifications_used >= cfg.max_clarifications:
                     result.outcome = TrialOutcome.CLARIFICATION_EXHAUSTED

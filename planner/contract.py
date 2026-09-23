@@ -135,6 +135,16 @@ def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=
             require(ref.kind == role and name == ref.name, f"Goal {role} ID/class/role mismatch")
             if role == "object" and goal["object_color"]:
                 require(ref.attributes.get("color") == goal["object_color"], "Goal object color mismatch")
+    searches = [a for a in wire["actions"] if a["skill"] == Skill.SEARCH.value]
+    if status is PlanStatus.READY and searches:
+        # A READY plan that still has to SEARCH is really a NEEDS_SEARCH plan:
+        # keep only its (first) SEARCH, whose target is the search target, and
+        # replan after it. Recorded as a normalization, not a repair.
+        status = PlanStatus.NEEDS_SEARCH
+        wire = {**wire, "status": status.value, "actions": [searches[0]]}
+        if normalizations is not None:
+            normalizations.append({"field": "status", "change": "READY with SEARCH -> NEEDS_SEARCH",
+                                   "search_target": searches[0]["target"]})
     if status is PlanStatus.READY:
         require(bool(goal["object_id"] and goal["region_id"]), "READY needs both grounded goal IDs")
         require(not context.held_instance_id or context.held_instance_id == goal["object_id"],

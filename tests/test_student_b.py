@@ -1,6 +1,7 @@
 """Offline contract tests. Canned output does NOT measure Qwen language accuracy."""
 import copy
 import json
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -125,8 +126,9 @@ def test_rejects_bad_output_then_repairs_once(tmp_path, damage):
 
 def test_invalid_json_is_bounded_and_retains_usage(tmp_path):
     planner = fixture_planner(["not JSON", "still not JSON", example_response()], tmp_path)
-    with pytest.raises(PlannerError):
-        planner.plan(INSTRUCTION, example_scene())
+    # Contract v4 (round 7): output that fails after repair is a REJECTED plan, not a raise.
+    plan = planner.plan(INSTRUCTION, example_scene())
+    assert plan.status is PlanStatus.REJECTED and plan.actions == [] and plan.reason
     assert len(planner.client.transport.requests) == 2
     assert planner.client.stats.prompt_tokens == 20
     assert planner.last_diagnostics["accepted"] is False
@@ -173,8 +175,9 @@ def test_wrong_held_object_cannot_become_goal(tmp_path, switch_goal):
     planner = fixture_planner([example_response(), bad, bad], tmp_path)
     scene = example_scene()
     planner.plan(INSTRUCTION, scene)
-    with pytest.raises(PlannerError, match="Original goal|Held object"):
-        planner.replan(INSTRUCTION, scene, [], ExecutionContext(scene, held_instance_id="p1"))
+    plan = planner.replan(INSTRUCTION, scene, [], ExecutionContext(scene, held_instance_id="p1"))
+    assert plan.status is PlanStatus.REJECTED  # contract v4: returned, not raised
+    assert re.search("Original goal|Held object", plan.reason)
     assert planner.goal["object_id"] == "p0"
 
 

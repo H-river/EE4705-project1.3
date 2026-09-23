@@ -1,0 +1,97 @@
+{
+ "source": "round 6 step 2, c_2_10_bottle, B audit runs/night/r6/audit_b/6afbf64c268b42a689d6a047ecbaa61b/005.json: the replan that raised PlannerError(\"READY cannot SEARCH\")",
+ "instruction": "Move the green bottle to the red area.",
+ "original_goal": {
+  "object_id": "a4",
+  "object_name": "bottle",
+  "object_color": "green",
+  "region_id": "a1",
+  "region_name": "red_region"
+ },
+ "scene": {
+  "instances": [
+   {
+    "instance_id": "a7",
+    "name": "stone",
+    "kind": "object",
+    "status": "AMBIGUOUS",
+    "pos_world": null,
+    "bbox_xyxy": [
+     0,
+     240,
+     88,
+     300
+    ],
+    "confidence": 0.95,
+    "attributes": {
+     "color": "gray"
+    },
+    "frame_id": 28,
+    "region_half_extents_xy": null
+   },
+   {
+    "instance_id": "a8",
+    "name": "stone",
+    "kind": "object",
+    "status": "AMBIGUOUS",
+    "pos_world": null,
+    "bbox_xyxy": [
+     0,
+     360,
+     88,
+     452
+    ],
+    "confidence": 0.95,
+    "attributes": {
+     "color": "gray"
+    },
+    "frame_id": 28,
+    "region_half_extents_xy": null
+   },
+   {
+    "instance_id": "a4",
+    "name": "bottle",
+    "kind": "object",
+    "status": "LOCALIZED",
+    "pos_world": [
+     0.34990653074539313,
+     -0.3499735701870168,
+     0.9100839031394894
+    ],
+    "bbox_xyxy": [
+     171,
+     122,
+     288,
+     303
+    ],
+    "confidence": 0.99,
+    "attributes": {
+     "color": "green"
+    },
+    "frame_id": 28,
+    "region_half_extents_xy": null
+   }
+  ],
+  "caption": "Visible supported objects: two gray stones, one brown cube (support surface), and one green bottle. One red region is visible near the bottom edge.",
+  "ambiguities": [
+   "cannot associate identical objects confidently across frames",
+   "cannot associate identical objects confidently across frames"
+  ],
+  "frame_id": 28,
+  "sim_time": 8.037999999999354
+ },
+ "context": {
+  "execution_context": {
+   "held_instance_id": null,
+   "last_release_instance_id": null
+  }
+ },
+ "responses": [
+  "{\n  \"schema_version\": \"student-b-plan-v1\",\n  \"status\": \"READY\",\n  \"goal\": {\n    \"object_id\": \"a4\",\n    \"object_name\": \"bottle\",\n    \"object_color\": \"green\",\n    \"region_id\": \"a1\",\n    \"region_name\": \"red_region\"\n  },\n  \"actions\": [\n    {\n      \"skill\": \"APPROACH\",\n      \"target\": \"a4\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"GRASP\",\n      \"target\": \"a4\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"MOVE_TO\",\n      \"target\": \"a1\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"PLACE\",\n      \"target\": \"a1\",\n      \"object\": \"a4\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"VERIFY\",\n      \"target\": \"\",\n      \"object\": \"a4\",\n      \"region\": \"a1\",\n      \"condition\": \"object_in_region\"\n    },\n    {\n      \"skill\": \"STOP\",\n      \"target\": \"\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    }\n  ],\n  \"reason\": \"Proceeding with the pick-and-place task for the green bottle to the red area.\",\n  \"clarification_question\": \"\"\n}",
+  "{\n  \"schema_version\": \"student-b-plan-v1\",\n  \"status\": \"READY\",\n  \"goal\": {\n    \"object_id\": \"a4\",\n    \"object_name\": \"bottle\",\n    \"object_color\": \"green\",\n    \"region_id\": \"a1\",\n    \"region_name\": \"red_region\"\n  },\n  \"actions\": [\n    {\n      \"skill\": \"SEARCH\",\n      \"target\": \"red_region\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"APPROACH\",\n      \"target\": \"a4\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"GRASP\",\n      \"target\": \"a4\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"MOVE_TO\",\n      \"target\": \"a1\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"PLACE\",\n      \"target\": \"a1\",\n      \"object\": \"a4\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    },\n    {\n      \"skill\": \"VERIFY\",\n      \"target\": \"\",\n      \"object\": \"a4\",\n      \"region\": \"a1\",\n      \"condition\": \"object_in_region\"\n    },\n    {\n      \"skill\": \"STOP\",\n      \"target\": \"\",\n      \"object\": \"\",\n      \"region\": \"\",\n      \"condition\": \"\"\n    }\n  ],\n  \"reason\": \"The red region is missing from the current scene instances and lacks a 3D position. Added a SEARCH action to locate it before proceeding with the pick-and-place sequence.\",\n  \"clarification_question\": \"\"\n}"
+ ],
+ "validation_errors": [
+  "Action 2: target needs a current, unambiguous 3D position",
+  "READY cannot SEARCH"
+ ]
+}

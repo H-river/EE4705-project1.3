@@ -92,13 +92,13 @@ def _lookup(context: ExecutionContext, instance_id: Optional[str]) -> Optional[G
 def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
     errors: list[PlanError] = []
 
-    if plan.status in (PlanStatus.NEEDS_CLARIFICATION, PlanStatus.INFEASIBLE):
+    if plan.status in (PlanStatus.NEEDS_CLARIFICATION, PlanStatus.INFEASIBLE, PlanStatus.REJECTED):
         if plan.actions:
             errors.append(PlanError("BAD_STATUS", -1, f"{plan.status.value} plan must carry no actions"))
         if plan.status is PlanStatus.NEEDS_CLARIFICATION and not plan.clarification_question:
             errors.append(PlanError("BAD_STATUS", -1, "NEEDS_CLARIFICATION plan requires clarification_question"))
-        if plan.status is PlanStatus.INFEASIBLE and not plan.reason:
-            errors.append(PlanError("BAD_STATUS", -1, "INFEASIBLE plan requires reason"))
+        if plan.status in (PlanStatus.INFEASIBLE, PlanStatus.REJECTED) and not plan.reason:
+            errors.append(PlanError("BAD_STATUS", -1, f"{plan.status.value} plan requires reason"))
         return errors
 
     if not plan.actions:

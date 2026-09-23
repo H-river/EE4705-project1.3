@@ -691,7 +691,7 @@ The evaluator separately checks the correct grasped object, release, its center 
 
 For A's independent tests, `EvalOracle.associate(scene, camera=obs.camera_name)` matches predicted object boxes to true boxes using overlap (IoU), with threshold 0.30 by default. Call it from evaluation code before stepping the simulation after perception. It associates objects only; evaluate regions separately. Never give true labels to a student module.
 
-Current shared interface version: `CONTRACT_VERSION = 3` (v3 added the optional keyword-only `hint: TrackingHint` to `Perception.describe()`; see DECISIONS §18). Preserve it in experiment records. More background is in the root [README](../README.md) and [design decisions](DECISIONS.md).
+Current shared interface version: `CONTRACT_VERSION = 4` (v3 added the optional keyword-only `hint: TrackingHint` to `Perception.describe()`, DECISIONS §18; v4 added `PlanStatus.REJECTED`, DECISIONS §19). Preserve it in experiment records. More background is in the root [README](../README.md) and [design decisions](DECISIONS.md).
 
 ## 8. Common problems
 

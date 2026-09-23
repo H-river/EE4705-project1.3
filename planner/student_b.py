@@ -10,14 +10,16 @@ from uuid import uuid4
 
 from core.interfaces import Planner
 from core.llm_client import APIError, ContentFiltered, LLMClient, SchemaError
-from core.types import ExecutionContext
+from core.types import ExecutionContext, Plan, PlanStatus
 from planner.config import QwenPlannerConfig
 from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan
 from planner.prompts import PROMPT_VERSION, SYSTEM_PROMPT, json_value, planning_input
 
 
 class PlannerError(RuntimeError):
-    """Service or output failure. The orchestrator stops; this is not INFEASIBLE."""
+    """Service (HTTP/transport) or usage failure. The orchestrator stops; this is
+    not INFEASIBLE. Output that fails the contract after repair is returned as a
+    REJECTED plan instead (contract v4)."""
 
 
 class StudentBPlanner(Planner):
@@ -92,6 +94,7 @@ class StudentBPlanner(Planner):
                  "system_prompt": SYSTEM_PROMPT, "responses": [], "accepted": False,
                  "response_source": self.client.response_source, "error": None}
         last_error = None
+        service_error = False
         for attempt in range(self.config.max_repairs + 1):
             response = None
             normalizations = []
@@ -113,6 +116,7 @@ class StudentBPlanner(Planner):
                 continue
             except APIError as exc:
                 last_error = str(exc)
+                service_error = True
                 break  # HTTP/transport errors are retried only by the bounded client
             else:
                 plan.raw_llm_output = response.text
@@ -126,5 +130,12 @@ class StudentBPlanner(Planner):
                 self._save(audit)
                 return plan
         audit.update(error=last_error, repair_count=max(0, len(audit["responses"]) - 1))
+        if not service_error:
+            # The model answered, but no answer passed the contract: a
+            # REJECTED plan lets the orchestrator replan instead of ERROR.
+            plan = Plan(status=PlanStatus.REJECTED, reason=f"Planner output rejected by the contract: {last_error}")
+            audit["compiled_plan"] = json_value(plan)
+            self._save(audit)
+            return plan
         self._save(audit)
         raise PlannerError(self.last_diagnostics["error"] or "Planner produced no usable response")

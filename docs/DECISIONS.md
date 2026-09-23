@@ -506,3 +506,21 @@ force until the next one. `CONTRACT_VERSION = 3`. Why: after a failed PLACE,
 A re-identified the released stone (a11 → a16) and B's contract, which pins the
 goal id, rejected every replan (smoke_4, round 3). See
 docs/night_run/CHANGES.md row 18.
+
+## 19. REJECTED plans, contract v4 (2026-09-23, night-run round 7)
+
+`PlanStatus.REJECTED`: the planner's own output failed its contract even
+after the repair call. A REJECTED plan has a `reason` and no actions. The
+orchestrator logs `plan_rejected`, appends a failed STOP to the history (like a
+plan that fails validation), counts a replan against `max_replans`
+(LIMIT_EXCEEDED when exhausted) and replans from a fresh view. It is not a
+refusal (INFEASIBLE → REFUSED) and not ERROR. Student B returns REJECTED for
+schema and contract failures; HTTP/transport failures still raise
+PlannerError (→ ERROR), and so do usage errors (replan before plan, changed
+instruction, duplicate scene IDs). Also in B's contract: a READY plan that
+contains SEARCH is normalised to NEEDS_SEARCH whose only action is that
+SEARCH (the search target is carried in the SEARCH action's `target`; the
+contract has no separate `search_target` field, and an empty NEEDS_SEARCH
+plan would fail validation with EMPTY_PLAN). `CONTRACT_VERSION = 4`. Why:
+c_2_10 (round 6) ended in ERROR on "READY cannot SEARCH". See
+docs/night_run/CHANGES.md row 21.

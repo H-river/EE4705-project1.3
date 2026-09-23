@@ -3,7 +3,7 @@ import argparse
 import json
 from pathlib import Path
 
-from core.types import GroundedObject, GroundStatus, SceneDescription
+from core.types import GroundedObject, GroundStatus, PlanStatus, SceneDescription
 from planner.config import QwenPlannerConfig
 from planner.contract import WIRE_SCHEMA
 from planner.fixtures import INSTRUCTION, example_response, example_scene, fixture_planner
@@ -54,6 +54,10 @@ def main(argv=None):
                 (args.out / "diagnostics.json").write_text(json.dumps(planner.last_diagnostics, indent=2) + "\n")
                 print(f"Failure diagnostics: {(args.out / 'diagnostics.json').resolve()}")
             raise
+        if plan.status is PlanStatus.REJECTED:
+            (args.out / "diagnostics.json").write_text(json.dumps(planner.last_diagnostics, indent=2) + "\n")
+            print(f"Failure diagnostics: {(args.out / 'diagnostics.json').resolve()}")
+            parser.exit(2, f"Planner error: {plan.reason}\n")
         (args.out / "plan.json").write_text(json.dumps(json_value(plan), indent=2) + "\n")
         parsed = planner.last_diagnostics["responses"][-1]["response"]["parsed"]
         (args.out / "response.json").write_text(json.dumps(parsed, indent=2) + "\n")

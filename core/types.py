@@ -85,7 +85,9 @@ import numpy as np
 # v3: Perception.describe() takes an optional keyword-only TrackingHint from the
 #     orchestrator (held / just-released instance), so identities survive a
 #     grasp and a release. Implementations without the keyword still work.
-CONTRACT_VERSION = 3
+# v4: PlanStatus.REJECTED: the planner could not produce a contract-valid plan;
+#     the orchestrator replans (bounded by max_replans) instead of ending in ERROR.
+CONTRACT_VERSION = 4
 
 # Fixed public image resolution.
 IMAGE_HEIGHT = 480
@@ -141,12 +143,16 @@ class PlanStatus(enum.Enum):
       ``clarification_question`` must be set and ``actions`` empty.
     * ``INFEASIBLE`` — the instruction is refused; ``reason`` must be set
       and ``actions`` empty.
+    * ``REJECTED`` — (v4) the planner's own output failed its contract even
+      after repair; ``reason`` must be set and ``actions`` empty.  Not a
+      refusal of the task: the orchestrator replans from a fresh view.
     """
 
     READY = "READY"
     NEEDS_SEARCH = "NEEDS_SEARCH"
     NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"
     INFEASIBLE = "INFEASIBLE"
+    REJECTED = "REJECTED"
 
 
 class ErrorCode(enum.Enum):
