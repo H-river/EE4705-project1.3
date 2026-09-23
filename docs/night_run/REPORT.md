@@ -235,3 +235,41 @@ smoke_4 now fails only because of **my 2.8 deviation**: when the *selected* (gro
 3. **c_2_03/c_2_05**: object/region ping-pong and the APPROACH torso-table contact; both now behave honestly but still cannot finish.
 4. **c_2_06 ERROR is provider-side**: `HTTP 400 ... inappropriate content` from the model-studio content filter during PLACE verification. The cube had been placed correctly. Consider one retry on that status, or a different frame encoding.
 5. The experimental region commit `6bd9065` needs A's sign-off; its centre is biased toward the visible part when a region really is cut off.
+
+## 9. Round 3 (owner-directed, 2026-09-23 14:00 → 14:30)
+
+Budget: 150 live calls (cap 1061). **Used: 30** (911 → 941; A 25, B 5). The one test change allowed in this round was `test_bad_wire_rejected`, as instructed.
+
+### What changed
+
+| # | commit | what |
+|---|---|---|
+| 1 | `5d87376` [A-fix] | A degenerate (or not-4-number) bbox is dropped **even when it is selected**, and `selected` is cleared/re-mapped, so ground() returns None and SEARCH moves on (the original 2.8 intent). `test_bad_wire_rejected` lost its inverted-selected-bbox mutation, and `test_degenerate_selected_bbox_dropped` asserts the drop. The two round-2 tests that asserted a raise now assert the drop |
+| 2 | `b68a4f0` [chore] | Provider content filter (HTTP 400 with "inappropriate content" / data_inspection / content_filter) → typed `ContentFiltered` result, never cached. A: empty frame with `CONTENT_FILTERED_NOTE`. verify_placement: `VerificationResult(passed=None, source="vision")` (new defaulted field; `passed` is Optional). C: PLACE treats it as a view problem and re-observes from a new heading. Tests: tests/test_content_filter.py (5, fake 400 body copied from c_2_06) + 2 in test_student_c_view_recovery.py |
+| 4 | `0d3ecc7` | `docs/night_run/CHANGES.md`: every change to A's/C's code across all rounds (14 rows, 2 reverted) |
+| 5 | `453585a` | Episode gallery: `docs/night_run/EPISODES.md` + 10 mp4s in `docs/night_run/episodes/`, rendered by `scripts/render_episode.py` from saved frames and A's audit images (0 live calls, no episode re-run) |
+
+Full suite after each commit: **253 passed, 1 skipped**, then **260 passed, 1 skipped**.
+
+### Reruns (step 3): before → after
+
+| trial | before (end of round 2) | after (round 3) |
+|---|---|---|
+| c_2_06_cube | ERROR (F/T): provider content filter at PLACE verification | **CLAIMED_SUCCESS (T/T)**. The filter fired again, on the first view retry (frame 10). A returned an empty frame, verification returned `passed=None`, and C took a second view retry (+0.2 rad), where cube and region were LOCALIZED (offset 0.9 cm). 14 calls. `runs/night/r3/c_2_06_cube` |
+| smoke_4_search | ERROR (F/F): SEARCH_FATAL on a degenerate selected bbox | 3 runs, all ERROR, all caused *after* the point where round 2 died. See below |
+
+smoke_4, all three runs are reported, not just the best one:
+1. `runs/night/r3/smoke_4_search`: SEARCH stone succeeded, then B's replan got **HTTP 500 from the provider** twice (the client's retry included) → PlannerError → ERROR (F/F). 1 call.
+2. `runs/night/r3_b/smoke_4_search`: SEARCH stone ✔ → SEARCH red_region ✔ → APPROACH/GRASP/MOVE_TO ✔ → PLACE released the stone **in the region (evaluator: actual=True, 3.1 cm from centre)**, but PLACE verification said "exact object or region instance is not visible" after its view retries. B's replan then hit a **provider read timeout** (60 s × 2) → ERROR (F/**T**). 13 calls.
+3. `runs/night/r3_c/smoke_4_search`: the same path, mostly replayed from cache, to the same PLACE_FAILED (actual=True). This time B answered, but the contract rejected both answers: A had given the stone a **new instance id after the failed PLACE (a11 → a16)**, and the contract requires the goal to keep `object_id='a11'`. The first answer moved the goal to a16 ("Original goal must keep object_id='a11'"). The repair kept a11 in the goal but acted on a16 ("Object motion must target the goal with an empty hand"). PlannerError → ERROR (F/**T**). 2 calls.
+
+I stopped after the third run. The 150-call budget allowed more, but more runs would have been retrying until success. The SEARCH_FATAL cause is gone: SEARCH red_region succeeded in runs 2 and 3. Fix #1 (`5d87376`) was **not observed firing live**, though: no selected degenerate box appeared in any round-3 A reply. So the evidence for #1 is the unit tests and the round-2 failure it targets, not a live after-run.
+
+**Totals over the 15 e2e trials (latest run of each): claimed∧actual 7 → 8; actually achieved 9 → 10; false claims 0 → 0; ERROR outcomes 2 → 1 (smoke_4, now with the task physically achieved).**
+
+### Still open after round 3 (additions to §8)
+
+1. **Identity after a failed PLACE (smoke_4 run 3).** The released stone is re-identified with a new id, and B's contract then cannot produce any valid plan: goal id a11 is pinned, but the only visible stone is a16. Both A's re-ID after release and B's pinning are candidates. The B side (mine): allow the goal object to be re-bound when the old id is no longer in the scene and exactly one same-class, same-colour candidate is present. Also, B should return NEEDS_SEARCH/INFEASIBLE instead of raising after the repairs fail, because the raise is what turns this into ERROR.
+2. **Provider transients make e2e flaky.** 2 of 3 smoke_4 runs died on an HTTP 500 or a read timeout in B's call, after a bounded retry. The orchestrator turns any PlannerError into ERROR. Options: a longer backoff for 5xx/timeouts in the B client config, or letting B's APIError end the episode as a failed plan instead of ERROR.
+3. **SEARCH sweeps look away from the table.** The gallery videos show it: in c_2_03 and c_2_09 roughly half of the SEARCH views show only the floor and the robot's shadow, and in c_2_03 the VLM even reports AMBIGUOUS "gray stones" on the shadows. For C, restricting the sweep to headings that keep the table in view would save views and remove a source of phantom detections.
+4. `VerificationResult` now has `passed: Optional[bool]` and `source`, which is a backbone type change. Every in-repo caller that turns `.passed` into a success flag now uses `bool(...)`; external code that compares `passed is False` should be checked.

@@ -171,3 +171,7 @@ ROUND2 note: original 10 h window (00:26→10:26) already elapsed; round 2 deadl
   | c_2_05_stone | LIMIT_EXCEEDED | LIMIT_EXCEEDED (unchanged) |
 - DEVIATION from the loop rule: by the letter of rule 5 (outcome not better) c81d963 should be reverted. I KEPT it because the targeted behaviour is demonstrably fixed (the stone is found instead of AMBIGUOUS after a phantom duplicate) and the new ERROR is a different, pre-existing cause (K7) that the episode only reaches because it got further. Owner: `git revert c81d963` if you disagree.
 - next round: K7 (VLM colour outside the enum raises inside core/llm_client before A's validate_wire).
+- step 3 results: c_2_06 ERROR → CLAIMED_SUCCESS (content filter fired on frame 10 and was absorbed). smoke_4: 3 runs, all ERROR, all past the round-2 SEARCH_FATAL: (1) B HTTP 500, (2) task achieved, PLACE unverified, B read timeout, (3) task achieved, B contract rejects the replan after A re-ID a11→a16. Stopped after 3 runs.
+- step 4: 0d3ecc7 docs/night_run/CHANGES.md
+- step 5: 453585a gallery (10 episodes, 0 live calls, none re-run)
+- live calls after round 3: 941 (30 used of 150)
