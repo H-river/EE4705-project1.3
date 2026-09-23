@@ -1,5 +1,5 @@
 """Optional student modules, with observers around the unchanged contracts."""
-from core.interfaces import Executor, Perception, Planner
+from core.interfaces import Executor, Perception, Planner, describe_with_hint
 from core.types import SceneDescription
 from executor.demo_skills import DemoExecutor
 from perception.demo_rgbd import RGBDPerception
@@ -32,8 +32,8 @@ class ObservedPerception(Perception):
     def reset(self):
         self.inner.reset()
 
-    def describe(self, obs, query=None):
-        result = self.inner.describe(obs, query)
+    def describe(self, obs, query=None, *, hint=None):
+        result = describe_with_hint(self.inner, obs, query, hint)
         self.store.mark_persist(obs.frame_id)
         self.recorder.on_scene(obs, result)
         return result

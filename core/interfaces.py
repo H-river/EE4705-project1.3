@@ -10,6 +10,7 @@ ground-truth state.
 from __future__ import annotations
 
 import abc
+import inspect
 from typing import Optional, Protocol, runtime_checkable
 
 import numpy as np
@@ -23,6 +24,7 @@ from core.types import (
     Plan,
     SceneDescription,
     ExecutionContext,
+    TrackingHint,
 )
 
 
@@ -56,8 +58,11 @@ class Perception(abc.ABC):
     """Student A's contract."""
 
     @abc.abstractmethod
-    def describe(self, obs: Observation, query: Optional[str] = None) -> SceneDescription:
-        """Full-scene description of one observation."""
+    def describe(self, obs: Observation, query: Optional[str] = None, *,
+                 hint: Optional[TrackingHint] = None) -> SceneDescription:
+        """Full-scene description of one observation.  ``hint`` (contract
+        v3, optional) tells perception which instance is held or was just
+        released; implementations may ignore it."""
 
     @abc.abstractmethod
     def ground(self, obs: Observation, target: str) -> Optional[GroundedObject]:
@@ -67,6 +72,24 @@ class Perception(abc.ABC):
 
     def reset(self) -> None:
         """Clear per-episode tracking state (instance ID lifecycle)."""
+
+
+def accepts_hint(perception: Perception) -> bool:
+    """True when ``perception.describe`` takes the v3 ``hint`` keyword."""
+    try:
+        params = inspect.signature(perception.describe).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(p.name == "hint" or p.kind is p.VAR_KEYWORD for p in params)
+
+
+def describe_with_hint(perception: Perception, obs: Observation, query: Optional[str] = None,
+                       hint: Optional[TrackingHint] = None) -> SceneDescription:
+    """Call describe(), passing ``hint`` only to implementations that take it
+    (pre-v3 perceptions keep working unchanged)."""
+    if hint is not None and accepts_hint(perception):
+        return perception.describe(obs, query, hint=hint) if query is not None else perception.describe(obs, hint=hint)
+    return perception.describe(obs, query) if query is not None else perception.describe(obs)
 
 
 class Planner(abc.ABC):

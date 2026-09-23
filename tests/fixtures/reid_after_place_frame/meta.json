@@ -1,0 +1,123 @@
+{
+ "frame_id": 24,
+ "camera_name": "head",
+ "capture_id": "ep01_capture0024_head",
+ "sim_time": 31.30199999999353,
+ "intrinsics": [
+  [
+   415.69219381653056,
+   0.0,
+   319.5
+  ],
+  [
+   0.0,
+   415.69219381653056,
+   239.5
+  ],
+  [
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "t_world_camera": [
+  [
+   0.3447072632336651,
+   -0.7984483037638619,
+   0.49361645929868103,
+   0.19344635790324982
+  ],
+  [
+   -0.9342157926245547,
+   -0.3431927963791076,
+   0.09726025562562274,
+   0.06178057277047752
+  ],
+  [
+   0.09174832687755033,
+   -0.4946706083143591,
+   -0.864224064571839,
+   1.1330854935674757
+  ],
+  [
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "rgb_file": "frame_000024_rgb.png",
+ "depth_file": "frame_000024_depth.npy",
+ "source": "round 3, smoke_4_search run 3 (runs/night/r3_c), A audit session 7509bebc9df5 frame 24: first describe after the failed PLACE; the released stone got the new id a16 (was a11). Depth kept only inside the detection boxes (+10 px).",
+ "wire": {
+  "detections": [
+   {
+    "name": "stone",
+    "color": "gray",
+    "bbox": [
+     148,
+     170,
+     262,
+     310
+    ],
+    "confidence": 0.98
+   },
+   {
+    "name": "cube",
+    "color": "blue",
+    "bbox": [
+     348,
+     164,
+     472,
+     370
+    ],
+    "confidence": 0.97
+   },
+   {
+    "name": "red_region",
+    "color": "red",
+    "bbox": [
+     0,
+     86,
+     378,
+     456
+    ],
+    "confidence": 0.99
+   }
+  ],
+  "selected": [],
+  "answer": "Visible supported objects: one gray stone, one blue cube. Visible region: one red region (a red square surface)."
+ },
+ "scene_ids": {
+  "a16": [
+   "stone",
+   "gray",
+   "LOCALIZED",
+   [
+    0.3888201236853818,
+    0.2682483547351613,
+    0.8756087547633321
+   ]
+  ],
+  "a14": [
+   "cube",
+   "blue",
+   "LOCALIZED",
+   [
+    0.4216240407019441,
+    0.1690124116981126,
+    0.8750803194295462
+   ]
+  ],
+  "a13": [
+   "red_region",
+   "red",
+   "LOCALIZED",
+   [
+    0.3998647629552236,
+    0.3016371447221521,
+    0.8531700617101754
+   ]
+  ]
+ }
+}
