@@ -81,21 +81,18 @@ class StudentCExecutor(ClosedLoopExecutor):
         # through to the shared closed_loop.py reference implementation.
         if action.skill is Skill.APPROACH:
             return self._approach(action, env, perception)
+        
+        elif action.skill is Skill.REACH:
+            return self._reach(action, env, perception)
 
-        elif action.skill in (Skill.REACH, Skill.GRASP, Skill.PLACE):
-            # Any arm-moving attempt (successful or not) leaves the arm
-            # untucked, so the next APPROACH/SEARCH must tuck again.
-            try:
-                if action.skill is Skill.REACH:
-                    return self._reach(action, env, perception)
-                if action.skill is Skill.GRASP:
-                    return self._grasp(action, env, perception)
-                return self._place(action, env, perception)
-            finally:
-                self._arm_tucked = False
+        elif action.skill is Skill.GRASP:
+            return self._grasp(action, env, perception)
 
         elif action.skill is Skill.MOVE_TO:
             return self._move_to(action, env, perception)
+
+        elif action.skill is Skill.PLACE:
+            return self._place(action, env, perception)
 
         elif action.skill is Skill.SEARCH:
             return self._search(action, env, perception)
