@@ -121,7 +121,11 @@ def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=
     vocab = public_vocabulary()
     for role in ("object", "region"):
         name, ident = goal[role + "_name"], goal[role + "_id"]
-        require(not name or any(v["name"] == name and v["kind"] == role for v in vocab),
+        # A refusal must be allowed to name what it is refusing: an INFEASIBLE
+        # goal may carry a class outside the public vocabulary ("drawer",
+        # "sphere"). Every other check below still applies.
+        require(status is PlanStatus.INFEASIBLE
+                or not name or any(v["name"] == name and v["kind"] == role for v in vocab),
                 f"Unknown {role} class {name!r}")
         ref = scene.find(ident) if ident else None
         if ref is None and ident and locked_goal and ident == locked_goal[role + "_id"]:
