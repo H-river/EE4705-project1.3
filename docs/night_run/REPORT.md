@@ -282,8 +282,8 @@ Budget: 150 live calls. **Used: 137** (A 111, B 26), counted as HTTP attempts fr
 
 | # | commit | what |
 |---|---|---|
-| 1 | `48656ee` [chore] | `eval/runner.py --video` (default off) attaches `demo/recording.py`'s Recorder to each episode, the same way `demo/run.py` does: `RecordedWorld`, the Observed* wrappers, `DemoOrchestrator` forwarding backbone events, evaluator banner, ffmpeg mux. Writes `<trial_id>/episode.mp4`, `episode.json`, `index.html`, `start.png`, `final.png`. Recorder layout unchanged. Without `--video` the code path is the old one. New test `test_runner_video_records_episode_without_changing_the_record`. A mock-all check on all 5 smoke trials also gave identical final object positions, sim end time and event count with and without `--video`. Suite: **261 passed, 1 skipped** |
-| 2 | this commit | Gallery re-rendered as real videos: 9 of 10 mp4s in `docs/night_run/episodes/` replaced, `EPISODES.md` rewritten for the round-5 runs |
+| 1 | `4fd5928` [chore] | `eval/runner.py --video` (default off) attaches `demo/recording.py`'s Recorder to each episode, the same way `demo/run.py` does: `RecordedWorld`, the Observed* wrappers, `DemoOrchestrator` forwarding backbone events, evaluator banner, ffmpeg mux. Writes `<trial_id>/episode.mp4`, `episode.json`, `index.html`, `start.png`, `final.png`. Recorder layout unchanged. Without `--video` the code path is the old one. New test `test_runner_video_records_episode_without_changing_the_record`. A mock-all check on all 5 smoke trials also gave identical final object positions, sim end time and event count with and without `--video`. Suite: **261 passed, 1 skipped** |
+| 2 | `9ef5fc1` [chore] | Gallery re-rendered as real videos: 9 of 10 mp4s in `docs/night_run/episodes/` replaced, `EPISODES.md` rewritten for the round-5 runs |
 
 ### Reruns with `--video` (step 2)
 
