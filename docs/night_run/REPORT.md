@@ -416,9 +416,9 @@ Budget: 120 live calls. **Used: 120** (A 99, B 21), from `runs/night/r7/audit_{a
 
 | step | commit | what |
 |---|---|---|
-| 1 | `3d09b22` [A-fix] | Reverts the round-6 revert `4570b5e`: TrackingHint is back and `CONTRACT_VERSION` is 3 again. `tests/test_tracking_hint.py` passes (7 tests, including the real-frame a11→a16 test and the held-stone-over-5-frames test). No rerun, as instructed. CHANGES #20. |
-| 2 | `f4d12d9` [B] | A READY plan that contains SEARCH becomes NEEDS_SEARCH. Contract failures after the repair return `Plan(status=REJECTED, reason=…)` instead of raising. **Contract v4** (`PlanStatus.REJECTED`, DECISIONS §19); the orchestrator replans on REJECTED within `max_replans`. Tests use the real c_2_10 audit that raised. CHANGES #21. |
-| 3 | `ff9923d` [B][A-fix] | B's SEARCH target is `"<colour> <class>"` when the goal colour is known. C already forwarded the target to `ground()` unchanged, so C has only a new test. A matches `"<colour> <class>"` on both class and colour of its own detections. Tests: B emits the colour, C forwards it, and on the recorded c_2_05 frame with both stones A returns the dark-red one (the model had selected both). CHANGES #22. |
+| 1 | `2b0779a` [A-fix] | Reverts the round-6 revert `4570b5e`: TrackingHint is back and `CONTRACT_VERSION` is 3 again. `tests/test_tracking_hint.py` passes (7 tests, including the real-frame a11→a16 test and the held-stone-over-5-frames test). No rerun, as instructed. CHANGES #20. |
+| 2 | `a2c4a35` [B] | A READY plan that contains SEARCH becomes NEEDS_SEARCH. Contract failures after the repair return `Plan(status=REJECTED, reason=…)` instead of raising. **Contract v4** (`PlanStatus.REJECTED`, DECISIONS §19); the orchestrator replans on REJECTED within `max_replans`. Tests use the real c_2_10 audit that raised. CHANGES #21. |
+| 3 | `2a4ef57` [B][A-fix] | B's SEARCH target is `"<colour> <class>"` when the goal colour is known. C already forwarded the target to `ground()` unchanged, so C has only a new test. A matches `"<colour> <class>"` on both class and colour of its own detections. Tests: B emits the colour, C forwards it, and on the recorded c_2_05 frame with both stones A returns the dark-red one (the model had selected both). CHANGES #22. |
 
 **Where I departed from the letter of step 2**, flagged for you:
 - The contract has no `search_target` field.
