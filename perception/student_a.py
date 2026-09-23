@@ -140,6 +140,13 @@ class StudentAPerception(Perception):
                     target = candidates.get(i)
                     if target and list(candidates.values()).count(target) == 1:
                         assigned[i] = target
+                    elif len(indices) == 1:
+                        # Only ONE detection of this class/colour in this frame:
+                        # there is nothing in this frame to confuse it with, so
+                        # it gets a fresh identity rather than AMBIGUOUS. Stale
+                        # tracks (e.g. a phantom duplicate hallucinated in an
+                        # earlier frame) must not poison every later frame.
+                        assigned[i] = self._new_id()
                     else:
                         ambiguous.add(i)
                         assigned[i] = self._new_id()
