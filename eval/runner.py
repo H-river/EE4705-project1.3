@@ -3,7 +3,7 @@
 
 Usage:
     python -m eval.runner --mode {grounding,planning,manipulation,e2e} \
-        --trials eval/trials/smoke [--mock-all] [--out runs]
+        --trials eval/trials/smoke [--mock-all] [--out runs] [--video]
 
 Modes select which Student modules are REAL (the others are backbone
 mocks):
@@ -16,6 +16,12 @@ mocks):
 results are then labeled infrastructure checks.  WITHOUT this flag, a mode
 that needs an unimplemented Student module fails clearly (exit code 2,
 naming the missing module) — mocks are never substituted silently.
+
+``--video`` (default off) attaches demo/recording.py's Recorder to every
+episode, exactly as demo/run.py does, and writes ``<trial_id>/episode.mp4``
+plus the recorder's ``episode.json``/``index.html``.  It only observes: the
+modules, orchestrator config and trial expectations are the same as without
+it (the observer wrapper persists every frame A describes).
 
 Exit codes: 0 = all trial expectations met, 1 = one or more expectations
 failed (or a trial crashed), 2 = configuration error.
@@ -214,7 +220,7 @@ def check_expectations(trial: dict, record: TrialRecord) -> list[str]:
 
 
 def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
-              world: SimWorld, oracle: EvalOracle) -> tuple[TrialRecord, list[str]]:
+              world: SimWorld, oracle: EvalOracle, video: bool = False) -> tuple[TrialRecord, list[str]]:
     trial_id = str(trial.get("id", pathlib.Path(trial["_path"]).stem))
     trial_dir = run_dir / trial_id
     trial_dir.mkdir(parents=True, exist_ok=True)
@@ -240,8 +246,39 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     world.reset(scene_config_from_spec(trial.get("scene", {}) or {}))
     world.step(int(round(1.0 / world.timestep)))  # settle objects onto their supports (1 s)
 
-    orch = Orchestrator(perception, planner, spy, env, clarifier,
-                        config=OrchestratorConfig(), store=store)
+    recorder = None
+    if video:
+        # Same wiring as demo/run.py: observers around the unchanged modules.
+        from demo.components import ObservedExecutor, ObservedPerception, ObservedPlanner
+        from demo.recording import Recorder
+        from demo.run import DemoOrchestrator
+
+        recorder = Recorder(world, trial_dir, record.instruction, record.extra["category"])
+        recorder.module_modes = " | ".join(
+            f"{r}: {'student' if r in (() if mock_all else _REAL[mode]) else 'mock'}" for r in "ABC")
+        if hasattr(planner, "client"):
+            recorder.module_modes = recorder.module_modes.replace(
+                "B: student", "B: Qwen/" + planner.client.response_source)
+        world.recorder = recorder
+        perception = ObservedPerception(perception, recorder, store)
+        spy = GraspSpyExecutor(ObservedExecutor(executor, recorder), oracle)
+        recorder.capture(hold=.5, snapshot="start.png")
+        orch = DemoOrchestrator(perception, ObservedPlanner(planner, recorder), spy, env, clarifier,
+                                config=OrchestratorConfig(), store=store, recorder=recorder)
+    else:
+        orch = Orchestrator(perception, planner, spy, env, clarifier,
+                            config=OrchestratorConfig(), store=store)
+    try:
+        record, failures = _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store,
+                                           expected, trial_dir, recorder)
+    finally:
+        if recorder is not None:
+            world.recorder = None
+            recorder.close()
+    return record, failures
+
+
+def _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store, expected, trial_dir, recorder):
     t0 = time.monotonic()
     episode = orch.run(record.instruction)
     record.timings["wall_s"] = time.monotonic() - t0
@@ -281,10 +318,30 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     record.extra["refusal_correct"] = actual.refusal_correct
     record.extra["clarification_correct"] = actual.clarification_correct
 
-    store.flush()
+    if recorder is not None:
+        recorder.stage = "EVALUATOR / CHECK"
+        recorder.message = "Independent truth check: object identity, destination, release, and 2 s stability"
+        recorder.event("eval.start", expected, hold=.6)
+        recorder.stage = "DONE / " + ("PASS" if episode.claimed_success and actual.actual_success else "FAIL")
+        recorder.message = (f"Visual claim: {episode.claimed_success} | Independent actual success: "
+                            f"{actual.actual_success} | {actual.checks.get('stability_detail', '')}")
+        recorder.event("eval.result", actual, hold=1.5)
+        recorder.capture(snapshot="final.png")
+    observations = store.flush()
     failures = check_expectations(trial, record)
     record.extra["expectation_failures"] = failures
     write_trial_record(record, trial_dir / "trial_record.json")
+    if recorder is not None:
+        recorder.close()
+        recorder.save({
+            "schema": "abc-demo-v1", "scenario": record.extra["category"], "instruction": record.instruction,
+            "expected": expected, "trial_id": record.trial_id, "trial_path": trial["_path"],
+            "modules": record.module_config, "claimed_success": episode.claimed_success,
+            "actual_success": actual.actual_success, "outcome": episode.outcome, "episode": episode,
+            "actual": actual, "grasp_records": spy.grasp_records,
+            "observations": {key: {k: str(pathlib.Path(p).relative_to(trial_dir)) for k, p in files.items()}
+                             for key, files in (observations or {}).items()},
+        })
     return record, failures
 
 
@@ -295,6 +352,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--mock-all", action="store_true",
                         help="replace ALL Student modules with backbone mocks (infrastructure check)")
     parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("runs"))
+    parser.add_argument("--video", action="store_true",
+                        help="record each episode with demo/recording.py (episode.mp4 + episode.json)")
     args = parser.parse_args(argv)
 
     trials = load_trials(args.trials)
@@ -307,7 +366,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     run_dir.mkdir(parents=True)
 
     # Probe module availability up front for a clear failure (exit 2).
-    world = SimWorld()
+    if args.video:
+        from demo.recording import RecordedWorld
+
+        world: SimWorld = RecordedWorld()  # a plain SimWorld until a recorder is attached
+    else:
+        world = SimWorld()
     oracle = EvalOracle(world)
     try:
         build_modules(args.mode, args.mock_all, world, oracle, {})
@@ -336,7 +400,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         for trial in trials:
             trial_id = str(trial.get("id", pathlib.Path(trial["_path"]).stem))
             try:
-                record, failures = run_trial(trial, args.mode, args.mock_all, run_dir, world, oracle)
+                record, failures = run_trial(trial, args.mode, args.mock_all, run_dir, world, oracle,
+                                             video=args.video)
             except SystemExit:
                 raise
             except Exception as exc:  # persist partial failure records

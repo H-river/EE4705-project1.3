@@ -291,3 +291,23 @@ def test_episode_reset_clears_tracking_attachment_history(world, oracle):
     ids = sorted(g.instance_id for g in scene2.objects)
     assert ids == sorted(g.instance_id for g in scene1.objects)
     assert ids[0] == "p0"
+
+
+def test_runner_video_records_episode_without_changing_the_record(tmp_path):
+    trials = tmp_path / "trials"
+    trials.mkdir()
+    (trials / "smoke_1_standard.yaml").write_text((TRIALS_DIR / "smoke_1_standard.yaml").read_text())
+    runs = {}
+    for flag in ([], ["--video"]):
+        out = tmp_path / ("video" if flag else "plain")
+        assert runner_mod.main(["--mode", "e2e", "--trials", str(trials), "--mock-all",
+                                "--out", str(out), *flag]) == 0
+        runs[bool(flag)] = next(out.iterdir()) / "smoke_1_standard"
+    plain, video = (json.loads((runs[v] / "trial_record.json").read_text()) for v in (False, True))
+    assert not (runs[False] / "episode.mp4").exists()
+    assert (runs[True] / "episode.mp4").stat().st_size > 0
+    episode = json.loads((runs[True] / "episode.json").read_text())
+    assert episode["video_available"] and episode["outcome"] == video["outcome"]
+    for key in ("outcome", "claimed_success", "actual_success"):
+        assert plain[key] == video[key]
+    assert [e["type"] for e in plain["events"]] == [e["type"] for e in video["events"]]
