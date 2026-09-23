@@ -115,7 +115,7 @@ class ClosedLoopExecutor(Executor):
             condition = action.params.get("condition")
             if condition == "object_in_region":
                 check = verify_placement(env, perception, action.params["object"], action.params["region"])
-                return ExecutionResult(action, check.passed, ErrorCode.NONE if check.passed else ErrorCode.VERIFY_FAILED,
+                return ExecutionResult(action, bool(check.passed), ErrorCode.NONE if check.passed else ErrorCode.VERIFY_FAILED,
                                        info={"detail": check.detail, "verification_frame_id": check.frame_id})
             if condition == "holding":
                 ok = env.is_attached() and bool(action.target) and action.target == self._held_id
@@ -237,7 +237,7 @@ class ClosedLoopExecutor(Executor):
                         check = verify_placement(env, perception, obj, action.target)
                         if check.passed or check.detail != "exact object or region instance is not visible":
                             break
-                primitive = SkillResult(check.passed, ErrorCode.NONE if check.passed else ErrorCode.PLACE_FAILED,
+                primitive = SkillResult(bool(check.passed), ErrorCode.NONE if check.passed else ErrorCode.PLACE_FAILED,
                                         {"primitive": "place", "released": True, "detail": check.detail,
                                          "verification_frame_id": check.frame_id, "view_recovery_attempts": view_attempts})
         primitive.info = {**transport_info, **primitive.info}

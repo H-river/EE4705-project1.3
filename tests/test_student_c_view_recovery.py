@@ -63,3 +63,25 @@ def test_bad_geometry_after_view_retry_is_not_retried_again(monkeypatch):
     result = c.execute(Action(Skill.PLACE, 'p2', {'object': 'p0'}), env, ScenePerception())
     assert not result.success and result.info['detail'] == 'outside region'
     assert targets == [0.0]
+
+
+def test_content_filtered_verification_retries_from_a_new_view(monkeypatch):
+    from core.types import CONTENT_FILTERED_NOTE
+    import executor.closed_loop as module
+    env, c, checks, targets = _setup(monkeypatch, [CONTENT_FILTERED_NOTE, 'ok'])
+    results = iter([VerificationResult(None, 'object_in_region', CONTENT_FILTERED_NOTE, 1),
+                    VerificationResult(True, 'object_in_region', 'ok', 2)])
+    monkeypatch.setattr(module, 'verify_placement', lambda *args: next(results))
+    result = c.execute(Action(Skill.PLACE, 'p2', {'object': 'p0'}), env, ScenePerception())
+    assert result.success is True and result.info['view_recovery_attempts'] == 1
+    assert abs(abs(targets[0]) - 0.2) < 1e-9  # a different heading, i.e. a new image
+
+
+def test_content_filtered_verification_is_a_bool_failure_when_it_persists(monkeypatch):
+    from core.types import CONTENT_FILTERED_NOTE
+    import executor.closed_loop as module
+    env, c, checks, targets = _setup(monkeypatch, [CONTENT_FILTERED_NOTE])
+    monkeypatch.setattr(module, 'verify_placement',
+                        lambda *args: VerificationResult(None, 'object_in_region', CONTENT_FILTERED_NOTE, 1))
+    result = c.execute(Action(Skill.PLACE, 'p2', {'object': 'p0'}), env, ScenePerception())
+    assert result.success is False and result.error_code is ErrorCode.PLACE_FAILED and len(targets) == 2

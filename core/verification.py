@@ -9,7 +9,7 @@ import numpy as np
 
 from core.interfaces import Perception, RobotEnvProtocol
 from core.placement import STABILITY_DRIFT_M, position_in_region
-from core.types import GroundStatus, SceneDescription, VerificationResult
+from core.types import CONTENT_FILTERED_NOTE, GroundStatus, SceneDescription, VerificationResult
 from core.vocab import Vocab
 
 VISUAL_STABILITY_S = 0.2
@@ -67,6 +67,10 @@ def verify_placement(env: RobotEnvProtocol, perception: Perception,
         scene = perception.describe(obs)
         if scene.frame_id != obs.frame_id or abs(scene.sim_time - obs.sim_time) > 1e-9:
             return VerificationResult(False, "object_in_region", "stale scene observation", obs.frame_id)
+        if CONTENT_FILTERED_NOTE in scene.ambiguities:
+            # Undecided, not failed: nothing was analysed. Re-observe.
+            return VerificationResult(None, "object_in_region", CONTENT_FILTERED_NOTE, obs.frame_id,
+                                      source="vision")
         result = check_placement(scene, object_id, region_id, attached=env.is_attached())
         if not result.passed:
             return result

@@ -18,9 +18,9 @@ import numpy as np
 from PIL import Image
 
 from core.interfaces import Perception
-from core.llm_client import APIError, LLMClient, SchemaError
+from core.llm_client import APIError, ContentFiltered, LLMClient, SchemaError
 from core.obs_store import persist_observation
-from core.types import GroundedObject, GroundStatus, SceneDescription
+from core.types import CONTENT_FILTERED_NOTE, GroundedObject, GroundStatus, SceneDescription
 from perception.config import VisionConfig
 from perception.depth_geometry import localize, pixel_box
 from perception.vision_contract import SCHEMA, SYSTEM, VERSION, validate_wire
@@ -227,6 +227,17 @@ class StudentAPerception(Perception):
                     response = None
                     try:
                         response = self.client.call_vlm(png, prompt, system=SYSTEM, json_schema=SCHEMA)
+                        if isinstance(response, ContentFiltered):
+                            # The provider refused this image. Report an empty
+                            # frame (not cached: the next frame may pass) so the
+                            # caller re-observes instead of failing the episode.
+                            audit['responses'].append(asdict(response))
+                            audit.update(response_source=response.source, status='content_filtered',
+                                         error=response.detail)
+                            scene = SceneDescription([], [], '', [CONTENT_FILTERED_NOTE],
+                                                     obs.frame_id, obs.sim_time)
+                            audit['scene'] = asdict(scene)
+                            return scene, [], []
                         wire = response.parsed
                         validate_wire(wire)
                         audit['responses'].append(asdict(response))

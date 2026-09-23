@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from core.interfaces import Planner
-from core.llm_client import APIError, LLMClient, SchemaError
+from core.llm_client import APIError, ContentFiltered, LLMClient, SchemaError
 from core.types import ExecutionContext
 from planner.config import QwenPlannerConfig
 from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan
@@ -98,6 +98,8 @@ class StudentBPlanner(Planner):
             try:
                 response = self.client.call_llm(json.dumps(data, ensure_ascii=False, allow_nan=False),
                                                 system=SYSTEM_PROMPT, json_schema=WIRE_SCHEMA)
+                if isinstance(response, ContentFiltered):
+                    raise APIError(response.detail)  # same prompt would be refused again
                 plan, goal = compile_plan(response.parsed, context, self._goal, self._known,
                                           normalizations=normalizations)
             except (SchemaError, PlanContractError) as exc:

@@ -460,7 +460,7 @@ class TeleportExecutor(Executor):
         if condition == "object_in_region":
             params = action.params or {}
             verification = verify_placement(env, perception, params.get("object", ""), params.get("region", ""))
-            return ExecutionResult(action, verification.passed,
+            return ExecutionResult(action, bool(verification.passed),
                                    ErrorCode.NONE if verification.passed else ErrorCode.VERIFY_FAILED,
                                    post_frame_id=verification.frame_id, info={"detail": verification.detail})
         return self._result(action, env, False, ErrorCode.INVALID_ACTION)

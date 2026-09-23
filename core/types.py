@@ -353,14 +353,25 @@ class ExecutionResult:
     info: dict[str, Any] = field(default_factory=dict)
 
 
+# Perception puts this note in SceneDescription.ambiguities when the VLM
+# provider's content filter refused the frame: the scene is empty because
+# nothing was analysed, not because nothing is there.
+CONTENT_FILTERED_NOTE = "provider content filter refused this frame"
+
+
 @dataclass
 class VerificationResult:
-    """Outcome of task-level (vision-based) final verification."""
+    """Outcome of task-level (vision-based) final verification.
 
-    passed: bool
+    passed is None when the check could not be made (e.g. the frame was
+    refused by the provider content filter); callers treat None as "not
+    verified yet" and may re-observe."""
+
+    passed: Optional[bool]
     condition: str  # e.g. "object_in_region"
     detail: str = ""
     frame_id: int = -1
+    source: str = "vision"
 
 
 @dataclass

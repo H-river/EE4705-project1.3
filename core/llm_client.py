@@ -13,7 +13,9 @@ Used by Student A (VLM) and Student B (LLM).  Features:
   prompts, image content, schema, generation settings and the cache format
   version,
 * cache-only mode that works without credentials (a live request without an
-  API key raises APIError; a cache-only miss raises CacheMissError).
+  API key raises APIError; a cache-only miss raises CacheMissError),
+* an HTTP 400 from the provider's content filter is not fatal: the call
+  returns a ContentFiltered result (never cached, never schema-checked).
 
 Credentials are never logged and never included in cache keys or entries.
 
@@ -85,6 +87,25 @@ class LLMResponse:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     source: str = "unknown"  # live, fixture, or custom_transport; retained on cache hits
+
+
+@dataclass
+class ContentFiltered(LLMResponse):
+    """The provider refused the input with its content filter (HTTP 400).
+
+    Not an error in our request: a different input (e.g. a new camera frame)
+    usually passes. Callers decide what an empty answer means for them."""
+    detail: str = ""
+
+
+# Substrings of an HTTP 400 body that identify a provider content-filter refusal
+# (DashScope: "Input data may contain inappropriate content", code
+# "data_inspection_failed"; OpenAI-compatible: "content_filter").
+CONTENT_FILTER_MARKERS = ("inappropriate content", "data_inspection", "content_filter")
+
+
+def _is_content_filtered(status: int, body: Any) -> bool:
+    return status == 400 and any(m in json.dumps(body).lower() for m in CONTENT_FILTER_MARKERS)
 
 
 @dataclass
@@ -360,6 +381,10 @@ class LLMClient:
                 if status == 200:
                     break
                 last_error = f"HTTP {status}: {body.get('error', {}).get('message', '')!s}"
+                if _is_content_filtered(status, body):
+                    return ContentFiltered(text="", raw=body, attempts=attempts,
+                                           latency_s=time.monotonic() - start,
+                                           source=self.response_source, detail=last_error)
                 if status not in _RETRYABLE_STATUS:
                     raise APIError(last_error)
                 body = None

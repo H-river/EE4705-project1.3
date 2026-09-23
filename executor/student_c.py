@@ -6,7 +6,7 @@ import numpy as np
 
 from core import skills
 from core.action_targets import TargetResolutionError, resolve_action_position
-from core.types import (ErrorCode, ExecutionResult, GroundedObject, GroundStatus,
+from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, GroundedObject, GroundStatus,
                         SceneDescription, Skill, SkillResult)
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
@@ -562,7 +562,7 @@ class StudentCExecutor(ClosedLoopExecutor):
         # visible but unlocalized (e.g. the region box touches the image edge
         # from the post-place pose). "Outside region" / drift are real
         # placement errors that a different heading cannot fix.
-        view_problems = (self._NOT_VISIBLE_DETAIL, self._UNLOCALIZED_DETAIL)
+        view_problems = (self._NOT_VISIBLE_DETAIL, self._UNLOCALIZED_DETAIL, CONTENT_FILTERED_NOTE)
         view_attempts = 0
         if not check.passed and check.detail in view_problems:
             base = np.asarray(self._view_pose)
@@ -584,7 +584,7 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         return ExecutionResult(
             action=action,
-            success=check.passed,
+            success=bool(check.passed),
             error_code=ErrorCode.NONE if check.passed else ErrorCode.PLACE_FAILED,
             recovery_attempted=view_attempts > 0,
             info={"detail": check.detail, "verification_frame_id": check.frame_id,
@@ -675,7 +675,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             check = verify_placement(env, perception, obj_id, region_id)
             return ExecutionResult(
                 action=action,
-                success=check.passed,
+                success=bool(check.passed),
                 error_code=ErrorCode.NONE if check.passed else ErrorCode.VERIFY_FAILED,
                 post_frame_id=check.frame_id,
                 info={"detail": check.detail, "condition": condition,
