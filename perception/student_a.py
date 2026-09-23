@@ -23,6 +23,7 @@ from core.obs_store import persist_observation
 from core.types import CONTENT_FILTERED_NOTE, GroundedObject, GroundStatus, SceneDescription
 from perception.config import VisionConfig
 from core.scene_geometry import table_top_z
+from core.vocab import Vocab
 from perception.depth_geometry import backproject, color_mask, localize, pixel_box
 from perception.vision_contract import SCHEMA, SYSTEM, VERSION, validate_wire
 
@@ -124,6 +125,53 @@ def drop_off_table(wire, obs, fits=None):
             [fits[i] for i in keep])
 
 
+# Round 6 (step 2): the same edge fix for OBJECTS. A box touching the image
+# boundary is still localized when at least half of its depth patch is valid:
+# the median 3D point of the visible colour pixels is pushed along the view ray
+# by the class's horizontal half extent (assets/objects.yaml), i.e. from the
+# visible surface to the centre. Never for the held object, and only when the
+# result rests on the table (a lifted object is being carried).
+PARTIAL_OBJECT_VALID_RATIO = .5
+PARTIAL_OBJECT_MIN_PIXELS = 24
+PARTIAL_OBJECT_REST_MARGIN_M = .03
+
+
+def _object_size(name, color):
+    for e in Vocab().entries:
+        if e.cls == name and e.kind == 'object' and e.attributes.get('color') in (color, None):
+            return e.size_xyz
+    return None
+
+
+def partial_object_center(obs, bbox, name, color):
+    """Centre of an object whose box is clipped by the image edge, or (None, reason)."""
+    x1, y1, x2, y2 = bbox
+    if x2 <= x1 or y2 <= y1:
+        return None, 'empty object box'
+    size = _object_size(name, color)
+    if size is None:
+        return None, 'no public size for this class'
+    depth = obs.depth[y1:y2, x1:x2]
+    ratio = float(np.count_nonzero(np.isfinite(depth) & (depth > 0))) / float(depth.size)
+    if ratio < PARTIAL_OBJECT_VALID_RATIO:
+        return None, f'clipped object depth patch only {ratio:.0%} valid'
+    mask = color_mask(obs.rgb[y1:y2, x1:x2], color)
+    if mask is None or np.count_nonzero(mask) < PARTIAL_OBJECT_MIN_PIXELS:
+        return None, 'too few object-colour pixels in the clipped box'
+    cloud = backproject(obs, bbox, mask)
+    if cloud is None or len(cloud) < PARTIAL_OBJECT_MIN_PIXELS:
+        return None, 'too few valid depth pixels in the clipped box'
+    visible = np.median(cloud, axis=0)
+    ray = visible - obs.t_world_camera[:3, 3]
+    center = visible + ray / np.linalg.norm(ray) * max(size[0], size[1]) / 2
+    rest_z = table_top_z() + size[2] / 2
+    if center[2] > rest_z + PARTIAL_OBJECT_REST_MARGIN_M:
+        return None, 'clipped object is not resting on the table (possibly held)'
+    if center[2] < rest_z - PARTIAL_OBJECT_REST_MARGIN_M:
+        return None, 'clipped object centre is below the table top'
+    return tuple(float(c) for c in center), 'partial RGB-D: visible part pushed by the class half extent'
+
+
 def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2, allow_nan=False,
                                    default=lambda x: x.value if hasattr(x, 'value') else asdict(x)))
@@ -144,6 +192,7 @@ class StudentAPerception(Perception):
         self._tracks = {}
         self._next_id = 0
         self._predictions = OrderedDict()
+        self._held_id = None  # instance believed held; set from the tracking hint
         self.last_diagnostics = None
 
     def _new_id(self):
@@ -164,8 +213,11 @@ class StudentAPerception(Perception):
             box = pixel_box(d['bbox'])
             pos, detail = fits[i] if fits is not None else localize(obs, box, d['name'], d['color'])
             partial = False
-            if pos is None and d['name'] == 'red_region' and detail == 'box touches image boundary':
-                pos, detail = partial_region_center(obs, box)
+            if pos is None and detail == 'box touches image boundary':
+                if d['name'] == 'red_region':
+                    pos, detail = partial_region_center(obs, box)
+                else:
+                    pos, detail = partial_object_center(obs, box, d['name'], d['color'])
                 partial = pos is not None
             if d['confidence'] < .5:
                 pos, detail, partial = None, 'model confidence below 0.5', False
@@ -206,6 +258,8 @@ class StudentAPerception(Perception):
         result = []
         for i, (d, box, pos, detail, partial) in enumerate(prepared):
             instance_id = assigned[i]
+            if partial and instance_id == getattr(self, "_held_id", None):
+                pos, detail, partial = None, 'held object: no partial localization', False
             status = GroundStatus.LOCALIZED if pos is not None else GroundStatus.UNLOCALIZED
             memory_attrs = {} #Enable the program to "Remember"
             if i in ambiguous:

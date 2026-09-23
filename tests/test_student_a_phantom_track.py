@@ -36,7 +36,10 @@ def stone(bbox):
 def test_single_detection_after_a_phantom_duplicate_is_not_ambiguous(obs):
     t = Tracker()
     # Frame 1: hallucinated duplicate, both boxes clipped by the image edge.
-    first = t.track([stone([0, 400, 120, 520]), stone([880, 400, 1000, 520])], obs, 'test')
+    # (Round 6: the boxes sit in the top corners, which show no stone. The old
+    # right-edge box overlapped the real stone, which step 2's clipped-object
+    # localization now correctly localizes.)
+    first = t.track([stone([0, 0, 120, 120]), stone([880, 0, 1000, 120])], obs, 'test')
     assert all(g.status is GroundStatus.UNLOCALIZED for g in first)
     # Frame 2: the real single stone, fully inside the frame.
     real = next(d for d in offline_wire()['detections'] if d['name'] == 'stone')

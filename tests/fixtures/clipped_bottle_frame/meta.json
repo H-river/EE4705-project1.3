@@ -1,0 +1,91 @@
+{
+ "frame_id": 6,
+ "camera_name": "head",
+ "capture_id": "ep01_capture0006_head",
+ "sim_time": 3.899999999999792,
+ "intrinsics": [
+  [
+   415.69219381653056,
+   0.0,
+   319.5
+  ],
+  [
+   0.0,
+   415.69219381653056,
+   239.5
+  ],
+  [
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "t_world_camera": [
+  [
+   0.16480358473485374,
+   -0.7504402587251547,
+   0.6400618693087926,
+   0.30939935930771806
+  ],
+  [
+   -0.9862729580761579,
+   -0.13213858056231703,
+   0.09902044079220457,
+   -0.0682893811638956
+  ],
+  [
+   0.010267941675346282,
+   -0.6475946367995182,
+   -0.7619158455907404,
+   1.1804523562595581
+  ],
+  [
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "rgb_file": "frame_000006_rgb.png",
+ "depth_file": "frame_000006_depth.npy",
+ "source": "round 5, c_2_09_bottle, A audit session 0402adf6d323 frame 6 (describe after APPROACH; GRASP then failed TARGET_LOST)",
+ "wire": {
+  "detections": [
+   {
+    "name": "stone",
+    "color": "gray",
+    "bbox": [
+     8,
+     694,
+     150,
+     862
+    ],
+    "confidence": 0.98
+   },
+   {
+    "name": "bottle",
+    "color": "green",
+    "bbox": [
+     823,
+     484,
+     1000,
+     780
+    ],
+    "confidence": 0.97
+   },
+   {
+    "name": "red_region",
+    "color": "red",
+    "bbox": [
+     0,
+     590,
+     78,
+     720
+    ],
+    "confidence": 0.95
+   }
+  ],
+  "selected": [],
+  "answer": "Visible supported objects: a gray stone, a red cube, and a green bottle. A red region (coincident with the red cube) is also visible."
+ }
+}
