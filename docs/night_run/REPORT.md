@@ -311,3 +311,97 @@ No video exceeded 5 MB (largest 1.9 MB), so none was downscaled. The run dirs ar
 2. **SEARCH is class-only (F1, F3).** SEARCH("stone") grounds the gray stone and reports success, but B wants the dark_red one, so the loop runs to max_total_plans at a frozen sim time. Two options: let SEARCH carry the goal colour, or have B send INFEASIBLE/NEEDS_CLARIFICATION after the same SEARCH succeeds twice without the goal appearing.
 3. **Red on red (F1).** A sees the dark_red stone on the red region ("a dark_red stone on a red region") but cannot localize it, so a physically correct placement is not claimed.
 4. The round-5 recordings show the SEARCH sweeps facing the floor (§9 item 3) and the table contact in c_2_05 as continuous motion, which the slideshows could not show.
+
+## 11. Round 6 (owner-directed, 2026-09-23 20:30 → 23:10): perception coverage and search
+
+Budget: 300 live calls. **Used: 300** (A 254, B 46), counted as HTTP attempts from `runs/night/r6/audit_{a,b}`. The count includes 8 attempts that failed DNS resolution during a network outage (see Finish). Day total: 1078 → 1378. Every commit is tagged [A-fix]/[C-fix], has a CHANGES.md row (15–19), and left the full suite green: 266 → 270 → 275 → 282 → 275 (after the step-3 revert) → 279 → 275 (after the step-4 revert) passed, 1 skipped each time. Run dirs: `runs/night/r6/<step>/<trial>/`, driver log `runs/night/r6/drive.log`.
+
+**Before column:** the latest existing run of each of the 15 trials. It was not rerun. smoke_1 r2_smoke; smoke_2/3/5 r5; smoke_4 r3_c; c_2_01/03/04/05/06/08/09 r5; c_2_02/07/10 r2_v2.
+
+### Steps
+
+| step | commit | what | kept? |
+|---|---|---|---|
+| 1a | `47c0965` [A-fix] | Drop a detection whose estimated 3D centre z is outside [table_top_z − 0.05, table_top_z + 0.30]; table_top_z is read from the `table_top` geom (new `core/scene_geometry.py`). The centre comes from the class fit, or else from the median height of the box's depth pixels, because the floor phantoms never pass the class fit. The audit logs each drop with reason `off_table`. Test: the round-2 c_2_03 frame with two "gray stones" on the robot's shadow. Over all 1,495 archived A frames the filter drops 331 detections, all on the floor, none of which A had LOCALIZED. | kept |
+| 1b | `4cfbb6b` [C-fix] | SEARCH: 13 yaws over ±60° around the table bearing (was 0.5 rad steps through a full circle); views whose frustum contains no table are skipped. Test: an exact separating-axis frustum/AABB check from every trial start pose, plus a sim sweep in which every view's depth shows table-top pixels. **Head pitch cannot be locked:** the camera is fixed on the torso and there is no public waist/head API, so C checks the pitch window and reports it instead. | kept |
+| 2 | `860264b` [A-fix] | An edge-clipped **object** is LOCALIZED when ≥ 50% of its depth patch is valid: the median of the visible colour pixels, pushed along the view ray by the class half extent; `pos_basis="depth_patch_partial"`. Never applied to the held instance, or to a centre that is not resting on the table. On the c_2_09 clipped-bottle frame the centre is 5 mm from truth. One test setup changed (ours, round 2; CHANGES #17). | kept |
+| 3 | `7f6a964` [A-fix] | Contract v3: `describe(..., *, hint=TrackingHint)`, built by the orchestrator. A keeps the held id with `pos_basis="held_hint"` and matches the released instance near the release point first. Tests: the real round-3 frame (a16 without the hint, a11 with it) and a held stone over 5 frames. | **reverted** `76ea0e1` |
+| 4 | `56aa0d4` [C-fix] | SEARCH re-centres once per view on a visible-but-UNLOCALIZED target: turn by min(20°, bearing), one extra view that counts as a step. | **reverted** `4b03804` |
+
+### Before → after, per step (reruns only; "–" = not run because the step's call cap was reached)
+
+**Step 1** (cap 60, used 61)
+
+| trial | before | after | calls |
+|---|---|---|---|
+| smoke_4_search | ERROR (F/**T**), round-3 re-ID after PLACE | **CLAIMED_SUCCESS (T/T)**, first ever. SEARCH found the stone in 7 views, 0 skipped | 20 |
+| c_2_03_stone | REFUSED (F/F) | no outcome: killed at the step cap after 41 calls. ground("stone") returned AMBIGUOUS whenever both stones were in view, so SEARCH kept going | 41 |
+| c_2_09_bottle, c_2_10_bottle | REFUSED, SEARCH_EXHAUSTED | – | 0 |
+
+Kept: one clear improvement and no completed regression.
+
+**Step 2** (cap 50, used 46)
+
+| trial | before | after | calls |
+|---|---|---|---|
+| c_2_09_bottle | REFUSED (F/F), GRASP TARGET_LOST at the image edge | **CLAIMED_SUCCESS (T/T)**, no replan | 10 |
+| c_2_07_cube | SEARCH_EXHAUSTED (F/F) | **CLAIMED_SUCCESS (T/T)**, no replan | 12 |
+| c_2_10_bottle | SEARCH_EXHAUSTED (F/F) | ERROR (F/F): **B** put SEARCH inside a READY plan ("READY cannot SEARCH"), the repair failed, PlannerError. GRASP had also lost the bottle once | 24 |
+
+Kept: 2 of 3 better. The c_2_10 ERROR is a B defect (mine), and B was not changed this round.
+
+**Step 3** (cap 60, used 31)
+
+| trial | before (after steps 1–2) | after | calls |
+|---|---|---|---|
+| smoke_4_search | CLAIMED_SUCCESS | CLAIMED_SUCCESS | 10 |
+| c_2_01_stone | CLAIMED_SUCCESS (r5) | CLAIMED_SUCCESS | 10 |
+| c_2_02_stone | CLAIMED_SUCCESS (r2_v2) | CLAIMED_SUCCESS | 11 |
+
+**Reverted.** Not better: all three were already successes, and the hint **never fired**. No replan happened while holding or after a release; the perceive events carry no hint. By the before column smoke_4 did improve, but that gain came from step 1. The unit test shows the step fixes the real round-3 a11 → a16 failure, but no live run reached that path. Restore with `git revert 76ea0e1` if you want the interface anyway.
+
+**Step 4** (cap 50, used 50)
+
+| trial | before (after steps 1–2) | after | calls |
+|---|---|---|---|
+| c_2_10_bottle | ERROR (B) | no outcome: killed at the cap after 50 calls in the bottle ↔ red_region SEARCH ping-pong (K5) | 50 |
+| c_2_07_cube, c_2_09_bottle | CLAIMED_SUCCESS | – | 0 |
+
+**Reverted.** No completed rerun, so not better. The mechanism itself did fire and work once live: c_2_10 frame 50 had the bottle UNLOCALIZED at the right edge, the base re-centred, and in frame 51 the bottle was LOCALIZED and SEARCH succeeded. The episode then lost it again in the ping-pong. Restore with `git revert 4b03804`.
+
+### Finish: 15-trial e2e on the kept code (steps 1a, 1b, 2)
+
+Budget left after step 4: 112 (≥ 80), so the full set ran. **4 trials died at the first model call on a DNS outage** (`Failed to resolve 'dashscope-intl.aliyuncs.com'`: c_2_04/05/06/08, 2 attempts each). After DNS came back they were rerun (`final_retry`) until the 300 cap. 5 trials (c_2_01/02/07/09, smoke_4) used 0 calls: with identical code and frames, every VLM/LLM answer came from the cache of their round-6 step runs. They are deterministic replays of those runs, not new samples.
+
+| trial | before | after (round 6 final) | run dir |
+|---|---|---|---|
+| smoke_1_standard | CLAIMED_SUCCESS T/T | CLAIMED_SUCCESS T/T | final |
+| smoke_2_scene_variation | T/T | T/T | final |
+| smoke_3_instruction_variation | T/T | T/T | final |
+| smoke_4_search | ERROR F/**T** | **CLAIMED_SUCCESS T/T** | final |
+| smoke_5_clarification | T/T | T/T | final |
+| c_2_01_stone | T/T | T/T | final |
+| c_2_02_stone | T/T | T/T | final |
+| c_2_03_stone | REFUSED F/F | **CLAIMED_SUCCESS T/T**: READY from frame 0, because step 2 localizes the gray stone at the image edge that used to start the SEARCH ping-pong (1.4 cm) | final |
+| c_2_04_stone | LIMIT_EXCEEDED F/**T** | **CLAIMED_SUCCESS T/T** | final_retry |
+| c_2_05_stone | LIMIT_EXCEEDED F/F | no outcome: killed at the 300-call cap. SEARCH("stone") keeps grounding the gray stone while B wants the dark_red one (class-only SEARCH, REPORT §10 item 2) | final_retry |
+| c_2_06_cube | T/T | T/T | final_retry |
+| c_2_07_cube | SEARCH_EXHAUSTED F/F | **CLAIMED_SUCCESS T/T** | final |
+| c_2_08_cube | T/T | **REFUSED F/F** (regression): step 2 localizes the cube at frame 0, so C approaches from the start pose without the SEARCH detour, grasps, and then MOVE_TO hits "Table contact detected during transport" 8× until B refuses | final_retry |
+| c_2_09_bottle | REFUSED F/F | **CLAIMED_SUCCESS T/T** | final |
+| c_2_10_bottle | SEARCH_EXHAUSTED F/F | ERROR F/F (B: "READY cannot SEARCH") | final |
+
+**Cumulative (15 trials, latest run each): claimed ∧ actual 8 → 12. Actually achieved 10 → 12. False claims 0 → 0** (0 in all 25 round-6 trial records). Of the 3 non-successes, c_2_08 is a new failure caused by C's transport path, c_2_10 is B, and c_2_05 is the class-only SEARCH.
+
+### Measurements
+
+- **SEARCH views that show the table:** 70/119 = 59% of A's grounding views in round 5 (old sweep), 107/107 = 100% in round 6.
+- **Head pitch drifts during a sweep:** in the sim test the torso leans forward while the base turns, from 0.87 to 1.05 rad over 13 views (smoke_4 start). The yaw prediction stays within 0.075 rad. The table stayed in view in every case measured, but at larger drifts it could leave the view; this is a controller issue, not C's.
+
+### Still open after round 6
+
+1. **Class-only SEARCH** (c_2_05, and c_2_03 in step 1): SEARCH carries only a class. ground("stone") returns the wrong-colour stone or AMBIGUOUS when both are visible. The fix needs a SEARCH target with a colour (a B + C contract decision) or colour-aware ground() queries from C.
+2. **B puts SEARCH in a READY plan** (c_2_10, mine): after the repair fails, B should fall back to NEEDS_SEARCH instead of raising.
+3. **C transport table contact** (c_2_08): MOVE_TO from the start-pose grasp hits the table edge repeatedly. The earlier "success" depended on SEARCH moving the base first.
+4. **SEARCH ping-pong K5** (c_2_10 step 4): object and region are never LOCALIZED in the same frame, so B alternates the two SEARCHes until the budget runs out.
+5. Steps 3 and 4 are reverted but ready to restore. Step 3 in particular has a real-frame unit test for the round-3 re-ID. Owner's call.
