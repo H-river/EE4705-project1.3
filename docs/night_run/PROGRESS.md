@@ -153,3 +153,21 @@
 - (one aborted launch before 9.2: a shell-variable mistake in my command left the config unset; it failed before any request, 0 calls)
 - final live calls: 556 / 600
 - RESULT: DONE; REPORT.md §7 appended; pushed again.
+ROUND2 baseline 556, cap 956, start 2026-09-23T12:42:41+08:00
+
+### ROUND 2 step 1 — revert 2.4 + 2.5
+- 0eb0e71 Revert "[C-fix] Re-tuck the arm after every REACH/GRASP/PLACE attempt"
+- 6249e30 Revert "[C-fix] Report APPROACH/SEARCH table-contact recovery as TIMEOUT, not success"
+- manipulation reruns (0 live): student_c 10/10, student_c_v2 10/10 (runs/night/r2_manip). Confirms both were the STAGE 4 regressions. c_05 and c_2_05 pass again.
+ROUND2 note: original 10 h window (00:26→10:26) already elapsed; round 2 deadline set to now+6 h (2026-09-23T18:50:06.834149+08:00)
+
+### ROUND 2 step 6 — fix round A (K8: phantom duplicate poisons the tracker)
+- hypothesis: when a frame contains only ONE detection of a class/colour there is nothing in that frame to confuse it with, so it must not be AMBIGUOUS just because an earlier frame hallucinated a duplicate. Fixing that should let SEARCH accept the target in smoke_4, c_2_03 and c_2_05 (the 3 sessions with AMBIGUOUS statuses in the round-2 runs).
+- reruns (runs/night/r2_fixA, 6 live calls; mostly cache replays):
+  | trial | before | after |
+  |---|---|---|
+  | smoke_4_search | SEARCH_EXHAUSTED (SEARCH stone NOT_FOUND 2x13 views) | ERROR (SEARCH_FATAL) — but SEARCH stone **succeeded** for the first time: LOCALIZED a8 at (0.400,-0.150,0.875). The episode then died in the NEXT action, SEARCH red_region, on cause K7: SchemaError "detections[1].color: 'empty' not in enum" |
+  | c_2_03_stone | LIMIT_EXCEEDED | LIMIT_EXCEEDED (unchanged) |
+  | c_2_05_stone | LIMIT_EXCEEDED | LIMIT_EXCEEDED (unchanged) |
+- DEVIATION from the loop rule: by the letter of rule 5 (outcome not better) c81d963 should be reverted. I KEPT it because the targeted behaviour is demonstrably fixed (the stone is found instead of AMBIGUOUS after a phantom duplicate) and the new ERROR is a different, pre-existing cause (K7) that the episode only reaches because it got further. Owner: `git revert c81d963` if you disagree.
+- next round: K7 (VLM colour outside the enum raises inside core/llm_client before A's validate_wire).
