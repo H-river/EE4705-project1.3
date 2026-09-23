@@ -46,7 +46,7 @@ class RGBDPerception(Perception):
         self._ids = {}
         self._region_center = None
 
-    def describe(self, obs: Observation, query=None, *, hint=None):
+    def describe(self, obs: Observation, query=None):
         rgb = obs.rgb[::2, ::2].astype(float)
         depth = obs.depth[::2, ::2]
         yy, xx = np.indices(depth.shape)

@@ -82,39 +82,11 @@ from typing import Any, Optional
 import numpy as np
 
 # v2: full-motion STOP and fresh, exact-instance placement verification.
-# v3: Perception.describe() takes an optional keyword-only TrackingHint from the
-#     orchestrator (held / just-released instance), so identities survive a
-#     grasp and a release. Implementations without the keyword still work.
-CONTRACT_VERSION = 3
+CONTRACT_VERSION = 2
 
 # Fixed public image resolution.
 IMAGE_HEIGHT = 480
 IMAGE_WIDTH = 640
-
-
-@dataclass(frozen=True)
-class ReleasedHint:
-    """An instance the robot just let go of.  ``expected_pos_world`` is the
-    gripper position right after the release: its xy is where the object
-    should be; its z is the gripper's, not the object's."""
-
-    instance_id: str
-    expected_pos_world: tuple[float, float, float]
-
-
-@dataclass(frozen=True)
-class TrackingHint:
-    """Execution state the orchestrator passes to Perception.describe().
-
-    ``held_object_id``: perceived ID the system believes it holds (None when
-    empty-handed); ``held_pos_world``: the gripper position (public EE pose).
-    ``released``: the last instance released by PLACE, if any.  These are the
-    system's own beliefs about its actions, never simulator ground truth.
-    """
-
-    held_object_id: Optional[str] = None
-    held_pos_world: Optional[tuple[float, float, float]] = None
-    released: Optional[ReleasedHint] = None
 
 
 class Skill(enum.Enum):

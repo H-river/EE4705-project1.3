@@ -172,18 +172,6 @@ def partial_object_center(obs, bbox, name, color):
     return tuple(float(c) for c in center), 'partial RGB-D: visible part pushed by the class half extent'
 
 
-def _projects_into(obs, point, box, margin):
-    """True when a world point projects inside a pixel box grown by ``margin``."""
-    k, t = obs.intrinsics, obs.t_world_camera
-    cam = t[:3, :3].T @ (np.asarray(point, dtype=float) - t[:3, 3])
-    if cam[2] <= .05:
-        return False
-    u, v = k[0, 0] * cam[0] / cam[2] + k[0, 2], k[1, 1] * cam[1] / cam[2] + k[1, 2]
-    x1, y1, x2, y2 = box
-    mx, my = (x2 - x1) * margin, (y2 - y1) * margin
-    return x1 - mx <= u <= x2 + mx and y1 - my <= v <= y2 + my
-
-
 def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2, allow_nan=False,
                                    default=lambda x: x.value if hasattr(x, 'value') else asdict(x)))
@@ -205,7 +193,6 @@ class StudentAPerception(Perception):
         self._next_id = 0
         self._predictions = OrderedDict()
         self._held_id = None  # instance believed held; set from the tracking hint
-        self._hint = None
         self.last_diagnostics = None
 
     def _new_id(self):
@@ -235,18 +222,11 @@ class StudentAPerception(Perception):
             if d['confidence'] < .5:
                 pos, detail, partial = None, 'model confidence below 0.5', False
             prepared.append((d, box, pos, detail, partial))
-        hint = getattr(self, '_hint', None)
-        assigned, held_index = self._hint_assign(prepared, obs) if hint is not None else ({}, None)
-        reserved = set(assigned.values())
-        if hint is not None and hint.held_object_id:
-            reserved.add(hint.held_object_id)  # the held instance never takes part in normal matching
+        assigned = {}
         ambiguous = set()
         for key in sorted({(d['name'], d['color']) for d in detections}):
-            indices = [i for i, (d, *_) in enumerate(prepared)
-                       if (d['name'], d['color']) == key and i not in assigned]
-            old = {k: v for k, v in self._tracks.items() if v['key'] == key and k not in reserved}
-            if not indices:
-                continue
+            indices = [i for i, (d, *_) in enumerate(prepared) if (d['name'], d['color']) == key]
+            old = {k: v for k, v in self._tracks.items() if v['key'] == key}
             if len(indices) == len(old) == 1:
                 assigned[indices[0]] = next(iter(old))
             elif not old:
@@ -280,8 +260,6 @@ class StudentAPerception(Perception):
             instance_id = assigned[i]
             if partial and instance_id == getattr(self, "_held_id", None):
                 pos, detail, partial = None, 'held object: no partial localization', False
-            if i == held_index:
-                pos, detail, partial = tuple(hint.held_pos_world), 'held object: position from the tracking hint', False
             status = GroundStatus.LOCALIZED if pos is not None else GroundStatus.UNLOCALIZED
             memory_attrs = {} #Enable the program to "Remember"
             if i in ambiguous:
@@ -308,57 +286,9 @@ class StudentAPerception(Perception):
                 kind='region' if region else 'object', frame_id=obs.frame_id,
                 attributes={'color': d['color'], 'localization': detail,
                             **({'pos_basis': 'depth_patch_partial'} if partial and status is GroundStatus.LOCALIZED else {}),
-                            **({'pos_basis': 'held_hint'} if i == held_index else {}),
                             **memory_attrs},
                 region_half_extents_xy=(.08, .08) if region and pos is not None else None))
         return result
-
-    # Round 6 (step 3): identities across a grasp and a release.
-    HINT_RADIUS_M = .15
-    HINT_BOX_MARGIN = .2
-
-    def _hint_candidates(self, prepared, track_id, expected, obs, xy_only, taken):
-        """Indices of detections of the track's class/colour that are near the
-        expected position: within HINT_RADIUS_M (in xy for a release, whose
-        expectation is the gripper), or, without a 3D position, whose box
-        (+20%) contains the expected point's projection."""
-        track = self._tracks[track_id]
-        point = np.array(expected, dtype=float)
-        if xy_only and track.get('pos') is not None:
-            point[2] = track['pos'][2]  # the object rests where it was, not at gripper height
-        found = []
-        for i, (d, box, pos, *_ ) in enumerate(prepared):
-            if i in taken or (d['name'], d['color']) != track['key']:
-                continue
-            if pos is not None:
-                delta = np.array(pos) - point
-                dist = float(np.linalg.norm(delta[:2] if xy_only else delta))
-                if dist < self.HINT_RADIUS_M:
-                    found.append((dist, i))
-            elif _projects_into(obs, point, box, self.HINT_BOX_MARGIN):
-                found.append((self.HINT_RADIUS_M, i))
-        return sorted(found)
-
-    def _hint_assign(self, prepared, obs):
-        """Detections fixed by the tracking hint before the normal rules run.
-        Returns ({index: instance_id}, index of the held detection or None)."""
-        hint = getattr(self, '_hint', None)
-        assigned, held_index = {}, None
-        if hint is None:
-            return assigned, held_index
-        if hint.held_object_id in self._tracks and hint.held_pos_world is not None:
-            found = self._hint_candidates(prepared, hint.held_object_id, hint.held_pos_world, obs, False, assigned)
-            if found and (len(found) == 1 or found[1][0] - found[0][0] > .03):
-                held_index = found[0][1]
-                assigned[held_index] = hint.held_object_id
-        released = hint.released
-        if (released is not None and released.instance_id in self._tracks
-                and released.instance_id != hint.held_object_id):
-            found = self._hint_candidates(prepared, released.instance_id, released.expected_pos_world,
-                                          obs, True, assigned)
-            if found and (len(found) == 1 or found[1][0] - found[0][0] > .03):
-                assigned[found[0][1]] = released.instance_id
-        return assigned, held_index
 
     def recall(self, name, color=None):
         """Best-effort memory lookup — NOT part of the Perception contract.
@@ -459,12 +389,7 @@ class StudentAPerception(Perception):
                 serialized = serialized.replace(self.config.llm.api_key, '[REDACTED]')
             write_json(audit_dir / 'audit.json', json.loads(serialized))
 
-    def describe(self, obs, query=None, *, hint=None):
-        # The latest hint stays in force for later describe()/ground() calls
-        # made by the executor inside an action (they carry no hint).
-        if hint is not None:
-            self._hint = hint
-            self._held_id = hint.held_object_id
+    def describe(self, obs, query=None):
         return self._observe(obs, query)[0]
 
     def ground(self, obs, target):

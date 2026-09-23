@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from core.env import RobotEnv
-from core.interfaces import ClarificationProvider, Executor, Perception, Planner, describe_with_hint
+from core.interfaces import ClarificationProvider, Executor, Perception, Planner
 from core.obs_store import ObservationStore
 from core.types import (
     Action,
@@ -28,10 +28,8 @@ from core.types import (
     ExecutionResult,
     Plan,
     PlanStatus,
-    ReleasedHint,
     SceneDescription,
     Skill,
-    TrackingHint,
     TrialOutcome,
     VerificationResult,
 )
@@ -122,21 +120,6 @@ class Orchestrator:
         payload = {"type": kind, "sim_time": self._now(), **data}
         result.events.append(payload)
 
-    def _tracking_hint(self, context: ExecutionContext,
-                       released: Optional[ReleasedHint]) -> TrackingHint:
-        """Contract v3: what the system believes it holds / just released."""
-        held = context.held_instance_id
-        held_pos = None
-        if held is not None:
-            try:
-                held_pos = tuple(float(v) for v in self.env.get_ee_pos())
-            except Exception:
-                held_pos = None
-        if released is not None and (released.instance_id == held
-                                     or released.instance_id != context.last_release_instance_id):
-            released = None
-        return TrackingHint(held_object_id=held, held_pos_world=held_pos, released=released)
-
     def _now(self) -> float:
         try:
             return self.env.sim_time()
@@ -169,7 +152,6 @@ class Orchestrator:
         # Task goal (for final verification), learned from executed actions.
         grasp_target: Optional[str] = None
         place_region: Optional[str] = None
-        released: Optional[ReleasedHint] = None  # last release, for the tracking hint
 
         while True:
             if plans_made >= cfg.max_total_plans:
@@ -179,15 +161,11 @@ class Orchestrator:
 
             obs = self.env.get_obs()
             self._mark(obs.frame_id)
-            hint = self._tracking_hint(context, released)
-            scene = describe_with_hint(self.perception, obs, hint=hint)
+            scene = self.perception.describe(obs)
             context.scene = scene
             self._event(result, "perceive", frame_id=obs.frame_id,
                         objects=[g.instance_id for g in scene.objects],
-                        ambiguities=list(scene.ambiguities),
-                        **({"hint": {"held": hint.held_object_id,
-                                     "released": hint.released.instance_id if hint.released else None}}
-                           if hint.held_object_id or hint.released else {}))
+                        ambiguities=list(scene.ambiguities))
 
             if plans_made == 0 and clarification is None:
                 plan = self.planner.plan(instruction, scene)
@@ -248,10 +226,7 @@ class Orchestrator:
                     attempts += 1
                     actions_executed += 1
                     attached_before = self.env.is_attached()
-                    held_before = context.held_instance_id
                     exec_result = self.executor.execute(action, self.env, self.perception)
-                    if attached_before and not self.env.is_attached() and held_before is not None:
-                        released = ReleasedHint(held_before, tuple(float(v) for v in self.env.get_ee_pos()))
                     history.append(exec_result)
                     self._event(result, "action", skill=action.skill.value, target=action.target,
                                 success=exec_result.success, error=exec_result.error_code.value,

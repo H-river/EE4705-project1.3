@@ -108,7 +108,7 @@ class GTPerception(Perception):
             region_half_extents_xy=tuple(b.half_extents_xy) if kind == "region" else None,
         )
 
-    def describe(self, obs: Observation, query: Optional[str] = None, *, hint=None) -> SceneDescription:
+    def describe(self, obs: Observation, query: Optional[str] = None) -> SceneDescription:
         bboxes = self._gt_bboxes(obs)
         objects, regions = [], []
         for gt_id, bbox in bboxes.items():
