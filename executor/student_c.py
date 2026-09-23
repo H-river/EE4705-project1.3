@@ -11,6 +11,8 @@ from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, Groun
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
+from core.scene_geometry import table_aabb, table_center_xy
+from core.types import IMAGE_HEIGHT, IMAGE_WIDTH
 
 
 class _BodyTableContact(RuntimeError):
@@ -41,6 +43,76 @@ class _ContactGuard:
         if contacts:
             self._env.stop_motion()
             raise _BodyTableContact(contacts)
+
+def _planar(x, y, yaw):
+    c, s = math.cos(yaw), math.sin(yaw)
+    t = np.eye(4)
+    t[:2, :2] = [[c, -s], [s, c]]
+    t[:2, 3] = [x, y]
+    return t
+
+
+def table_top_points(n_x=9, n_y=21):
+    """Grid over the table's top face (world frame)."""
+    lo, hi = table_aabb()
+    xs, ys = np.linspace(lo[0], hi[0], n_x), np.linspace(lo[1], hi[1], n_y)
+    gx, gy = np.meshgrid(xs, ys)
+    return np.column_stack((gx.ravel(), gy.ravel(), np.full(gx.size, hi[2])))
+
+
+def table_in_view(t_world_camera, intrinsics, max_range_m=4.0):
+    """True when some part of the table top projects inside the image."""
+    points = table_top_points()
+    cam = (points - t_world_camera[:3, 3]) @ t_world_camera[:3, :3]
+    z = cam[:, 2]
+    ahead = (z > 0.05) & (z < max_range_m)
+    if not np.any(ahead):
+        return False
+    u = intrinsics[0, 0] * cam[ahead, 0] / z[ahead] + intrinsics[0, 2]
+    v = intrinsics[1, 1] * cam[ahead, 1] / z[ahead] + intrinsics[1, 2]
+    return bool(np.any((u >= 0) & (u < IMAGE_WIDTH) & (v >= 0) & (v < IMAGE_HEIGHT)))
+
+
+def search_views(base_pose, t_world_camera, intrinsics, n_views=13, half_range_rad=math.radians(60)):
+    """Tabletop-only SEARCH viewpoints.
+
+    The head camera is rigid on the torso, so ``t_world_camera`` observed at
+    ``base_pose`` fixes the camera's height and pitch relative to the base;
+    only the base yaw can change. Candidate yaws are ``n_views`` evenly spaced
+    over ±``half_range_rad`` around the bearing from the base to the table
+    centre, ordered from the end nearer the current yaw. A candidate whose
+    frustum contains no part of the table top is skipped.
+    Returns (views, info) with views = [(yaw, t_world_camera_at_yaw)].
+    """
+    x, y, yaw0 = (float(v) for v in base_pose)
+    base_cam = np.linalg.inv(_planar(x, y, yaw0)) @ np.asarray(t_world_camera, dtype=float)
+    cx, cy = table_center_xy()
+    center = math.atan2(cy - y, cx - x)
+    offsets = np.linspace(-half_range_rad, half_range_rad, n_views)
+    wrap = lambda a: math.atan2(math.sin(a), math.cos(a))
+    if abs(wrap(center + offsets[-1] - yaw0)) < abs(wrap(center + offsets[0] - yaw0)):
+        offsets = offsets[::-1]
+    views, skipped = [], []
+    for off in offsets:
+        yaw = wrap(center + float(off))
+        cam = _planar(x, y, yaw) @ base_cam
+        (views if table_in_view(cam, intrinsics) else skipped).append((yaw, cam))
+    # Pitch is fixed by the mount; report whether it can see the table at all.
+    forward = base_cam[:3, 2]
+    pitch = math.atan2(-forward[2], math.hypot(forward[0], forward[1]))  # + = looking down
+    lo, hi = table_aabb()
+    height = float(base_cam[2, 3]) - hi[2]
+    far = max(math.hypot(px - x, py - y) for px in (lo[0], hi[0]) for py in (lo[1], hi[1]))
+    near = math.hypot(min(max(x, lo[0]), hi[0]) - x, min(max(y, lo[1]), hi[1]) - y)
+    half_vfov = math.atan2(IMAGE_HEIGHT / 2, float(intrinsics[1, 1]))
+    # Pitch window in which some of the table top stays in the vertical field of view.
+    pitch_range = (math.atan2(height, far) - half_vfov, math.atan2(height, max(near, 1e-3)) + half_vfov)
+    info = {"table_bearing_rad": center, "candidate_yaws": [wrap(center + float(o)) for o in offsets],
+            "skipped_yaws": [v[0] for v in skipped], "camera_pitch_rad": pitch,
+            "table_pitch_range_rad": list(pitch_range),
+            "pitch_sees_table": pitch_range[0] <= pitch <= pitch_range[1]}
+    return views, info
+
 
 class StudentCExecutor(ClosedLoopExecutor):
     """Eight bounded skills, with public sensor checks and one local grasp retry.
@@ -619,14 +691,14 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         # Bounds match the C guide: up to 13 views, 30 simulated seconds total.
         try:
-            primitive = skills.search(self._contact_guard(env), perception, target_class,
-                                      max_views=13, timeout_s=30.)
+            primitive = self._table_sweep(self._contact_guard(env), perception, target_class,
+                                          max_views=13, timeout_s=30.)
         except _BodyTableContact as exc:
             recovered = self._restore_after_contact(env)
             if recovered and not env.is_attached():
                 try:
-                    primitive = skills.search(self._contact_guard(env), perception, target_class,
-                                              max_views=13, timeout_s=30.)
+                    primitive = self._table_sweep(self._contact_guard(env), perception, target_class,
+                                                  max_views=13, timeout_s=30.)
                 except _BodyTableContact:
                     primitive = SkillResult(False, ErrorCode.TIMEOUT,
                                            {"detail": "Repeated table contact during SEARCH"})
@@ -657,6 +729,55 @@ class StudentCExecutor(ClosedLoopExecutor):
             recovery_attempted=views_taken > 1,
             info={**primitive.info, "arm_tucked": True, "tuck_error_m": tuck_error},
         )
+
+    def _table_sweep(self, env, perception, target, max_views=13, timeout_s=30.):
+        """Round 6 (1b): skills.search with tabletop-only viewpoints.
+
+        Same acceptance as skills.search (fresh frame, LOCALIZED, finite
+        position; perception errors are SEARCH_FATAL), but the yaws come from
+        search_views(): ±60° around the table bearing, views that cannot
+        contain the table skipped. The old sweep turned 0.5 rad per view
+        through a full circle, so about half its views showed only the floor.
+        """
+        deadline = env.sim_time() + timeout_s
+        env.stop_motion()
+        first = env.get_obs()
+        views, plan = search_views(env.get_base_pose(), first.t_world_camera, first.intrinsics,
+                                   n_views=max_views)
+        base = env.get_base_pose()
+        info = {"primitive": "search", "views": 0, "sweep": plan}
+        last_status = "NOT_FOUND"
+        try:
+            for yaw, _ in views:
+                if env.sim_time() >= deadline:
+                    return SkillResult(False, ErrorCode.TIMEOUT, info)
+                env.set_base_target(float(base[0]), float(base[1]), yaw)
+
+                def turned():
+                    b = env.get_base_pose()
+                    return abs(math.atan2(math.sin(b[2] - yaw), math.cos(b[2] - yaw))) < skills.BASE_YAW_TOL
+
+                if not skills._step_until(env, turned, timeout_s=min(4., max(0., deadline - env.sim_time())), chunk=1):
+                    return SkillResult(False, ErrorCode.TIMEOUT, {**info, "detail": "Viewpoint motion timed out"})
+                env.stop_motion()
+                obs = env.get_obs()
+                try:
+                    found = perception.ground(obs, target)
+                except Exception as exc:
+                    return SkillResult(False, ErrorCode.SEARCH_FATAL,
+                                       {**info, "detail": f"{type(exc).__name__}: {exc}"})
+                info["views"] += 1
+                if found is None:
+                    continue
+                last_status = found.status.value
+                if found.frame_id >= 0 and found.frame_id != obs.frame_id:
+                    return SkillResult(False, ErrorCode.SEARCH_FATAL, {**info, "detail": "Stale grounding"})
+                pos = np.asarray(found.pos_world, dtype=float)
+                if found.status is GroundStatus.LOCALIZED and pos.shape == (3,) and np.all(np.isfinite(pos)):
+                    return SkillResult(True, ErrorCode.NONE, {**info, "grounded": found, "frame_id": obs.frame_id})
+            return SkillResult(False, ErrorCode.SEARCH_NOT_FOUND, {**info, "last_ground_status": last_status})
+        finally:
+            env.stop_motion()
 
 # VERIFY function: check a claimed condition against FRESH evidence.
 # Never trust an earlier action's own success flag -- re-observe.
