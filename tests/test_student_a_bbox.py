@@ -67,7 +67,8 @@ def test_unselected_degenerate_box_dropped_and_selected_remapped(bbox):
     assert w['selected'] == [0]
 
 
-def test_selected_degenerate_box_still_raises_for_repair():
-    w = wire([det('stone', [300, 300, 200, 400], 'gray')], [0])
-    with pytest.raises(ValueError):
-        validate_wire(w)
+def test_selected_degenerate_box_dropped_and_selected_remapped():
+    w = wire([det('stone', [300, 300, 200, 400], 'gray'), det('cube', [100, 100, 200, 200], 'blue')], [0, 1])
+    validate_wire(w)
+    assert [d['name'] for d in w['detections']] == ['cube']
+    assert w['selected'] == [0]

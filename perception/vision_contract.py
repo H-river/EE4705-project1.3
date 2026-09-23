@@ -84,17 +84,18 @@ def validate_wire(wire):
     """Validate in place. A single unusable detection is dropped rather than
     rejecting the frame: a bbox exceeding 600x600 (nearly the whole frame) or a
     degenerate bbox (x1>=x2, y1>=y2, or a side < MIN_BOX_SIDE, e.g. the
-    [0,0,0,0] placeholder the VLM emits for "not visible") that is not itself
-    selected, or a class/colour pair that cannot exist (see
-    normalise_class_color). `selected` is re-mapped to the remaining indices.
+    [0,0,0,0] placeholder the VLM emits for "not visible"), a bbox that is not
+    4 numbers, or a class/colour pair that cannot exist (see
+    normalise_class_color). This holds for a selected detection too: it is
+    dropped from `selected`, so a grounding answer with no usable box becomes
+    "not found" instead of a fatal error. `selected` is re-mapped to the
+    remaining indices.
     Returns `wire`."""
     validate_schema(wire,SCHEMA)
     dropped=set()
     for i,d in enumerate(wire['detections']):
         if len(d['bbox'])!=4:
-            # Structurally unusable. Same policy as a degenerate box: drop it,
-            # unless it is the grounding answer, where a repair is worth one call.
-            if i in wire['selected']: raise ValueError('bbox must have exactly 4 numbers')
+            # Structurally unusable: drop it, same policy as a degenerate box.
             dropped.add(i); continue
         x1,y1,x2,y2=d['bbox']
         if any(not 0 <= x <= 1000 for x in d['bbox']): raise ValueError('bbox coordinates must be in 0..1000')
@@ -104,9 +105,8 @@ def validate_wire(wire):
             dropped.add(i); continue
         wire['detections'][i]=fixed
         if x2-x1<MIN_BOX_SIDE or y2-y1<MIN_BOX_SIDE:
-            # A degenerate box that IS the grounding answer makes the answer
-            # unusable: raise so A spends its one repair on it.
-            if i in wire['selected']: raise ValueError('bbox must have positive width and height')
+            # Also when selected: the VLM uses a degenerate box as its "not
+            # visible" answer, and a raise there made SEARCH fatal (smoke_4).
             dropped.add(i)
         elif x2-x1>600 and y2-y1>600: dropped.add(i)
     if len(set(wire['selected']))!=len(wire['selected']): raise ValueError('selected indices must be unique')

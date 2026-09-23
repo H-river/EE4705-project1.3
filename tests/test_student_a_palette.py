@@ -58,9 +58,8 @@ def test_short_bbox_is_dropped_when_not_selected():
     assert [d['name'] for d in w['detections']] == ['stone'] and w['selected'] == [0]
 
 
-def test_short_bbox_raises_when_it_is_the_answer():
-    import pytest
+def test_short_bbox_is_dropped_when_it_is_the_answer():
     w = {'detections': [{'name': 'cube', 'color': 'blue', 'bbox': [300, 300, 380], 'confidence': 0.9}],
          'selected': [0], 'answer': ''}
-    with pytest.raises(ValueError):
-        validate_wire(w)
+    validate_wire(w)
+    assert w['detections'] == [] and w['selected'] == []

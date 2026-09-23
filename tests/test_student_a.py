@@ -85,7 +85,6 @@ def test_ground_missing_ambiguous_and_known_exact_id(capture,tmp_path):
 
 
 @pytest.mark.parametrize('mutation',[
-    lambda w:w['detections'][0].update(bbox=[20,20,10,30]),
     lambda w:w.update(selected=[999]),
     lambda w:w.update(selected=[-1]),
     lambda w:w['detections'][0].update(confidence=1.1),
@@ -96,6 +95,15 @@ def test_ground_missing_ambiguous_and_known_exact_id(capture,tmp_path):
 def test_bad_wire_rejected(mutation):
     wire=offline_wire();mutation(wire)
     with pytest.raises((ValueError,SchemaError)):validate_wire(wire)
+
+
+def test_degenerate_selected_bbox_dropped():
+    # Round 3 (owner-approved test change): a degenerate SELECTED box is dropped
+    # and `selected` cleared, not a raise.
+    wire=offline_wire();wire['detections'][0].update(bbox=[20,20,10,30])
+    validate_wire(wire)
+    assert [d['name'] for d in wire['detections']]==['cube','red_region']
+    assert wire['selected']==[]
 
 
 def test_one_schema_repair_retains_invalid_response(capture,tmp_path):
