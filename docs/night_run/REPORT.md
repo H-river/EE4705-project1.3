@@ -273,3 +273,41 @@ I stopped after the third run. The 150-call budget allowed more, but more runs w
 2. **Provider transients make e2e flaky.** 2 of 3 smoke_4 runs died on an HTTP 500 or a read timeout in B's call, after a bounded retry. The orchestrator turns any PlannerError into ERROR. Options: a longer backoff for 5xx/timeouts in the B client config, or letting B's APIError end the episode as a failed plan instead of ERROR.
 3. **SEARCH sweeps look away from the table.** The gallery videos show it: in c_2_03 and c_2_09 roughly half of the SEARCH views show only the floor and the robot's shadow, and in c_2_03 the VLM even reports AMBIGUOUS "gray stones" on the shadows. For C, restricting the sweep to headings that keep the table in view would save views and remove a source of phantom detections.
 4. `VerificationResult` now has `passed: Optional[bool]` and `source`, which is a backbone type change. Every in-repo caller that turns `.passed` into a success flag now uses `bool(...)`; external code that compares `passed is False` should be checked.
+
+## 10. Round 5 (owner-directed, 2026-09-23 19:30 → 20:15): episode videos
+
+Budget: 150 live calls. **Used: 137** (A 111, B 26), counted as HTTP attempts from this round's own audit folders `runs/night/r5/audit_{a,b}`. Day total: 941 → 1078. (This report has no Round 4 section; the instructions called this round 5.)
+
+### What changed
+
+| # | commit | what |
+|---|---|---|
+| 1 | `48656ee` [chore] | `eval/runner.py --video` (default off) attaches `demo/recording.py`'s Recorder to each episode, the same way `demo/run.py` does: `RecordedWorld`, the Observed* wrappers, `DemoOrchestrator` forwarding backbone events, evaluator banner, ffmpeg mux. Writes `<trial_id>/episode.mp4`, `episode.json`, `index.html`, `start.png`, `final.png`. Recorder layout unchanged. Without `--video` the code path is the old one. New test `test_runner_video_records_episode_without_changing_the_record`. A mock-all check on all 5 smoke trials also gave identical final object positions, sim end time and event count with and without `--video`. Suite: **261 passed, 1 skipped** |
+| 2 | this commit | Gallery re-rendered as real videos: 9 of 10 mp4s in `docs/night_run/episodes/` replaced, `EPISODES.md` rewritten for the round-5 runs |
+
+### Reruns with `--video` (step 2)
+
+Each trial ran once, live. A's cache was mostly stale after the round-3 prompt changes, so these are new VLM answers, not replays.
+
+| gallery | trial | before | round 5 | calls | video |
+|---|---|---|---|---|---|
+| S1 | smoke_3_instruction_variation | CLAIMED_SUCCESS T/T | same (2.8 cm) | 14 | 24 s, 0.5 MB |
+| S2 | smoke_2_scene_variation | CLAIMED_SUCCESS T/T | same (1.2 cm) | 11 | 24 s, 0.5 MB |
+| S3 | smoke_5_clarification | CLAIMED_SUCCESS T/T | same, same question and answer | 12 | 26 s, 0.6 MB |
+| S4 | c_2_08_cube | CLAIMED_SUCCESS T/T | same (0.3 cm) | 17 | 31 s, 0.7 MB |
+| S5 | c_2_06_cube | CLAIMED_SUCCESS T/T, content filter at frame 10 | same; **the filter fired again at frame 10**, recovered by view retry 2 | 3 | 25 s, 0.5 MB |
+| F1 (old) | c_2_01_stone | REFUSED F/T | **CLAIMED_SUCCESS T/T** (0.7 cm): the failure no longer happens → replaced | 12 | – |
+| F1 (new) | c_2_04_stone | r2_v2: LIMIT_EXCEEDED F/T, PLACE_FAILED | same: dark-red stone placed on the red region (1.1 cm) but UNLOCALIZED, then 9 SEARCHes that ground the gray stone | 21 | 45 s, 0.7 MB |
+| F2 | c_2_03_stone | LIMIT_EXCEEDED F/F | **REFUSED F/F**: search ping-pong, GRASP TARGET_LOST, then B refused on A's caption "the gray stone is part of the table surface" | 11 | 58 s, 1.9 MB |
+| F3 | c_2_05_stone | LIMIT_EXCEEDED F/F (TIMEOUT) | same label: table contact on APPROACH, GRASP TARGET_LOST, SEARCH table contact, then 8 SEARCHes that ground the gray stone | 5 | 41 s, 0.8 MB |
+| F4 | c_2_09_bottle | SEARCH_EXHAUSTED F/F | **REFUSED F/F**: same GRASP TARGET_LOST at the image edge; B gave up after one failed SEARCH round | 31 | 28 s, 0.9 MB |
+| F5 | c_2_06_cube (round 2) | ERROR F/T, content filter | not reproducible: the rerun is S5. E2E_TABLE has no other content-filter failure → **keeps its slideshow**, marked "slideshow" | 0 | slideshow |
+
+No video exceeded 5 MB (largest 1.9 MB), so none was downscaled. The run dirs are `runs/night/r5/<trial>/`, and the driver log is `runs/night/r5_drive.log`.
+
+### New observations (additions to §8/§9)
+
+1. **B refuses on free text (F2, mine).** B returned INFEASIBLE citing A's caption ("the gray stone is part of the table surface") although a4 was in the object list. A refusal should rest on the structured scene or the vocabulary, not on the caption.
+2. **SEARCH is class-only (F1, F3).** SEARCH("stone") grounds the gray stone and reports success, but B wants the dark_red one, so the loop runs to max_total_plans at a frozen sim time. Two options: let SEARCH carry the goal colour, or have B send INFEASIBLE/NEEDS_CLARIFICATION after the same SEARCH succeeds twice without the goal appearing.
+3. **Red on red (F1).** A sees the dark_red stone on the red region ("a dark_red stone on a red region") but cannot localize it, so a physically correct placement is not claimed.
+4. The round-5 recordings show the SEARCH sweeps facing the floor (§9 item 3) and the table contact in c_2_05 as continuous motion, which the slideshows could not show.
