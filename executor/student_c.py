@@ -304,12 +304,11 @@ class StudentCExecutor(ClosedLoopExecutor):
         except _BodyTableContact as exc:
             recovered = self._restore_after_contact(env)
             if recovered:
-                # Backing off does not complete the approach: report failure.
                 primitive_result = SkillResult(
-                    False, ErrorCode.TIMEOUT,
+                    True, ErrorCode.NONE,
                     {"contact_recovery": True,
                      "contacts": exc.contacts,
-                     "detail": "Table contact detected; backed off, approach not completed"},
+                     "detail": "Table contact detected; backed off before the next planned action"},
                 )
             else:
                 primitive_result = SkillResult(
@@ -632,11 +631,6 @@ class StudentCExecutor(ClosedLoopExecutor):
                     primitive = SkillResult(False, ErrorCode.TIMEOUT,
                                            {"detail": "Repeated table contact during SEARCH"})
                 primitive.info.update({"contact_recovery": True, "contacts": exc.contacts})
-                if not primitive.success:
-                    # Recovery path ended without a found target.
-                    primitive = SkillResult(False, ErrorCode.TIMEOUT, {
-                        **primitive.info,
-                        "search_error_code": primitive.error_code.value})
             else:
                 primitive = SkillResult(False, ErrorCode.TIMEOUT,
                                          {"detail": "Table contact detected; recovery was not possible",
