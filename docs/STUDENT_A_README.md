@@ -167,7 +167,7 @@ vision requests as C re-observes during execution. Full live ABC adds
 but its final task success is not a stand-alone target-grounding accuracy
 metric. Do not use those two scores interchangeably.
 
-## 6. Prepare and score 20 labelled images
+## 6. Prepare and score 30 labelled images
 
 You can prepare an evaluation dataset without a key:
 
@@ -177,10 +177,10 @@ a_dataset="runs/my_a_dataset_$(date +%Y%m%d_%H%M%S)"
 .venv/bin/python -m eval.grounding capture --out "$a_dataset"
 ```
 
-This captures 20 images and matching depth/camera files. `dataset.json` stores
+This captures 30 images and matching depth/camera files. `dataset.json` stores
 queries, truth labels, and hashes of the input files. Labels come from the
-evaluation oracle in the same capture: 10 unique targets, 7 missing targets
-and 3 ambiguous targets. No model is called by `capture`.
+evaluation oracle in the same capture: 10 unique targets, 10 missing targets
+and 10 ambiguous targets. No model is called by `capture`.
 
 After setting the Qwen-VL endpoint and key, evaluate A:
 
@@ -195,7 +195,7 @@ This makes one scene-description and one grounding request per case: normally
 before sending requests. A receives the camera input and query; it does not
 receive expected labels, simulator names or truth coordinates.
 
-`summary.json` reports target-selection accuracy with **all 20 cases** in the
+`summary.json` reports target-selection accuracy with **all 30 cases** in the
 denominator, and separate unique/missing/ambiguous counts. Selection is matched
 to the actual object by image-box IoU (at least 0.30), not by ID string. The
 3D error is reported only for correctly selected, localized unique targets,
