@@ -101,6 +101,24 @@ def _normalize_action_fields(wire):
     return result, changes
 
 
+def split_search_target(target):
+    """'<colour> <class>' or '<class>' -> (class, colour or '').  'dark red'
+    and 'dark_red' are the same colour."""
+    words = (target or "").strip().split()
+    if not words:
+        return "", ""
+    return words[-1], "_".join(words[:-1]).lower()
+
+
+def search_target(goal, cls):
+    """Round 7: SEARCH carries the goal colour, e.g. 'dark_red stone', so
+    perception can tell same-class objects apart. The goal records a colour for
+    the object only, so a region target stays the bare class."""
+    if cls == goal["object_name"] and goal["object_color"]:
+        return f"{goal['object_color']} {cls}"
+    return cls
+
+
 def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=None):
     """Return Plan + validated goal, or reject. This cannot prove language accuracy or IK."""
     validate_schema(wire, WIRE_SCHEMA)
@@ -170,8 +188,12 @@ def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=
         require(status in (PlanStatus.READY, PlanStatus.NEEDS_SEARCH), "Non-action status must have no actions")
         if status is PlanStatus.NEEDS_SEARCH:
             require(skill is Skill.SEARCH, "NEEDS_SEARCH may only contain SEARCH actions")
-            require(bool(target) and target in (goal["object_name"], goal["region_name"]),
+            cls, colour = split_search_target(target)
+            require(bool(cls) and cls in (goal["object_name"], goal["region_name"]),
                     "SEARCH must name a goal class; preserve color and other constraints in the goal")
+            require(not colour or (cls == goal["object_name"] and colour == goal["object_color"]),
+                    "SEARCH colour must be the goal object's colour")
+            target = search_target(goal, cls)
         else:
             require(skill is not Skill.SEARCH, "READY cannot SEARCH")
             if skill in (Skill.APPROACH, Skill.REACH, Skill.GRASP):

@@ -184,6 +184,20 @@ def _projects_into(obs, point, box, margin):
     return x1 - mx <= u <= x2 + mx and y1 - my <= v <= y2 + my
 
 
+QUERY_CLASSES = ('stone', 'cube', 'bottle', 'red_region')
+QUERY_COLOURS = ('gray', 'dark_red', 'blue', 'green', 'red')
+
+
+def colour_class_query(target):
+    """('stone', 'dark_red') for 'dark_red stone' / 'dark red stone'; None for
+    anything else (a bare class, an instance id, a free-form phrase)."""
+    words = (target or '').strip().lower().split()
+    if len(words) < 2 or words[-1] not in QUERY_CLASSES:
+        return None
+    colour = '_'.join(words[:-1])
+    return (words[-1], colour) if colour in QUERY_COLOURS else None
+
+
 def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2, allow_nan=False,
                                    default=lambda x: x.value if hasattr(x, 'value') else asdict(x)))
@@ -471,6 +485,14 @@ class StudentAPerception(Perception):
         if target in self._tracks:
             return self.describe(obs).find(target)
         _, objects, selected = self._observe(obs, target, grounding=True)
+        wanted = colour_class_query(target)
+        if wanted is not None:
+            # Round 7: a '<colour> <class>' query (SEARCH with the goal colour)
+            # is matched on BOTH fields of A's own detections, not left to the
+            # model's selection alone: the model often selects every stone.
+            matches = [i for i, g in enumerate(objects)
+                       if (g.name, g.attributes.get('color')) == wanted]
+            selected = [i for i in selected if i in matches] or matches
         if not selected:
             return None
         if len(selected) > 1:

@@ -1,0 +1,103 @@
+{
+ "frame_id": 1,
+ "camera_name": "head",
+ "capture_id": "ep01_capture0001_head",
+ "sim_time": 3.219999999999867,
+ "intrinsics": [
+  [
+   415.69219381653056,
+   0.0,
+   319.5
+  ],
+  [
+   0.0,
+   415.69219381653056,
+   239.5
+  ],
+  [
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "t_world_camera": [
+  [
+   -0.1989299988047551,
+   -0.732374009936969,
+   0.6511951820647828,
+   0.04331192849494983
+  ],
+  [
+   -0.9800062398855222,
+   0.14606825344957525,
+   -0.13509935277281032,
+   -0.03989419762744002
+  ],
+  [
+   0.003824311831131244,
+   -0.6650506558924938,
+   -0.7467884571523473,
+   1.1854382932682306
+  ],
+  [
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "rgb_file": "frame_000001_rgb.png",
+ "depth_file": "frame_000001_depth.npy",
+ "source": "round 5, c_2_05_stone, A audit session 302d82da6c1f frame 1: ground(\"stone\") during SEARCH selected both stones (gray + dark_red) -> AMBIGUOUS. Depth kept only inside the detection boxes (+10 px).",
+ "wire": {
+  "detections": [
+   {
+    "name": "stone",
+    "color": "gray",
+    "bbox": [
+     550,
+     300,
+     625,
+     390
+    ],
+    "confidence": 0.95
+   },
+   {
+    "name": "stone",
+    "color": "dark_red",
+    "bbox": [
+     62,
+     200,
+     133,
+     275
+    ],
+    "confidence": 0.95
+   }
+  ],
+  "selected": [
+   0,
+   1
+  ],
+  "answer": ""
+ },
+ "scene_stones": {
+  "a4": [
+   "gray",
+   "LOCALIZED",
+   [
+    0.4135344609005569,
+    -0.1819588077750761,
+    0.8741646278028379
+   ]
+  ],
+  "a3": [
+   "dark_red",
+   "LOCALIZED",
+   [
+    0.5997927354941248,
+    0.19896469368731892,
+    0.8755693106117097
+   ]
+  ]
+ }
+}
