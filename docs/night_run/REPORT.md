@@ -322,11 +322,11 @@ Budget: 300 live calls. **Used: 300** (A 254, B 46), counted as HTTP attempts fr
 
 | step | commit | what | kept? |
 |---|---|---|---|
-| 1a | `47c0965` [A-fix] | Drop a detection whose estimated 3D centre z is outside [table_top_z − 0.05, table_top_z + 0.30]; table_top_z is read from the `table_top` geom (new `core/scene_geometry.py`). The centre comes from the class fit, or else from the median height of the box's depth pixels, because the floor phantoms never pass the class fit. The audit logs each drop with reason `off_table`. Test: the round-2 c_2_03 frame with two "gray stones" on the robot's shadow. Over all 1,495 archived A frames the filter drops 331 detections, all on the floor, none of which A had LOCALIZED. | kept |
-| 1b | `4cfbb6b` [C-fix] | SEARCH: 13 yaws over ±60° around the table bearing (was 0.5 rad steps through a full circle); views whose frustum contains no table are skipped. Test: an exact separating-axis frustum/AABB check from every trial start pose, plus a sim sweep in which every view's depth shows table-top pixels. **Head pitch cannot be locked:** the camera is fixed on the torso and there is no public waist/head API, so C checks the pitch window and reports it instead. | kept |
-| 2 | `860264b` [A-fix] | An edge-clipped **object** is LOCALIZED when ≥ 50% of its depth patch is valid: the median of the visible colour pixels, pushed along the view ray by the class half extent; `pos_basis="depth_patch_partial"`. Never applied to the held instance, or to a centre that is not resting on the table. On the c_2_09 clipped-bottle frame the centre is 5 mm from truth. One test setup changed (ours, round 2; CHANGES #17). | kept |
-| 3 | `7f6a964` [A-fix] | Contract v3: `describe(..., *, hint=TrackingHint)`, built by the orchestrator. A keeps the held id with `pos_basis="held_hint"` and matches the released instance near the release point first. Tests: the real round-3 frame (a16 without the hint, a11 with it) and a held stone over 5 frames. | **reverted** `76ea0e1` |
-| 4 | `56aa0d4` [C-fix] | SEARCH re-centres once per view on a visible-but-UNLOCALIZED target: turn by min(20°, bearing), one extra view that counts as a step. | **reverted** `4b03804` |
+| 1a | `a379949` [A-fix] | Drop a detection whose estimated 3D centre z is outside [table_top_z − 0.05, table_top_z + 0.30]; table_top_z is read from the `table_top` geom (new `core/scene_geometry.py`). The centre comes from the class fit, or else from the median height of the box's depth pixels, because the floor phantoms never pass the class fit. The audit logs each drop with reason `off_table`. Test: the round-2 c_2_03 frame with two "gray stones" on the robot's shadow. Over all 1,495 archived A frames the filter drops 331 detections, all on the floor, none of which A had LOCALIZED. | kept |
+| 1b | `a55aac0` [C-fix] | SEARCH: 13 yaws over ±60° around the table bearing (was 0.5 rad steps through a full circle); views whose frustum contains no table are skipped. Test: an exact separating-axis frustum/AABB check from every trial start pose, plus a sim sweep in which every view's depth shows table-top pixels. **Head pitch cannot be locked:** the camera is fixed on the torso and there is no public waist/head API, so C checks the pitch window and reports it instead. | kept |
+| 2 | `d952216` [A-fix] | An edge-clipped **object** is LOCALIZED when ≥ 50% of its depth patch is valid: the median of the visible colour pixels, pushed along the view ray by the class half extent; `pos_basis="depth_patch_partial"`. Never applied to the held instance, or to a centre that is not resting on the table. On the c_2_09 clipped-bottle frame the centre is 5 mm from truth. One test setup changed (ours, round 2; CHANGES #17). | kept |
+| 3 | `d6b6799` [A-fix] | Contract v3: `describe(..., *, hint=TrackingHint)`, built by the orchestrator. A keeps the held id with `pos_basis="held_hint"` and matches the released instance near the release point first. Tests: the real round-3 frame (a16 without the hint, a11 with it) and a held stone over 5 frames. | **reverted** `4570b5e` |
+| 4 | `15cb0be` [C-fix] | SEARCH re-centres once per view on a visible-but-UNLOCALIZED target: turn by min(20°, bearing), one extra view that counts as a step. | **reverted** `7610109` |
 
 ### Before → after, per step (reruns only; "–" = not run because the step's call cap was reached)
 
@@ -358,7 +358,7 @@ Kept: 2 of 3 better. The c_2_10 ERROR is a B defect (mine), and B was not change
 | c_2_01_stone | CLAIMED_SUCCESS (r5) | CLAIMED_SUCCESS | 10 |
 | c_2_02_stone | CLAIMED_SUCCESS (r2_v2) | CLAIMED_SUCCESS | 11 |
 
-**Reverted.** Not better: all three were already successes, and the hint **never fired**. No replan happened while holding or after a release; the perceive events carry no hint. By the before column smoke_4 did improve, but that gain came from step 1. The unit test shows the step fixes the real round-3 a11 → a16 failure, but no live run reached that path. Restore with `git revert 76ea0e1` if you want the interface anyway.
+**Reverted.** Not better: all three were already successes, and the hint **never fired**. No replan happened while holding or after a release; the perceive events carry no hint. By the before column smoke_4 did improve, but that gain came from step 1. The unit test shows the step fixes the real round-3 a11 → a16 failure, but no live run reached that path. Restore with `git revert 4570b5e` if you want the interface anyway.
 
 **Step 4** (cap 50, used 50)
 
@@ -367,7 +367,7 @@ Kept: 2 of 3 better. The c_2_10 ERROR is a B defect (mine), and B was not change
 | c_2_10_bottle | ERROR (B) | no outcome: killed at the cap after 50 calls in the bottle ↔ red_region SEARCH ping-pong (K5) | 50 |
 | c_2_07_cube, c_2_09_bottle | CLAIMED_SUCCESS | – | 0 |
 
-**Reverted.** No completed rerun, so not better. The mechanism itself did fire and work once live: c_2_10 frame 50 had the bottle UNLOCALIZED at the right edge, the base re-centred, and in frame 51 the bottle was LOCALIZED and SEARCH succeeded. The episode then lost it again in the ping-pong. Restore with `git revert 4b03804`.
+**Reverted.** No completed rerun, so not better. The mechanism itself did fire and work once live: c_2_10 frame 50 had the bottle UNLOCALIZED at the right edge, the base re-centred, and in frame 51 the bottle was LOCALIZED and SEARCH succeeded. The episode then lost it again in the ping-pong. Restore with `git revert 7610109`.
 
 ### Finish: 15-trial e2e on the kept code (steps 1a, 1b, 2)
 
@@ -405,3 +405,5 @@ Budget left after step 4: 112 (≥ 80), so the full set ran. **4 trials died at 
 3. **C transport table contact** (c_2_08): MOVE_TO from the start-pose grasp hits the table edge repeatedly. The earlier "success" depended on SEARCH moving the base first.
 4. **SEARCH ping-pong K5** (c_2_10 step 4): object and region are never LOCALIZED in the same frame, so B alternates the two SEARCHes until the budget runs out.
 5. Steps 3 and 4 are reverted but ready to restore. Step 3 in particular has a real-frame unit test for the round-3 re-ID. Owner's call.
+
+Note: the round-6 commits were rebased onto three teammate commits (eval/bbox_precision.py, eval/scene_description.py) before the push. The hashes above are the pushed ones. The two revert commits' messages still name the pre-rebase hashes (7f6a964 = d6b6799, 56aa0d4 = 15cb0be).
