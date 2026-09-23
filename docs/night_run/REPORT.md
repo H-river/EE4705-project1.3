@@ -407,3 +407,63 @@ Budget left after step 4: 112 (≥ 80), so the full set ran. **4 trials died at 
 5. Steps 3 and 4 are reverted but ready to restore. Step 3 in particular has a real-frame unit test for the round-3 re-ID. Owner's call.
 
 Note: the round-6 commits were rebased onto three teammate commits (eval/bbox_precision.py, eval/scene_description.py) before the push. The hashes above are the pushed ones. The two revert commits' messages still name the pre-rebase hashes (7f6a964 = d6b6799, 56aa0d4 = 15cb0be).
+
+## 12. Round 7 (owner-directed, 2026-09-23 night): TrackingHint back, B never raises, SEARCH with colour
+
+Budget: 120 live calls. **Used: 120** (A 99, B 21), from `runs/night/r7/audit_{a,b}`. Day total 1378 → 1498. Full suite after each commit: 282 → 287 → 298 passed, 1 skipped.
+
+### Steps
+
+| step | commit | what |
+|---|---|---|
+| 1 | `3d09b22` [A-fix] | Reverts the round-6 revert `4570b5e`: TrackingHint is back and `CONTRACT_VERSION` is 3 again. `tests/test_tracking_hint.py` passes (7 tests, including the real-frame a11→a16 test and the held-stone-over-5-frames test). No rerun, as instructed. CHANGES #20. |
+| 2 | `f4d12d9` [B] | A READY plan that contains SEARCH becomes NEEDS_SEARCH. Contract failures after the repair return `Plan(status=REJECTED, reason=…)` instead of raising. **Contract v4** (`PlanStatus.REJECTED`, DECISIONS §19); the orchestrator replans on REJECTED within `max_replans`. Tests use the real c_2_10 audit that raised. CHANGES #21. |
+| 3 | `ff9923d` [B][A-fix] | B's SEARCH target is `"<colour> <class>"` when the goal colour is known. C already forwarded the target to `ground()` unchanged, so C has only a new test. A matches `"<colour> <class>"` on both class and colour of its own detections. Tests: B emits the colour, C forwards it, and on the recorded c_2_05 frame with both stones A returns the dark-red one (the model had selected both). CHANGES #22. |
+
+**Where I departed from the letter of step 2**, flagged for you:
+- The contract has no `search_target` field.
+- A NEEDS_SEARCH plan with `actions = []` fails backbone validation (EMPTY_PLAN), so the orchestrator would replan without ever searching.
+- So the converted plan is NEEDS_SEARCH with that SEARCH as its only action; the SEARCH action's `target` is the search target, and the READY plan's other actions are dropped.
+- `PlanStatus.REJECTED` did not exist. Adding it is a semantic interface change, hence v4. Transport/API errors still raise PlannerError, because they are not contract failures.
+
+### Step 4: reruns (before = latest round-6 run)
+
+| trial | before | after | calls | step effects seen |
+|---|---|---|---|---|
+| c_2_10_bottle | ERROR (F/F), B "READY cannot SEARCH" | **LIMIT_EXCEEDED (F/F)**: no crash. Two GRASP TARGET_LOST after APPROACH, then the bottle ↔ red_region SEARCH ping-pong until max_total_plans | 43 | Step 3 fired: every object SEARCH was `"green bottle"` and succeeded. The step-2 conversion/REJECTED did **not** fire this time (the model produced no READY-with-SEARCH). |
+| c_2_05_stone | no outcome (killed at the round-6 cap); last completed LIMIT_EXCEEDED F/F (r5) | **no outcome: killed at the 120-call cap** (77 calls) | 77 | Step 3 fired and worked. SEARCH("dark_red stone") ignored the gray-only views and succeeded on the views where the dark_red stone was LOCALIZED. Then, for the first time in any round: APPROACH a3 ✔, GRASP ✔, MOVE_TO ✔, PLACE released the stone on the region (A later saw it at (0.418, 0.293)). PLACE verification still failed (red on red: the stone is UNLOCALIZED, as in c_2_04). The stone kept id a3 after the release and B's replan was accepted (no round-3-style re-ID rejection). B then planned to re-grasp it from the region, GRASP failed TARGET_LOST, and the loop ran into the cap. Whether it was still in the region at the end is unknown (killed, no evaluator). |
+| c_2_08_cube | REFUSED (F/F) | **not run**: the budget was exhausted by c_2_10 + c_2_05 | 0 | – |
+
+No second runs of c_2_10/c_2_05, because no budget was left. **Revert check:** neither step made its target trial worse (c_2_10 ERROR → LIMIT_EXCEEDED, both F/F; c_2_05 got further than ever), so both stay.
+
+### Step 5: c_2_08 diagnosis (for C), from the round-6 run `runs/night/r6/final_retry/c_2_08_cube`
+
+c_2_08 could not be rerun, so this uses the round-6 run plus a **0-call, cache-only instrumented replay** of it. The replay used the round-6 code in a worktree and logged base pose and contacts every physics step. MOVE_TO skipped its describe (the only cache miss) and used B's compiled target (0.458, 0.267, 1.033). The replay reproduces the recorded contact exactly: t = 8.78, `torso_link`↔`table`, same penetration.
+
+1. **Path while carrying.** GRASP ends by driving the base back to the episode's start pose (−0.05, −0.20, yaw 0.24), with the cube held (t = 7.1 → 8.18). MOVE_TO's arm IK then fails, so `skills.move_to` calls `approach()`, which gives the base **one straight-line target** at (0.155, −0.012, yaw 1.25): x, y and yaw all move at once under speed limits.
+2. **Where the contacts are.** The base reaches the parking xy at t ≈ 8.76, but its yaw has only reached 0.82 of 1.25 rad. At t = 8.78 the **torso_link** touches the table (penetration −0.14 mm); the parking point is only 9.5 cm from the table's near edge at x = 0.25.
+3. **The 8 contacts** are all `torso_link`↔`table`, at t = 8.78, 8.80, 8.82, … 8.92, with the base standing at (0.1545, −0.012). Contacts 2–8 are C's MOVE_TO retries: each resends the same target and is stopped after one 0.02 s step, because the torso is still touching. MOVE_TO's contact branch skips its re-park recovery.
+4. **Around the table or through it?** Neither: there is no path planning. `approach()` sends the parking pose directly. The translation stays in front of the table (x ≤ 0.155). The collision comes from turning in place toward yaw 1.25 at a parking point that is too close to the edge.
+5. **For C:** rotate to the final yaw before closing in (or park further out and then reach), and back off before retrying when the contact persists, instead of resending the same target 7×. In round 6's earlier success, SEARCH had already turned the base, so this in-place turn never happened.
+
+### Cumulative 15-trial table (latest run of each)
+
+| trial | result | run |
+|---|---|---|
+| smoke_1, smoke_2, smoke_3, smoke_5 | CLAIMED_SUCCESS T/T | r6 final |
+| smoke_4_search | CLAIMED_SUCCESS T/T | r6 final |
+| c_2_01, c_2_02, c_2_03, c_2_07, c_2_09 | CLAIMED_SUCCESS T/T | r6 final |
+| c_2_04, c_2_06 | CLAIMED_SUCCESS T/T | r6 final_retry |
+| c_2_05_stone | no outcome (killed at cap); last completed LIMIT_EXCEEDED F/F (r5) | r7 step4 |
+| c_2_08_cube | REFUSED F/F (C transport contact) | r6 final_retry |
+| c_2_10_bottle | LIMIT_EXCEEDED F/F | r7 step4 |
+
+**Claimed ∧ actual 12/15 (unchanged from round 6), actually achieved 12/15 (c_2_05 unknown), false claims 0** (0 in both round-7 records that exist). The round-7 code (TrackingHint, REJECTED, colour SEARCH) has not been run on the 12 successful trials.
+
+### Still open after round 7
+
+1. **Red on red** (c_2_05, c_2_04): a dark_red stone on the red region stays UNLOCALIZED, so a correct PLACE is not verified and B re-grasps it. This is now the main blocker for c_2_05.
+2. **GRASP TARGET_LOST after APPROACH** (c_2_10): the bottle is lost between APPROACH and GRASP twice.
+3. **SEARCH ping-pong K5** (c_2_10): object and region are never localized in the same frame.
+4. **C transport contact** (c_2_08): see step 5.
+5. **Regression check:** run the 12 successful trials once on the round-7 code.
