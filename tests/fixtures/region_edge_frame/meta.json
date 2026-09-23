@@ -1,0 +1,83 @@
+{
+ "intrinsics": [
+  [
+   415.69219381653056,
+   0.0,
+   319.5
+  ],
+  [
+   0.0,
+   415.69219381653056,
+   239.5
+  ],
+  [
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "t_world_camera": [
+  [
+   0.17415257284284102,
+   -0.8566474803543923,
+   0.48561916742926164,
+   0.15214924706421917
+  ],
+  [
+   -0.9844401781469322,
+   -0.1397315920544473,
+   0.10654866414913494,
+   0.040999914653021136
+  ],
+  [
+   -0.023418305281436902,
+   -0.49661874369016706,
+   -0.8676528144329072,
+   1.134266600271189
+  ],
+  [
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "frame_id": 8,
+ "sim_time": 8.689999999999571,
+ "detections": [
+  {
+   "name": "stone",
+   "color": "gray",
+   "bbox": [
+    75,
+    156,
+    183,
+    284
+   ],
+   "confidence": 0.98
+  },
+  {
+   "name": "cube",
+   "color": "blue",
+   "bbox": [
+    325,
+    160,
+    450,
+    356
+   ],
+   "confidence": 0.97
+  },
+  {
+   "name": "red_region",
+   "color": "red",
+   "bbox": [
+    0,
+    125,
+    330,
+    425
+   ],
+   "confidence": 0.99
+  }
+ ],
+ "note": "a_demo frame 8 (night run): the red_region box is clipped at the left image edge, so localize() returned \"box touches image boundary\" and PLACE could not be verified. Ground-truth region centre (evaluator only): (0.4, 0.3, 0.853)."
+}

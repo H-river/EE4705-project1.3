@@ -26,6 +26,51 @@ from perception.depth_geometry import localize, pixel_box
 from perception.vision_contract import SCHEMA, SYSTEM, VERSION, validate_wire
 
 
+# EXPERIMENTAL (night run round 2, committed separately so it can be dropped):
+# a region whose box is clipped by the image edge used to be UNLOCALIZED, which
+# made a correct PLACE unverifiable (c_2_01/02/08, smoke_2, a_demo). If the
+# depth patch is mostly valid we localize the VISIBLE part instead. The centre
+# is the visible part's centre, so it is biased toward the image when the
+# region is clipped; attributes['pos_basis'] = 'depth_patch_partial' marks it.
+PARTIAL_REGION_VALID_RATIO = .5
+PARTIAL_REGION_MIN_PIXELS = 24
+
+
+def partial_region_center(obs, bbox):
+    """Centre of the visible part of a clipped red region, or (None, reason)."""
+    x1, y1, x2, y2 = bbox
+    if x2 <= x1 or y2 <= y1:
+        return None, 'empty region box'
+    depth = obs.depth[y1:y2, x1:x2]
+    finite = np.isfinite(depth) & (depth > 0)
+    ratio = float(np.count_nonzero(finite)) / float(depth.size)
+    if ratio < PARTIAL_REGION_VALID_RATIO:
+        return None, f'clipped region depth patch only {ratio:.0%} valid'
+    rgb = obs.rgb[y1:y2, x1:x2].astype(float)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    valid = finite & (r > 160) & (g < 110) & (b < 110) & (r - g > 100)
+    if np.count_nonzero(valid) < PARTIAL_REGION_MIN_PIXELS:
+        return None, 'too few red pixels in the clipped region box'
+    k, t = obs.intrinsics, obs.t_world_camera
+    if (not np.all(np.isfinite(k)) or not np.all(np.isfinite(t))
+            or k[0, 0] <= 0 or k[1, 1] <= 0):
+        return None, 'invalid camera geometry'
+    yy, xx = np.mgrid[y1:y2, x1:x2]
+    z = depth[valid]
+    u, v = xx[valid], yy[valid]
+    pc = np.column_stack(((u - k[0, 2]) * z / k[0, 0], (v - k[1, 2]) * z / k[1, 1], z))
+    cloud = pc @ t[:3, :3].T + t[:3, 3]
+    if not np.all(np.isfinite(cloud)):
+        return None, 'invalid camera geometry'
+    z0 = np.percentile(cloud[:, 2], 30)
+    cloud = cloud[np.abs(cloud[:, 2] - z0) < .006]
+    if len(cloud) < PARTIAL_REGION_MIN_PIXELS:
+        return None, 'clipped region support is not flat enough'
+    center = (cloud.min(axis=0) + cloud.max(axis=0)) / 2
+    center[2] = np.median(cloud[:, 2])
+    return tuple(float(c) for c in center), 'partial RGB-D fit of the visible region part'
+
+
 def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2, allow_nan=False,
                                    default=lambda x: x.value if hasattr(x, 'value') else asdict(x)))
@@ -65,9 +110,13 @@ class StudentAPerception(Perception):
         for d in detections:
             box = pixel_box(d['bbox'])
             pos, detail = localize(obs, box, d['name'], d['color'])
+            partial = False
+            if pos is None and d['name'] == 'red_region' and detail == 'box touches image boundary':
+                pos, detail = partial_region_center(obs, box)
+                partial = pos is not None
             if d['confidence'] < .5:
-                pos, detail = None, 'model confidence below 0.5'
-            prepared.append((d, box, pos, detail))
+                pos, detail, partial = None, 'model confidence below 0.5', False
+            prepared.append((d, box, pos, detail, partial))
         assigned = {}
         ambiguous = set()
         for key in sorted({(d['name'], d['color']) for d in detections}):
@@ -95,7 +144,7 @@ class StudentAPerception(Perception):
                         ambiguous.add(i)
                         assigned[i] = self._new_id()
         result = []
-        for i, (d, box, pos, detail) in enumerate(prepared):
+        for i, (d, box, pos, detail, partial) in enumerate(prepared):
             instance_id = assigned[i]
             status = GroundStatus.LOCALIZED if pos is not None else GroundStatus.UNLOCALIZED
             memory_attrs = {} #Enable the program to "Remember"
@@ -121,7 +170,9 @@ class StudentAPerception(Perception):
                 bbox_xyxy=box, pos_world=pos, confidence=d['confidence'],
                 source=f'qwen_vlm:{source}',
                 kind='region' if region else 'object', frame_id=obs.frame_id,
-                attributes={'color': d['color'], 'localization': detail, **memory_attrs},
+                attributes={'color': d['color'], 'localization': detail,
+                            **({'pos_basis': 'depth_patch_partial'} if partial and status is GroundStatus.LOCALIZED else {}),
+                            **memory_attrs},
                 region_half_extents_xy=(.08, .08) if region and pos is not None else None))
         return result
 
