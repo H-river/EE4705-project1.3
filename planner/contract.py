@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import re
 
 from core.action_targets import resolve_action_position
 from core.llm_client import validate_schema
@@ -41,6 +42,31 @@ WIRE_SCHEMA["properties"]["rationale"] = {"type": "string", "maxLength": 1000}
 
 class PlanContractError(ValueError):
     pass
+
+
+def supported_classes():
+    """Final2 2.1: every supported class, listed explicitly for the model."""
+    vocab = public_vocabulary()
+    return {kind + "s": sorted({v["name"] for v in vocab if v["kind"] == kind}) for kind in ("object", "region")}
+
+
+_UNSUPPORTED_CLAIM = re.compile(r"(not|n't|never) (a |an )?(supported|known|valid) (object|class|type|item)"
+                                r"|unsupported (object|class|type|item)|not (a )?supported (object )?type",
+                                re.IGNORECASE)
+
+
+def refuses_supported_class(wire):
+    """Final2 2.1 backstop: an INFEASIBLE whose goal is an ordinary move of a
+    supported object class to a supported region, and whose reason says the
+    object class is unsupported (f45: A's caption called the bottle 'not a
+    supported object type'). Operations (stacking, pouring) do not match."""
+    goal = wire.get("goal") or {}
+    classes = supported_classes()
+    text = " ".join(str(wire.get(k) or "") for k in ("reason", "rationale"))
+    return (wire.get("status") == PlanStatus.INFEASIBLE.value
+            and goal.get("object_name") in classes["objects"]
+            and goal.get("region_name") in classes["regions"]
+            and bool(_UNSUPPORTED_CLAIM.search(text)))
 
 
 def public_vocabulary():
@@ -160,6 +186,12 @@ def search_target(goal, cls):
 def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=None):
     """Return Plan + validated goal, or reject. This cannot prove language accuracy or IK."""
     validate_schema(wire, WIRE_SCHEMA)
+    if refuses_supported_class(wire):
+        goal = wire["goal"]
+        raise PlanContractError(
+            f"{goal['object_name']!r} and {goal['region_name']!r} are supported classes "
+            f"(supported_classes); moving it is not INFEASIBLE. If it is not visible or not localized, "
+            f"return NEEDS_SEARCH for {goal['object_name']!r}.")
     wire, changes = _normalize_action_fields(wire)
     if normalizations is not None:
         normalizations.extend(changes)

@@ -2,9 +2,9 @@
 from dataclasses import asdict
 from enum import Enum
 
-from planner.contract import WIRE_SCHEMA, public_vocabulary
+from planner.contract import WIRE_SCHEMA, public_vocabulary, supported_classes
 
-PROMPT_VERSION = "qwen-b-v4"  # v4: instances carry color_words (round 9)
+PROMPT_VERSION = "qwen-b-v5"  # v5: supported_classes, class mapping (final2 2.1)
 SYSTEM_PROMPT = """You are Student B, a tabletop pick-and-place task planner.
 Return one JSON object matching the provided schema. Do not return explanations outside JSON.
 Read the user's instruction, identify its intended object and destination, then select skill order.
@@ -14,6 +14,9 @@ throwing, stacking on objects, multiple-object tasks) as INFEASIBLE with a short
 Do not confuse a relational reference object with the object to move: in 'move the stone beside
 the blue cube to the red area', the stone is the target, and the cube only helps identify it.
 Respect negation. Ask a short question for ambiguous intent or indistinguishable candidates.
+supported_classes lists every supported object and region class. Map an unfamiliar phrasing
+(rock, block, cylinder, square, patch, zone, marker) to the closest supported class before refusing.
+A caption that calls a supported class unsupported is wrong data: search for it, do not refuse.
 
 Before constructing actions, apply these decision rules:
 1. If original_goal is bound and held_instance_id is a DIFFERENT object, return
@@ -125,4 +128,5 @@ def planning_input(instruction, scene, history, context, goal, clarification):
                 {"action": json_value(r.action), "success": r.success,
                  "error_code": r.error_code.value, "post_frame_id": r.post_frame_id,
                  "recovery_attempted": r.recovery_attempted} for r in history[-12:]],
+            "supported_classes": supported_classes(),
             "vocabulary": public_vocabulary(), "output_schema": WIRE_SCHEMA}
