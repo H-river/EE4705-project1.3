@@ -148,6 +148,9 @@ class StudentCExecutor(ClosedLoopExecutor):
     def _execute(self, action, env, perception):
         if self._initial_base_pose is None:
             self._initial_base_pose = tuple(env.get_base_pose())
+        # Final2 stage 1 (perception diet): what the previous action left for
+        # this one. Only the immediately preceding action counts.
+        self._diet_prev, self._diet_last = self._diet_last, None
 
         # Dispatch skills you've overridden yourself; everything else falls
         # through to the shared closed_loop.py reference implementation.
@@ -181,6 +184,7 @@ class StudentCExecutor(ClosedLoopExecutor):
         super().reset()
         self._arm_tucked = False
         self._initial_base_pose = None
+        self._diet_prev = self._diet_last = None
 
     @staticmethod
     def _table_contacts(env):
@@ -304,13 +308,17 @@ class StudentCExecutor(ClosedLoopExecutor):
 #APPROACH function: park the base so the target lands inside the right arm's workspace.
     def _approach(self, action, env, perception):
         """Park the base so the target lands inside the right arm's workspace."""
+        # 1. Fresh observation + scene: never reuse a stale/cached position.
+        #    Taken BEFORE the arm tuck (final2 diet): nothing has moved since
+        #    the orchestrator's plan-time capture, so the image is identical
+        #    and A reuses its prediction for it instead of a new model call.
+        #    The target position only parks the base; GRASP re-localizes.
+        obs = env.get_obs()
+        scene = perception.describe(obs)
+
         tuck_result, tuck_error = self._tuck_arm(action, env)
         if tuck_result is not None:
             return tuck_result
-
-        # 1. Fresh observation + scene: never reuse a stale/cached position.
-        obs = env.get_obs()
-        scene = perception.describe(obs)
 
         # 2. Resolve the action's target into a world position. This honors
         #    an explicit params["pos"] override first, and otherwise looks
@@ -532,6 +540,11 @@ class StudentCExecutor(ClosedLoopExecutor):
         if motion_recovery_info is not None:
             info["motion_recovery"] = motion_recovery_info
             info["base_repositioned"] = base_repositioned
+        if success:
+            # Final2 diet: a region is fixed in the world, so an immediately
+            # following PLACE on it reuses this localization.
+            self._diet_last = {"skill": Skill.MOVE_TO, "target": action.target,
+                               "pos": np.asarray(pos, dtype=float).copy(), "frame_id": scene.frame_id}
 
         return ExecutionResult(action, success, error_code,
                             recovery_attempted=recovery_attempted, info=info)
@@ -546,8 +559,17 @@ class StudentCExecutor(ClosedLoopExecutor):
         if not env.is_attached():
             return ExecutionResult(action, False, ErrorCode.NOT_HOLDING)
 
-        scene = self._scene(env, perception)
-        region_pos = resolve_action_position(action, scene)
+        prev = self._diet_prev or {}
+        region_frame = prev.get("frame_id")
+        if (prev.get("skill") is Skill.MOVE_TO and prev.get("target") == action.target
+                and action.params.get("pos") is None):
+            # Final2 diet: MOVE_TO just localized this region (static) and
+            # carried the object there; no new capture needed to aim the release.
+            region_pos = prev["pos"].copy()
+        else:
+            scene = self._scene(env, perception)
+            region_pos = resolve_action_position(action, scene)
+            region_frame = scene.frame_id
 
         obj_id = action.params.get("object") or self._held_id
         if not obj_id or obj_id != self._held_id:
@@ -610,13 +632,19 @@ class StudentCExecutor(ClosedLoopExecutor):
                 if check.passed or check.detail not in view_problems:
                     break  # resolved, or failing for a different (non-view) reason now
 
+        if check.passed:
+            # Final2 diet: an immediately following VERIFY(object_in_region)
+            # of the same pair reuses this two-frame check if nothing moved.
+            self._diet_last = {"skill": Skill.PLACE, "object": obj_id, "region": action.target,
+                               "check": check, "base": np.asarray(env.get_base_pose(), dtype=float),
+                               "ee": np.asarray(env.get_ee_pos(), dtype=float)}
         return ExecutionResult(
             action=action,
             success=bool(check.passed),
             error_code=ErrorCode.NONE if check.passed else ErrorCode.PLACE_FAILED,
             recovery_attempted=view_attempts > 0,
             info={"detail": check.detail, "verification_frame_id": check.frame_id,
-                  "view_recovery_attempts": view_attempts},
+                  "view_recovery_attempts": view_attempts, "region_frame_id": region_frame},
         )
 
 #SEARCH function: rotate the base through nearby viewpoints until perception
@@ -747,6 +775,21 @@ class StudentCExecutor(ClosedLoopExecutor):
             # verify_placement does its own two-frame fresh check (release,
             # region containment, <=2cm drift over 0.2s) -- we don't
             # duplicate that logic, just convert its result.
+            prev = self._diet_prev or {}
+            if (prev.get("skill") is Skill.PLACE and prev.get("object") == obj_id
+                    and prev.get("region") == region_id and not env.is_attached()
+                    and np.linalg.norm(np.asarray(env.get_base_pose()) - prev["base"]) < 1e-3
+                    and np.linalg.norm(np.asarray(env.get_ee_pos()) - prev["ee"]) < 5e-3):
+                # Final2 diet: PLACE's own two-frame check of this exact pair
+                # just passed and nothing has moved since. The orchestrator's
+                # final verification still captures fresh frames.
+                check = prev["check"]
+                return ExecutionResult(
+                    action=action, success=True, error_code=ErrorCode.NONE,
+                    post_frame_id=check.frame_id,
+                    info={"detail": check.detail, "condition": condition, "object": obj_id,
+                          "region": region_id, "reused_place_check": True},
+                )
             check = verify_placement(env, perception, obj_id, region_id)
             return ExecutionResult(
                 action=action,
