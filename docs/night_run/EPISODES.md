@@ -159,3 +159,20 @@ One episode, F5, is still the old **slideshow** from `scripts/render_episode.py`
 
 - Live calls: 137 of 150 (A 111, B 26), for 10 runs: the 9 listed trials plus c_2_01 (confirmed that it now succeeds). The count comes from `runs/night/r5/audit_{a,b}` (HTTP attempts).
 - A recurring pattern in F1 and F3: SEARCH("stone") grounds a stone of the **wrong colour** and reports success, and B keeps asking for the right one until max_total_plans.
+
+## Final run (2026-09-24): re-recorded from tag `final-40`
+
+These are 10 live re-runs of RUN 1 trials on the tagged code, with `--video`, cache off, B thinking off (`runs/final/video/`, 6/10 correct). The re-runs are new episodes, so their paths can differ from RUN 1. f23 failed in RUN 1 but succeeded here, which shows its carry contact is intermittent. "err" is the evaluator's xy distance from the region centre.
+
+| file | trial | outcome | timeline |
+|---|---|---|---|
+| `final_ok_f04_smoke_4_search.mp4` | f04 search (robot starts facing away) | CLAIMED_SUCCESS, err 2.7 cm | NEEDS_SEARCH → SEARCH stone → READY APPROACH › GRASP › MOVE_TO › PLACE › VERIFY › STOP → final verification ✔ |
+| `final_ok_f11_c_06_cube.mp4` | f11 blue cube | CLAIMED_SUCCESS, err 1.1 cm | READY, 6 actions, verification ✔ |
+| `final_ok_f15_c_10_bottle.mp4` | f15 green bottle | CLAIMED_SUCCESS, err 0.2 cm | READY, 6 actions, verification ✔ (a bottle that stays in view after APPROACH) |
+| `final_ok_f23_c_2_08_cube.mp4` | f23 cube with 2 stones present | CLAIMED_SUCCESS, err 4.8 cm | READY, 6 actions; no table contact this time (RUN 1: torso contact on both MOVE_TOs) |
+| `final_ok_f49_reject_stack.mp4` | f49 "stack the cube on the bottle" | REFUSED (correct) | B: INFEASIBLE, stacking on objects is unsupported; no motion |
+| `final_ok_f50_clarify_two_stones.mp4` | f50 two stones, no colour | CLAIMED_SUCCESS, err 2.7 cm | NEEDS_CLARIFICATION "Which stone …: the gray one or the dark red one?" → "the gray one" → READY, 6 actions, verification ✔ |
+| `final_fail_f14_c_09_bottle.mp4` | f14 bottle | FAILED (claimed F, **actual T**, err 1.2 cm) | READY … PLACE ✔ but VERIFY ✘ ×2 (A never sees the exact bottle/region instances after the release) → re-grasp loop: SEARCH › APPROACH › GRASP TARGET_LOST ×4 |
+| `final_fail_f19_c_2_04_stone.mp4` | f19 "red stone" | CLARIFICATION_EXHAUSTED | B asks "gray (a4) or dark red (a3)?" because 'red' ≠ A's colour `dark_red`; the trial has no scripted answer (B colour-vocabulary item) |
+| `final_fail_f25_c_2_10_bottle.mp4` | f25 bottle at (0.35, −0.35) | LIMIT_EXCEEDED | SEARCH bottle → READY APPROACH › GRASP TARGET_LOST (the bottle left the head view after parking) → SEARCH … repeated to the plan limit |
+| `final_fail_f34_c_eval_09_bottle.mp4` | f34 bottle at the far edge | SEARCH_EXHAUSTED | SEARCH red_region → SEARCH bottle ✘ ×2: the bottle is top-clipped in every view, which A rejects ("clipped object centre is below the table top") |
