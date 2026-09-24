@@ -172,43 +172,6 @@ def partial_object_center(obs, bbox, name, color):
     return tuple(float(c) for c in center), 'partial RGB-D: visible part pushed by the class half extent'
 
 
-def partial_top_center(obs, bbox, name, color):
-    """Final2 3.2: centre of a resting object whose box touches the TOP image
-    edge (the head camera looks down, so a far bottle loses its upper part),
-    or (None, reason).
-
-    The side-edge rule pushes the visible centre along the full 3D view ray,
-    which points downward, and put 212 top-clipped bottles below the table
-    top in RUN 1-5. Here the push is along the ray's HORIZONTAL direction by
-    the class half extent, and the height is the resting height, after
-    checking that the visible part reaches down to the table top."""
-    x1, y1, x2, y2 = bbox
-    if x2 <= x1 or y2 <= y1:
-        return None, 'empty object box'
-    size = _object_size(name, color)
-    if size is None:
-        return None, 'no public size for this class'
-    mask = color_mask(obs.rgb[y1:y2, x1:x2], color)
-    if mask is None or np.count_nonzero(mask) < PARTIAL_OBJECT_MIN_PIXELS:
-        return None, 'too few object-colour pixels in the clipped box'
-    cloud = backproject(obs, bbox, mask)
-    if cloud is None or len(cloud) < PARTIAL_OBJECT_MIN_PIXELS:
-        return None, 'too few valid depth pixels in the clipped box'
-    top = table_top_z()
-    low, high = np.percentile(cloud[:, 2], 5), np.percentile(cloud[:, 2], 95)
-    if low > top + PARTIAL_OBJECT_REST_MARGIN_M or low < top - PARTIAL_OBJECT_REST_MARGIN_M:
-        return None, 'top-clipped object does not reach down to the table top'
-    if high > top + size[2] + PARTIAL_OBJECT_REST_MARGIN_M:
-        return None, 'top-clipped object is taller than its class (possibly held)'
-    visible = np.median(cloud, axis=0)
-    ray = visible[:2] - obs.t_world_camera[:2, 3]
-    if np.linalg.norm(ray) < 1e-6:
-        return None, 'object directly below the camera'
-    xy = visible[:2] + ray / np.linalg.norm(ray) * max(size[0], size[1]) / 2
-    return (float(xy[0]), float(xy[1]), float(top + size[2] / 2)), \
-        'partial RGB-D (top-clipped): visible part pushed horizontally by the class half extent, resting height'
-
-
 def _projects_into(obs, point, box, margin):
     """True when a world point projects inside a pixel box grown by ``margin``."""
     k, t = obs.intrinsics, obs.t_world_camera
@@ -281,12 +244,9 @@ class StudentAPerception(Perception):
             if pos is None and detail == 'box touches image boundary':
                 if d['name'] == 'red_region':
                     pos, detail = partial_region_center(obs, box)
-                elif box[1] <= 0:
-                    pos, detail = partial_top_center(obs, box, d['name'], d['color'])
-                    partial = 'top' if pos is not None else False
                 else:
                     pos, detail = partial_object_center(obs, box, d['name'], d['color'])
-                partial = partial or pos is not None
+                partial = pos is not None
             if d['confidence'] < .5:
                 pos, detail, partial = None, 'model confidence below 0.5', False
             prepared.append((d, box, pos, detail, partial))
@@ -351,8 +311,7 @@ class StudentAPerception(Perception):
                 source=f'qwen_vlm:{source}',
                 kind='region' if region else 'object', frame_id=obs.frame_id,
                 attributes={'color': d['color'], 'localization': detail,
-                            **({'pos_basis': 'depth_patch_partial_top' if partial == 'top' else 'depth_patch_partial'}
-                               if partial and status is GroundStatus.LOCALIZED else {}),
+                            **({'pos_basis': 'depth_patch_partial'} if partial and status is GroundStatus.LOCALIZED else {}),
                             **({'pos_basis': 'held_hint'} if i == held_index else {})},
                 region_half_extents_xy=(.08, .08) if region and pos is not None else None))
         return result
