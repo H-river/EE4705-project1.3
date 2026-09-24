@@ -7,6 +7,7 @@ set -u
 NAME=${1:?run name}
 IDS=${2:-ALL}
 JOBS=${3:-4}
+[ "$JOBS" -lt 2 ] && JOBS=2  # lane mode (job_*/, merged/, E2E_TABLE.md) even for one trial
 REPO=/home/jiamo/EE4705/project1.3
 cd "$REPO" || exit 2
 source ~/.ee4705_env
