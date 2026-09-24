@@ -34,7 +34,8 @@ acceptance cases fix the semantics):
   GRASP     target: LOCALIZED instance; requires simulated hand empty.
   MOVE_TO   params["pos"] finite 3-vector inside workspace bounds, OR a
             LOCALIZED region/instance target.  Allowed while holding.
-  PLACE     target: LOCALIZED region instance, or region plus params["pos"]. Requires
+  PLACE     target: LOCALIZED region instance, or region plus params["pos"]
+            (with params["pos"] the region may be out of view: planner memory). Requires
             simulated holding.  Optional params["object"]: must equal the
             simulated held instance id.
   VERIFY    params["condition"] in {"object_visible", "object_in_region",
@@ -108,6 +109,7 @@ def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
     # Simulated plan state, initialized from the current execution context.
     held: Optional[str] = context.held_instance_id
     stopped_at: Optional[int] = None
+    placed_with_pos: set[str] = set()  # regions PLACEd via params["pos"] while out of view
 
     for i, action in enumerate(plan.actions):
         if not isinstance(action.skill, Skill):
@@ -205,7 +207,11 @@ def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
             if target is None:
                 errors.append(PlanError("MISSING_REFERENCE", i, "PLACE requires a region target"))
             else:
-                if ref is None:
+                if params.get("pos") is not None and (ref is None or ref.status is GroundStatus.NOT_FOUND):
+                    # The planner placed from a remembered region position
+                    # (region out of view now); the executor uses params["pos"].
+                    placed_with_pos.add(target)
+                elif ref is None:
                     errors.append(PlanError("MISSING_REFERENCE", i, f"PLACE region {target!r} not in scene"))
                 elif ref.kind != "region":
                     errors.append(PlanError("BAD_PARAM", i, f"PLACE target {target!r} is not a region"))
@@ -235,7 +241,8 @@ def validate_plan(plan: Plan, context: ExecutionContext) -> list[PlanError]:
                         errors.append(PlanError("BAD_PARAM", i, f"VERIFY object_in_region requires string params[{key!r}]"))
                     elif (_lookup(context, val) is None and not
                           (key == "object" and val in
-                           (context.held_instance_id, context.last_release_instance_id))):
+                           (context.held_instance_id, context.last_release_instance_id))
+                          and not (key == "region" and val in placed_with_pos)):
                         # A held/recently released instance may be occluded in
                         # this planning frame. Its tracked identity permits a
                         # future VERIFY, never motion or a success claim.

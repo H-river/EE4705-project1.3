@@ -34,7 +34,9 @@ def example_response(object_id="p0", region_id="p2"):
             "reason": "Move the stone; the cube is only a reference object.", "clarification_question": ""}
 
 
-def fixture_planner(responses, audit_dir):
+def fixture_planner(responses, audit_dir, *, use_memory=False):
+    """Recorded replies predate B's episode memory, so replay runs without it
+    unless a test opts in."""
     import json
 
     llm = LLMConfig(model="offline-fixture-NOT-Qwen", base_url="https://fixture.invalid/v1",
@@ -42,5 +44,5 @@ def fixture_planner(responses, audit_dir):
                     structured_output_mode="json_schema")
     transport = FakeTransport([FakeTransport.completion(json.dumps(r) if isinstance(r, dict) else r)
                                for r in responses])
-    return StudentBPlanner(QwenPlannerConfig(llm, str(audit_dir)),
+    return StudentBPlanner(QwenPlannerConfig(llm, str(audit_dir), use_memory=use_memory),
                            client=LLMClient(llm, transport=transport))

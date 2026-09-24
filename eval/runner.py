@@ -238,6 +238,9 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     store = ObservationStore(persist_dir=trial_dir / "frames")
     env = RobotEnv(world, store=store)
     perception, planner, executor, module_config = build_modules(mode, mock_all, world, oracle, fault)
+    if hasattr(planner, "base_pose_source"):
+        # Public proprioception only: lets B expire remembered positions after base motion.
+        planner.base_pose_source = env.get_base_pose
     spy = GraspSpyExecutor(executor, oracle)
     clarifier = ScriptedClarifier(list(trial.get("clarification_responses", []) or []))
     record.module_config = module_config

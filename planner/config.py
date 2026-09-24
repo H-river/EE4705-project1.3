@@ -29,6 +29,7 @@ class QwenPlannerConfig:
     llm: LLMConfig
     audit_dir: str = "runs/qwen_b_audit"
     max_repairs: int = 1
+    use_memory: bool = True  # B's EpisodeMemory (planner/memory.py)
 
     @classmethod
     def from_env(cls, env=None):
@@ -68,7 +69,8 @@ class QwenPlannerConfig:
                             enable_thinking=_boolean(env, "EE4705_QWEN_THINKING"))
         except ValueError as exc:
             raise PlannerConfigError(f"Invalid Qwen configuration: {exc}") from exc
-        return cls(llm, audit_dir=env.get("EE4705_QWEN_AUDIT_DIR", "runs/qwen_b_audit"))
+        return cls(llm, audit_dir=env.get("EE4705_QWEN_AUDIT_DIR", "runs/qwen_b_audit"),
+                   use_memory=_boolean(env, "EE4705_B_MEMORY", True))
 
     def public_settings(self):
         """Allowlist: never serialize credentials or the full config object."""
@@ -77,5 +79,5 @@ class QwenPlannerConfig:
                 "cache_only": self.llm.cache_only, "cache_dir": self.llm.cache_dir,
                 "timeout_s": self.llm.timeout_s, "max_retries": self.llm.max_retries,
                 "max_tokens": self.llm.max_tokens, "enable_thinking": self.llm.enable_thinking,
-                "audit_dir": self.audit_dir, "max_repairs": self.max_repairs,
+                "audit_dir": self.audit_dir, "max_repairs": self.max_repairs, "use_memory": self.use_memory,
                 "api_key_configured": bool(self.llm.api_key)}
