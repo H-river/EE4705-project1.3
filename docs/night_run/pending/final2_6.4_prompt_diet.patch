@@ -1,0 +1,117 @@
+diff --git a/planner/prompts.py b/planner/prompts.py
+index 9ea37e0..3405cf1 100644
+--- a/planner/prompts.py
++++ b/planner/prompts.py
+@@ -2,9 +2,9 @@
+ from dataclasses import asdict
+ from enum import Enum
+ 
+-from planner.contract import WIRE_SCHEMA, public_vocabulary, supported_classes
++from planner.contract import public_vocabulary, supported_classes
+ 
+-PROMPT_VERSION = "qwen-b-v5"  # v5: supported_classes, class mapping, reference (final2 2.1/2.3)
++PROMPT_VERSION = "qwen-b-v6"  # v6: prompt diet (final2 6.4); v5: supported_classes, reference
+ SYSTEM_PROMPT = """You are Student B, a tabletop pick-and-place task planner.
+ Return one JSON object matching the provided schema. Do not return explanations outside JSON.
+ Read the user's instruction, identify its intended object and destination, then select skill order.
+@@ -105,16 +105,41 @@ def color_words(colour):
+     return list(dict.fromkeys(words))
+ 
+ 
++MAX_INSTANCES = 8  # final2 6.4
++
++
++def _relevance(g, instruction, goal):
++    """Lower sorts first: goal instances, then classes/colours the instruction
++    names (or their synonyms), then regions, then everything else."""
++    text = (instruction or "").lower()
++    goal = goal or {}
++    if g.instance_id in (goal.get("object_id"), goal.get("region_id")):
++        return 0
++    from planner.contract import public_vocabulary
++    words = {g.name.replace("_", " ")} | {w for v in public_vocabulary() if v["name"] == g.name for w in v["synonyms"]}
++    if any(w in text for w in words) or any(w in text for w in color_words(g.attributes.get("color"))):
++        return 1
++    return 2 if g.kind == "region" else 3
++
++
+ def planning_input(instruction, scene, history, context, goal, clarification):
+     # Explicit fields exclude oracle data and executor-private diagnostic blobs.
++    # Final2 6.4 (prompt diet): only the fields a planning decision uses
++    # (no pixel boxes, confidences, per-instance frame ids; positions to the
++    # millimetre), at most MAX_INSTANCES instances by relevance, and no copy
++    # of the output schema (the API already receives it as json_schema).
++    ranked = sorted(scene.objects + scene.regions, key=lambda g: _relevance(g, instruction, goal))
++    kept = ranked[:MAX_INSTANCES]
+     objects = [{"instance_id": g.instance_id, "name": g.name, "kind": g.kind,
+-                "status": g.status.value, "pos_world": g.pos_world,
+-                "bbox_xyxy": g.bbox_xyxy, "confidence": g.confidence,
++                "status": g.status.value,
++                "pos_world": [round(float(v), 3) for v in g.pos_world] if g.pos_world is not None else None,
+                 "attributes": {k: v for k, v in g.attributes.items() if k in ("color",)},
+                 "color_words": color_words(g.attributes.get("color")),
+-                "frame_id": g.frame_id,
+-                "region_half_extents_xy": g.region_half_extents_xy}
+-               for g in scene.objects + scene.regions]
++                **({"region_half_extents_xy": g.region_half_extents_xy} if g.kind == "region" else {})}
++               for g in kept]
++    keep = {id(g) for g in kept}
++    scene = type(scene)([g for g in scene.objects if id(g) in keep], [g for g in scene.regions if id(g) in keep],
++                        scene.caption, scene.ambiguities, scene.frame_id, scene.sim_time)
+     groups = {}
+     for g in scene.objects + scene.regions:
+         groups.setdefault((g.kind, g.name), []).append(g.instance_id)
+@@ -132,4 +157,4 @@ def planning_input(instruction, scene, history, context, goal, clarification):
+                  "error_code": r.error_code.value, "post_frame_id": r.post_frame_id,
+                  "recovery_attempted": r.recovery_attempted} for r in history[-12:]],
+             "supported_classes": supported_classes(),
+-            "vocabulary": public_vocabulary(), "output_schema": WIRE_SCHEMA}
++            "vocabulary": public_vocabulary()}
+diff --git a/tests/test_b_prompt_diet.py b/tests/test_b_prompt_diet.py
+new file mode 100644
+index 0000000..1dc83c4
+--- /dev/null
++++ b/tests/test_b_prompt_diet.py
+@@ -0,0 +1,42 @@
++"""Final2 6.4: B's planning input carries only decision fields, <= 8 instances."""
++import json
++
++from core.types import ExecutionContext, GroundedObject, GroundStatus, SceneDescription
++from planner.prompts import MAX_INSTANCES, planning_input
++
++
++def scene(n_extra):
++    objs = [GroundedObject("s1", "stone", GroundStatus.LOCALIZED, bbox_xyxy=(1, 2, 3, 4), pos_world=(0.41234, -0.1, 0.875),
++                           attributes={"color": "gray"}, confidence=0.9, frame_id=3)]
++    objs += [GroundedObject(f"c{i}", "cube", GroundStatus.LOCALIZED, pos_world=(0.4, 0.1 * i, 0.875),
++                            attributes={"color": "blue"}, frame_id=3) for i in range(n_extra)]
++    region = GroundedObject("r1", "red_region", GroundStatus.LOCALIZED, kind="region", pos_world=(0.4, 0.3, 0.853),
++                            region_half_extents_xy=(0.08, 0.08), frame_id=3)
++    return SceneDescription(objs, [region], "caption", [], frame_id=3)
++
++
++def test_only_decision_fields_and_no_schema_copy():
++    s = scene(1)
++    data = planning_input("Move the stone to the red area.", s, [], ExecutionContext(s), None, None)
++    assert "output_schema" not in data
++    stone = data["scene"]["instances"][0]
++    assert set(stone) == {"instance_id", "name", "kind", "status", "pos_world", "attributes", "color_words"}
++    assert stone["pos_world"] == [0.412, -0.1, 0.875]
++    assert data["scene"]["frame_id"] == 3
++
++
++def test_at_most_eight_instances_goal_and_named_classes_first():
++    s = scene(12)
++    data = planning_input("Move the stone to the red area.", s, [], ExecutionContext(s), None, None)
++    ids = [i["instance_id"] for i in data["scene"]["instances"]]
++    assert len(ids) == MAX_INSTANCES == 8 and ids[:2] == ["s1", "r1"]
++    assert sum(len(g["instance_ids"]) for g in data["candidate_groups"]) == 8
++    goal = {"object_id": "c11", "region_id": "r1"}
++    data = planning_input("Move the stone to the red area.", s, [], ExecutionContext(s), goal, None)
++    assert "c11" in [i["instance_id"] for i in data["scene"]["instances"]]
++
++
++def test_input_is_smaller():
++    s = scene(2)
++    data = planning_input("Move the stone to the red area.", s, [], ExecutionContext(s), None, None)
++    assert len(json.dumps(data)) < 2600
