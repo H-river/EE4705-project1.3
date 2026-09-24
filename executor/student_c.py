@@ -12,6 +12,7 @@ from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
 from core.scene_geometry import table_aabb, table_center_xy
+from core.g1 import ARM_WORKSPACE_OFFSET, approach_base_pose
 from core.types import IMAGE_HEIGHT, IMAGE_WIDTH
 
 
@@ -489,6 +490,78 @@ class StudentCExecutor(ClosedLoopExecutor):
             info={**primitive.info, "grasp_attempts": attempts},
         )    
 
+    # Carry parking (final run F1): keep the base this far from the table box.
+    _CARRY_STANDOFF_M = 0.25
+    _CARRY_CONTACT_SHIFT_M = 0.05
+
+    @staticmethod
+    def _table_distance(xy):
+        lo, hi = table_aabb()
+        dx = max(lo[0] - xy[0], 0.0, xy[0] - hi[0])
+        dy = max(lo[1] - xy[1], 0.0, xy[1] - hi[1])
+        return math.hypot(dx, dy)
+
+    def _carry_parking(self, pos, base_xy, standoff):
+        """Parking pose (x, y, yaw) that puts ``pos`` in the arm workspace like
+        skills.approach, choosing among headings the one closest to the default
+        whose base is >= ``standoff`` from the table box (else the farthest)."""
+        t = np.asarray(pos, dtype=float)[:2]
+        reach = float(np.linalg.norm(ARM_WORKSPACE_OFFSET))
+        delta = t - np.asarray(base_xy, dtype=float)[:2]
+        phi0 = math.atan2(delta[1], delta[0])
+        best, best_far = None, None
+        for k in range(0, 37):  # 0, ±5°, ..., ±90°
+            for sign in ((1,) if k == 0 else (1, -1)):
+                phi = phi0 + sign * math.radians(5 * k)
+                b = t - reach * np.array([math.cos(phi), math.sin(phi)])
+                pose = approach_base_pose(t, b)
+                d = self._table_distance(pose[:2])
+                if best_far is None or d > best_far[0]:
+                    best_far = (d, pose)
+                if best is None and d >= standoff:
+                    best = pose
+            if best is not None:
+                break
+        return best if best is not None else best_far[1]
+
+    def _drive_base(self, env, pose):
+        env.set_base_target(float(pose[0]), float(pose[1]), float(pose[2]))
+        deadline = env.sim_time() + skills.DEFAULT_TIMEOUT_S
+        while env.sim_time() < deadline:
+            b = np.asarray(env.get_base_pose(), dtype=float)
+            yaw_err = abs(math.atan2(math.sin(b[2] - pose[2]), math.cos(b[2] - pose[2])))
+            if np.linalg.norm(b[:2] - np.asarray(pose[:2])) < skills.BASE_POS_TOL and yaw_err < skills.BASE_YAW_TOL:
+                return True
+            env.step(10)
+        return False
+
+    def _carry(self, env, pos, standoff):
+        """Park with table standoff when the point is out of arm reach, then
+        run the shared transport primitive (raises _BodyTableContact)."""
+        guard = self._contact_guard(env)
+        # Same first command skills.move_to issues; ValueError = out of reach.
+        probe = getattr(env, "set_arm_target", None)
+        reachable = True
+        if probe is not None:
+            try:
+                probe(pos)
+            except ValueError:
+                reachable = False
+        parking = None
+        if not reachable:
+            parking = self._carry_parking(pos, env.get_base_pose()[:2], standoff)
+            if not self._drive_base(guard, parking):
+                env.stop_motion()
+                return SkillResult(False, ErrorCode.TIMEOUT, {"primitive": "move_to",
+                                   "detail": "Base did not reach the carry parking pose",
+                                   "carry_parking": [float(v) for v in parking]})
+            env.stop_motion()
+        result = skills.move_to(guard, pos)
+        if parking is not None:
+            result.info["carry_parking"] = [float(v) for v in parking]
+            result.info["carry_standoff_m"] = self._table_distance(parking[:2])
+        return result
+
 #MOVE_TO function: move the TCP to the target's current position, retrying once if the base's parking pose caused a stall.
     def _move_to(self, action, env, perception):
         if not env.is_attached():
@@ -500,8 +573,9 @@ class StudentCExecutor(ClosedLoopExecutor):
         scene = self._scene(env, perception)
         pos = resolve_action_position(action, scene)  # also raises on missing/unlocalized
 
+        contact_retry = None
         try:
-            primitive_result = skills.move_to(self._contact_guard(env), pos)
+            primitive_result = self._carry(env, pos, self._CARRY_STANDOFF_M)
         except _BodyTableContact as exc:
             env.stop_motion()
             primitive_result = SkillResult(
@@ -509,6 +583,19 @@ class StudentCExecutor(ClosedLoopExecutor):
                 {"detail": "Table contact detected during transport; held object preserved",
                  "contacts": exc.contacts},
             )
+            # One retry: back off, then park 5 cm farther from the table.
+            if env.is_attached():
+                self._back_off_from_contact(env)
+                contact_retry = {"contacts": exc.contacts}
+                try:
+                    primitive_result = self._carry(env, pos, self._CARRY_STANDOFF_M + self._CARRY_CONTACT_SHIFT_M)
+                except _BodyTableContact as again:
+                    env.stop_motion()
+                    primitive_result = SkillResult(
+                        False, ErrorCode.TIMEOUT,
+                        {"detail": "Table contact again after the carry retry; held object preserved",
+                         "contacts": again.contacts},
+                    )
         recovery_attempted = False
         motion_recovery_info = None
         base_repositioned = None
@@ -554,6 +641,9 @@ class StudentCExecutor(ClosedLoopExecutor):
             detail = primitive_result.info.get("detail", "")
 
         info = {**primitive_result.info, "ee_error_m": ee_error, "detail": detail}
+        if contact_retry is not None:
+            info["contact_retry"] = contact_retry
+            recovery_attempted = True
         if motion_recovery_info is not None:
             info["motion_recovery"] = motion_recovery_info
             info["base_repositioned"] = base_repositioned
