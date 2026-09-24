@@ -12,7 +12,7 @@ from core.interfaces import Planner
 from core.llm_client import APIError, ContentFiltered, LLMClient, SchemaError
 from core.types import ExecutionContext, GroundedObject, GroundStatus, Plan, PlanStatus, SceneDescription
 from planner.config import QwenPlannerConfig
-from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan
+from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan, search_target
 from planner.memory import EpisodeMemory
 from planner.prompts import PROMPT_VERSION, SYSTEM_PROMPT, json_value, planning_input
 
@@ -140,6 +140,36 @@ class StudentBPlanner(Planner):
         return planned, {"used_memory_for": region, "memory_age_frames": age,
                          "memory_pos_world": list(pos), "memory_frame_id": entry.frame_id}
 
+    def _approach_from_memory(self, plan, goal, context, audit):
+        """Final2 2.2: a NEEDS_SEARCH for the goal object that A cannot
+        localize now starts with an APPROACH to where it was last LOCALIZED
+        (never held or released since, recent, base moved <= 0.5 m). Only
+        APPROACH uses the recalled position: the SEARCH that follows and the
+        next plan's GRASP need fresh 3D evidence."""
+        from core.types import Action, Skill
+        from core.validation import validate_plan
+        ident = goal.get("object_id")
+        if (not self.config.use_memory or plan.status is not PlanStatus.NEEDS_SEARCH or not ident
+                or context.held_instance_id or not plan.actions
+                or plan.actions[0].target != search_target(goal, goal.get("object_name"))):
+            return plan
+        current = context.scene.find(ident)
+        if current is not None and current.status is GroundStatus.LOCALIZED:
+            return plan
+        entry = self.memory.entry(ident)
+        pos = self.memory.recall(ident, self.memory_max_age_frames, self.memory_max_base_move_m,
+                                 frame_id=context.scene.frame_id, base_pose=self._base_pose())
+        if pos is None or entry.kind != "object" or entry.name != goal.get("object_name"):
+            return plan
+        candidate = Plan(status=plan.status, reason=plan.reason,
+                         actions=[Action(Skill.APPROACH, ident, {"pos": list(pos)})] + list(plan.actions))
+        if validate_plan(candidate, context):
+            return plan
+        audit["used_memory_for_approach"] = {"instance_id": ident, "pos_world": list(pos),
+                                             "memory_frame_id": entry.frame_id,
+                                             "memory_age_frames": self.memory.age(ident, context.scene.frame_id)}
+        return candidate
+
     def _make(self, instruction, scene, history, context, clarification):
         ids = [g.instance_id for g in scene.objects + scene.regions]
         if not instruction.strip() or len(ids) != len(set(ids)):
@@ -168,6 +198,7 @@ class StudentBPlanner(Planner):
                     raise APIError(response.detail)  # same prompt would be refused again
                 plan, goal = compile_plan(response.parsed, context, self._goal, self._known,
                                           normalizations=normalizations)
+                plan = self._approach_from_memory(plan, goal, context, audit)
             except (SchemaError, PlanContractError) as exc:
                 response = response or getattr(exc, "response", None)
                 last_error = str(exc)

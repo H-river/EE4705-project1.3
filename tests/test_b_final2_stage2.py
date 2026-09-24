@@ -62,3 +62,52 @@ def test_operation_refusals_still_compile(reason):
     assert plan.status is PlanStatus.INFEASIBLE
 
 
+# ------------------------------------------------------ 2.2 APPROACH memory ----
+
+def test_search_for_a_vanished_goal_object_starts_at_its_last_position(tmp_path):
+    planner = fixture_planner([example_response("s1", "r1"), search_response("stone")], tmp_path, use_memory=True)
+    planner.plan(INSTRUCTION, scene([stone()], [region()], 1))
+    s = scene([], [region(frame=4)], 4)
+    plan = planner.replan(INSTRUCTION, s, [], ExecutionContext(s))
+    assert plan.status is PlanStatus.NEEDS_SEARCH
+    assert [a.skill for a in plan.actions] == [Skill.APPROACH, Skill.SEARCH]
+    assert plan.actions[0].params["pos"] == list(STONE_POS)
+    assert planner.last_diagnostics["used_memory_for_approach"]["instance_id"] == "s1"
+    assert not validate_plan(plan, ExecutionContext(s))
+
+
+def test_unlocalized_goal_object_also_uses_memory_for_approach_only(tmp_path):
+    planner = fixture_planner([example_response("s1", "r1"), search_response("stone")], tmp_path, use_memory=True)
+    planner.plan(INSTRUCTION, scene([stone()], [region()], 1))
+    s = scene([stone(GroundStatus.UNLOCALIZED, 4)], [region(frame=4)], 4)
+    plan = planner.replan(INSTRUCTION, s, [], ExecutionContext(s))
+    assert [a.skill for a in plan.actions] == [Skill.APPROACH, Skill.SEARCH]
+    assert not any(a.skill is Skill.GRASP for a in plan.actions)
+
+
+def test_released_object_is_never_recalled_for_approach(tmp_path):
+    planner = fixture_planner([example_response("s1", "r1"), search_response("stone")], tmp_path, use_memory=True)
+    planner.plan(INSTRUCTION, scene([stone()], [region()], 1))
+    s = scene([], [region(frame=4)], 4)
+    plan = planner.replan(INSTRUCTION, s, [], ExecutionContext(s, None, "s1"))
+    assert [a.skill for a in plan.actions] == [Skill.SEARCH]
+
+
+def test_grasp_positions_never_come_from_memory(tmp_path):
+    # A READY plan needs the object LOCALIZED in the current scene; memory
+    # never makes a vanished object graspable.
+    planner = fixture_planner([example_response("s1", "r1"), example_response("s1", "r1"),
+                               example_response("s1", "r1")], tmp_path, use_memory=True)
+    planner.plan(INSTRUCTION, scene([stone()], [region()], 1))
+    s = scene([], [region(frame=4)], 4)
+    plan = planner.replan(INSTRUCTION, s, [], ExecutionContext(s))
+    assert plan.status is PlanStatus.REJECTED
+
+
+def test_memory_off_keeps_the_plain_search(tmp_path):
+    planner = fixture_planner([example_response("s1", "r1"), search_response("stone")], tmp_path, use_memory=False)
+    planner.plan(INSTRUCTION, scene([stone()], [region()], 1))
+    s = scene([], [region(frame=4)], 4)
+    assert [a.skill for a in planner.replan(INSTRUCTION, s, [], ExecutionContext(s)).actions] == [Skill.SEARCH]
+
+
