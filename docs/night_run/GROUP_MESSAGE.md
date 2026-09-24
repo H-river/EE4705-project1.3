@@ -3,9 +3,9 @@
 **Memory is now B's** (`planner/memory.py`). A reports only the current frame (no `memory_*` attributes, no `recall()`). C keeps no memory across actions. B re-plans from a remembered goal region when the region is out of view, and never from a remembered object.
 **New tooling:** `eval/trials/final50` (50 trials with `expected.outcome`). `python -m eval.runner … --jobs 4 --no-cache` runs all 50 in about 17 min; `scripts/final_run.sh N` wraps it.
 **Open, A:** a bottle clipped at the image top is rejected ("clipped object centre is below the table top", f34). After a release, the exact bottle/region instance is often not seen, so PLACE_FAILED although the bottle is in the region (f14, f31).
-**Open, B:** "red stone" vs A's colour `dark_red` should map through the vocabulary (f19, f20).
+**B, round 9:** colour aliasing is done ("red stone" → `dark_red`, `84071bb`), which fixed f19/f20. New B miss: f45 refused a bottle as "unsupported" with thinking off. **A, round 9:** depth-in-region fallback (`da667a7`) for a placed object that is missing from the detections. It did not fire in RUN 5; the remaining cases are UNLOCALIZED rather than missing (f48).
 **Open, C:**
-- Parking beside a bottle at the front-right table edge takes it out of the head view, so GRASP → TARGET_LOST (f25, f41, f45). Candidate fix `70c6bb1` helped f25 but is untested alone.
+- Parking beside a bottle at the front-right table edge takes it out of the head view, so GRASP → TARGET_LOST (f25, f41, f45). Fix 1 alone (`d778f37`) scored 39/50 and was reverted.
 - Far-edge reach limit (x ≈ 0.56, f38).
 - Torso–table contact while carrying (f23). The standoff fix `79c70fe` did not fix it and broke bottle placement.
 Every change to A's or C's code is in `docs/night_run/CHANGES.md` (#23–#34); revert any you disagree with.
