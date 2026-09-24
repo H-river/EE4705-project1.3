@@ -151,14 +151,18 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         # Dispatch skills you've overridden yourself; everything else falls
         # through to the shared closed_loop.py reference implementation.
+        parked, self._parked_for = self._parked_for, None
         if action.skill is Skill.APPROACH:
-            return self._approach(action, env, perception)
+            result = self._approach(action, env, perception)
+            if result.success and action.target:
+                self._parked_for = (action.target, tuple(float(v) for v in env.get_base_pose()))
+            return result
         
         elif action.skill is Skill.REACH:
             return self._reach(action, env, perception)
 
         elif action.skill is Skill.GRASP:
-            return self._grasp(action, env, perception)
+            return self._grasp(action, env, perception, parked)
 
         elif action.skill is Skill.MOVE_TO:
             return self._move_to(action, env, perception)
@@ -181,6 +185,10 @@ class StudentCExecutor(ClosedLoopExecutor):
         super().reset()
         self._arm_tucked = False
         self._initial_base_pose = None
+        # (target id, base pose) after a successful APPROACH, kept only until
+        # the next action: lets GRASP use the planned position when parking
+        # next to the target took it out of the head camera's view.
+        self._parked_for = None
 
     @staticmethod
     def _table_contacts(env):
@@ -377,7 +385,22 @@ class StudentCExecutor(ClosedLoopExecutor):
                                info={**primitive.info, "ee_error_m": ee_error})
 
 #GRASP function: attempt to grasp the target, retrying if the first attempt fails.
-    def _grasp(self, action, env, perception):
+    _PARKED_MAX_BASE_MOVE_M = 0.02
+
+    def _out_of_view_after_approach(self, action, env, parked, target):
+        """True when the target is simply absent from the head view right after
+        this executor parked for it (base unmoved since), and the plan carries
+        its position.  Parking next to an object can put it below or beside
+        the head camera's field of view.  Any contrary evidence (UNLOCALIZED,
+        AMBIGUOUS) still blocks the grasp."""
+        if target is not None and target.status is not GroundStatus.NOT_FOUND:
+            return False
+        if not parked or parked[0] != action.target or (action.params or {}).get("pos") is None:
+            return False
+        moved = np.linalg.norm(np.asarray(env.get_base_pose(), dtype=float)[:2] - np.asarray(parked[1][:2]))
+        return float(moved) <= self._PARKED_MAX_BASE_MOVE_M
+
+    def _grasp(self, action, env, perception, parked=None):
         if env.is_attached():
             return ExecutionResult(action, False, ErrorCode.ALREADY_HOLDING)
 
@@ -391,10 +414,11 @@ class StudentCExecutor(ClosedLoopExecutor):
                 raise TargetResolutionError("Perception returned a stale scene", ErrorCode.PERCEPTION_ERROR)
 
             target = scene.find(action.target or "")
-            if (target is None or target.status is not GroundStatus.LOCALIZED
-                    or target.pos_world is None):
+            out_of_view = self._out_of_view_after_approach(action, env, parked, target)
+            if not out_of_view and (target is None or target.status is not GroundStatus.LOCALIZED
+                                    or target.pos_world is None):
                 raise TargetResolutionError(f"Target {action.target!r} needs fresh, unambiguous 3D evidence")
-            if target.kind != "object":
+            if target is not None and target.kind != "object":
                 return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
                                        info={"detail": "GRASP target is not an object"})
 
@@ -411,6 +435,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             attempts.append({
                 "attempt": attempt + 1,
                 "frame_id": scene.frame_id,
+                "out_of_view_after_approach": out_of_view,
                 "target_pos": pos.tolist(),
                 "error_code": primitive.error_code.value,
                 "attach_reason": env.get_robot_state().last_attach_reason,
