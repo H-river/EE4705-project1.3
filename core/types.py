@@ -454,3 +454,6 @@ class TrialRecord:
     timings: dict[str, float] = field(default_factory=dict)
     error: Optional[str] = None
     extra: dict[str, Any] = field(default_factory=dict)
+    # Final2 6.1: one sentence for the user about how the episode ended
+    # (Student B's planner/report.py; the system's own view, never the oracle's).
+    user_report: str = ""

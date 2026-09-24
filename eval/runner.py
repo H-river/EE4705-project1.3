@@ -307,6 +307,10 @@ def _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store, e
     record.extra["instruction_history"] = episode.instruction_history
     record.extra["verification"] = to_json_safe(episode.verification)
     record.extra["unconsumed_clarifications"] = clarifier.remaining()
+    from planner.report import outcome_sentence  # final2 6.1; before any oracle check
+    record.user_report = outcome_sentence(record.outcome, getattr(planner, "goal", None),
+                                          record.extra["verification"], record.events, record.clarifications,
+                                          record.extra.get("b_rationales", ()))
 
     actual = evaluate_actual(oracle, expected, episode.outcome, spy.grasp_records, episode.clarifications)
     record.actual_success = actual.actual_success
