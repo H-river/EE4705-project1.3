@@ -1,11 +1,7 @@
-**Final e2e run (2026-09-24, branch `e2e`, tag `final-40`; round 9 added colour aliasing [B] and depth-in-region [A], RUN 5 also 40/50):** 40/50 correct, 0 false claims. The target was 43, so we missed by 3. Manipulation 37/47 claimed∧achieved; refuse/clarify 3/3. RUN 2 with two C fixes scored 38/50, so both were reverted. Details: `docs/night_run/REPORT.md` §13.
-**Contract** stays v4: PlanStatus.REJECTED → replan; TrackingHint as in v3.
-**Memory is now B's** (`planner/memory.py`). A reports only the current frame (no `memory_*` attributes, no `recall()`). C keeps no memory across actions. B re-plans from a remembered goal region when the region is out of view, and never from a remembered object.
-**New tooling:** `eval/trials/final50` (50 trials with `expected.outcome`). `python -m eval.runner … --jobs 4 --no-cache` runs all 50 in about 17 min; `scripts/final_run.sh N` wraps it.
-**Open, A:** a bottle clipped at the image top is rejected ("clipped object centre is below the table top", f34). After a release, the exact bottle/region instance is often not seen, so PLACE_FAILED although the bottle is in the region (f14, f31).
-**B, round 9:** colour aliasing is done ("red stone" → `dark_red`, `84071bb`), which fixed f19/f20. New B miss: f45 refused a bottle as "unsupported" with thinking off. **A, round 9:** depth-in-region fallback (`da667a7`) for a placed object that is missing from the detections. It did not fire in RUN 5; the remaining cases are UNLOCALIZED rather than missing (f48).
-**Open, C:**
-- Parking beside a bottle at the front-right table edge takes it out of the head view, so GRASP → TARGET_LOST (f25, f41, f45). Fix 1 alone (`d778f37`) scored 39/50 and was reverted.
-- Far-edge reach limit (x ≈ 0.56, f38).
-- Torso–table contact while carrying (f23). The standoff fix `79c70fe` did not fix it and broke bottle placement.
-Every change to A's or C's code is in `docs/night_run/CHANGES.md` (#23–#34); revert any you disagree with.
+**Final2 (2026-09-25, branch `e2e`, tag `final2-44`): 44/50 correct, 0 false claims** (baseline RUN 4/5 39/40; previous best `final-40`). Manipulation 41/47, reject/clarify 3/3. Bottles 2/10 → 5/10, cubes 13/13. Details: `docs/night_run/REPORT.md` §14; every A/C change: `docs/night_run/CHANGES.md` #47–#68.
+**Calls:** 2,057 of a 2,000 cap (57 over; the final run cost more than estimated). A standard trial now costs 7 calls instead of 11 (perception diet, C #50 + A #49).
+**A:** near-duplicate frame reuse (#49); a placed object seen on the region without a 3D fit is projected onto the region plane for verification only (#60). Top-clipped localization (#57) works (4 mm on f34) but was reverted: its target still failed on reach.
+**B:** supported classes listed + a refusal of a supported class is repaired (fixes f45's "bottle unsupported"); APPROACH from memory for a vanished goal object; relational binding (`reference` field); history guard (same action failed twice → SEARCH / REJECTED). 32-case 32/32, 20-case 20/20. New: `user_report` sentence, failure-type histogram.
+**C:** diet (no describe when `params.pos` decides); APPROACH turns ≤ 3×20° toward a target it cannot see (f25 ✔); 10 cm carry back-off near the table (f23 ✔). Side re-park for far bottles (#62) was reverted: the arm tuck failed with the arm extended and left C unable to tuck.
+**Backbone:** the visual success claim keeps 1 cm from the region edge (removed the diet run's only false claim); verification arbitration exists but is off.
+**Open:** far bottles near the right/far table edge (f34 f38 f41 f45: parking touches the table); placed-but-unverified (f20 f31). Proposed: max_total_plans 10 → 8 (REPORT §14).
