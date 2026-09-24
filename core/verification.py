@@ -13,6 +13,12 @@ from core.types import CONTENT_FILTERED_NOTE, GroundStatus, SceneDescription, Ve
 from core.vocab import Vocab
 
 VISUAL_STABILITY_S = 0.2
+# Final2: the visual claim needs the object 1 cm inside the region edge. The
+# ground-truth evaluator (core.oracle) keeps the exact footprint. In 201
+# passed final verifications on disk the largest true-positive offset was
+# 6.65 cm; the one false claim (final2 s1_diet f20, dark_red stone on the
+# red region) was measured at 7.77 cm of 8 cm.
+VISION_EDGE_MARGIN_M = 0.01
 
 
 @lru_cache(maxsize=1)
@@ -49,7 +55,8 @@ def check_placement(scene: SceneDescription, object_id: str, region_id: str,
     if half is None:
         return verdict(False, "region extent is unknown")
     delta = np.asarray(obj.pos_world) - region.pos_world
-    ok = position_in_region(obj.pos_world, region.pos_world, half)
+    inner = tuple(max(1e-3, float(h) - VISION_EDGE_MARGIN_M) for h in half)
+    ok = position_in_region(obj.pos_world, region.pos_world, inner)
     return verdict(ok, f"offset xyz={delta.round(4).tolist()}, half extents={list(half)}")
 
 
