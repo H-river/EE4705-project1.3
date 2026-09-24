@@ -596,3 +596,20 @@ Seven of the ten failures are bottle trials. Every trial with a stone or cube an
 - **A**: tall objects near the image edge. Top-clipped bottle → "clipped object centre is below the table top". After a release the exact instance often isn't seen (bottle on the red region).
 - **B**: map instruction colours to A's palette through the public vocabulary ("red stone" is a synonym of the `dark_red` stone). This is not in the STAGE F list, so it wasn't done; it would address f19/f20. Memory is region-only.
 - **C**: parking next to a bottle at the table's front-right edge takes it out of the head view (fix 1 addresses this; it's untested alone). Far-edge reach limit (x ≈ 0.56). Carry contact (f23; fix 2 did not solve it and hurt bottles).
+
+### Round 9 (2026-09-24 evening, owner-directed): one change per full 50-trial run
+
+| run | code | change | score | false claims | kept? |
+|---|---|---|---|---|---|
+| RUN 1 | `3ba1a37` (tag `final-40`) | – | **40/50** | 0 | baseline |
+| RUN 3 | `d778f37` | Fix 1 alone (GRASP at the planned position after APPROACH) | 39/50 | 0 | reverted (`aea8ebc`): below its predecessor. f25 now placed but unverified; f28 lost |
+| RUN 4 | `84071bb` | [B] colour aliasing: 'red' matches `dark_red`, 'grey' ≡ 'gray'; goal colour normalised to the palette colour; `color_words` in the planning input | 39/50 | 0 | kept (= RUN 3) |
+| RUN 5 | `da667a7` | [A-fix] a placed object missing from the detections is found by depth on the region (`pos_basis='depth_in_region'`) | **40/50** | 0 | kept (> RUN 4) |
+
+- **Result:** no run reached 43. The best is 40/50, reached by RUN 1 (tagged `final-40`) and by RUN 5, the current `e2e` head.
+- **RUN 5 vs RUN 1:**
+  - Gained f19 and f20. These are the "red stone" trials: B now binds the `dark_red` stone and asks A for `dark_red stone`.
+  - Lost f28 (bottle grasp loop) and f48 (dark-red stone placed on the red region but detected UNLOCALIZED, so verification needs 3D grounding).
+- **The A fallback did not fire in RUN 5.** It handles a *missing* instance. The remaining placed-but-unverified cases (f14, f48) are a present-but-UNLOCALIZED instance, or a final VERIFY that still can't see the bottle.
+- **New B failure mode (f45):** with thinking off, B refused with "the green bottle is not a supported object type".
+- **Still open:** bottle trials (f25/f38/f41/f45 grasp or search loops; f28/f31 re-grasp after PLACE), f34 (top-clipped bottle), f23 (carry contact), and extending the depth fallback to UNLOCALIZED instances on the region.
