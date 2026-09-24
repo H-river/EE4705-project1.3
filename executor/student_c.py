@@ -439,6 +439,41 @@ class StudentCExecutor(ClosedLoopExecutor):
                 break
         return info
 
+    _CARRY_BACKOFF_M = 0.10       # final2 3.4
+    _CARRY_BACKOFF_WITHIN_M = 0.45  # only when the base is this close to the table
+
+    @staticmethod
+    def _table_clearance(xy):
+        """Distance from the table top's footprint (negative inside)."""
+        (x0, y0, _), (x1, y1, _) = table_aabb()
+        x, y = float(xy[0]), float(xy[1])
+        if x0 < x < x1 and y0 < y < y1:
+            return -min(x - x0, x1 - x, y - y0, y1 - y)
+        return math.hypot(max(x0 - x, 0.0, x - x1), max(y0 - y, 0.0, y - y1))
+
+    def _back_away_from_table(self, env):
+        """Final2 3.4: move the base 10 cm straight away from the nearest
+        point of the table footprint (heading kept), contact-guarded.
+        Returns an info dict, or None when the base is already far enough."""
+        base = np.asarray(env.get_base_pose(), dtype=float)
+        clearance = self._table_clearance(base[:2])
+        if clearance >= self._CARRY_BACKOFF_WITHIN_M or clearance <= 0:
+            return None
+        (x0, y0, _), (x1, y1, _) = table_aabb()
+        nearest = np.array([min(max(base[0], x0), x1), min(max(base[1], y0), y1)])
+        away = (base[:2] - nearest) / clearance
+        goal = base[:2] + away * self._CARRY_BACKOFF_M
+        info = {"from_clearance_m": round(clearance, 3), "goal": [round(float(v), 3) for v in goal]}
+        env.set_base_target(float(goal[0]), float(goal[1]), float(base[2]))
+        try:
+            ok = skills._step_until(self._contact_guard(env), lambda: np.linalg.norm(
+                np.asarray(env.get_base_pose())[:2] - goal) < skills.BASE_POS_TOL, timeout_s=3.0)
+        except _BodyTableContact as exc:
+            env.stop_motion()
+            return {**info, "success": False, "contacts": exc.contacts}
+        env.stop_motion()
+        return {**info, "success": bool(ok)}
+
 #REACH function: move the TCP to the target's current position, then independently confirm the measured position actually got there.
     def _reach(self, action, env, perception):
         """REACH: move the TCP to the target's current position, then
@@ -562,6 +597,12 @@ class StudentCExecutor(ClosedLoopExecutor):
         scene = None if self._planned_pos(action) else self._scene(env, perception)
         pos = resolve_action_position(action, scene)  # also raises on missing/unlocalized
 
+        # Final2 3.4: before the base turns toward the region with the load,
+        # back it 10 cm straight away from the table (RUN 5 f23: torso-table
+        # contact on every carry from a start pose 30 cm from the table edge).
+        # The parking pose itself is unchanged.
+        backed = self._back_away_from_table(env)
+
         try:
             primitive_result = skills.move_to(self._contact_guard(env), pos)
         except _BodyTableContact as exc:
@@ -616,6 +657,8 @@ class StudentCExecutor(ClosedLoopExecutor):
             detail = primitive_result.info.get("detail", "")
 
         info = {**primitive_result.info, "ee_error_m": ee_error, "detail": detail}
+        if backed is not None:
+            info["carry_backoff"] = backed
         if motion_recovery_info is not None:
             info["motion_recovery"] = motion_recovery_info
             info["base_repositioned"] = base_repositioned
