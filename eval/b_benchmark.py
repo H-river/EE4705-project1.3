@@ -13,10 +13,19 @@ from pathlib import Path
 
 from core.types import Action, ErrorCode, ExecutionContext, ExecutionResult, PlanStatus, Skill
 from planner.config import QwenPlannerConfig
-from planner.contract import COMPILER_VERSION, compile_plan
+from planner.contract import COMPILER_VERSION, compile_plan, split_search_target
 from planner.prompts import PROMPT_VERSION, json_value
 from planner.run import load_scene
 from planner.student_b import StudentBPlanner
+
+
+def _search_target_ok(target, allowed, goal):
+    """A labelled class, or since round 7 (contract.search_target) that class
+    prefixed by the goal object's colour, e.g. 'blue cube' for label 'cube'."""
+    if target in allowed:
+        return True
+    cls, colour = split_search_target(target)
+    return bool(colour) and cls in allowed and cls == goal.get("object_name") and colour == goal.get("object_color")
 
 
 def score_plan(plan, goal, expected, context):
@@ -41,7 +50,8 @@ def score_plan(plan, goal, expected, context):
         allowed = expected.get("search_targets", [])
         check(bool(plan.actions), "Search plan is empty")
         for a in plan.actions:
-            check(a.skill is Skill.SEARCH and a.target in allowed, f"Unexpected search: {a.skill.value} {a.target}")
+            check(a.skill is Skill.SEARCH and _search_target_ok(a.target, allowed, goal),
+                  f"Unexpected search: {a.skill.value} {a.target}")
     elif plan.status is PlanStatus.READY and status == "READY":
         obj, region = expected["object_id"], expected["region_id"]
         held = context.held_instance_id
