@@ -64,6 +64,9 @@ def guard(plan, history, goal, search_target):
         audit["decision"] = f"APPROACH standoff rotated {rotation:+.0f} deg"
         return plan, audit
     audit["decision"] = "REJECTED"
+    tried = ("after re-localizing and changing the approach direction"
+             if role == "object" and action.skill in (Skill.APPROACH, Skill.GRASP) else
+             "after re-localizing" if role else "")
     return Plan(status=PlanStatus.REJECTED,
-                reason=f"{action.skill.value} on {action.target} already failed {n} times in this episode "
-                       f"(after re-localizing and changing the approach direction); not repeating it"), audit
+                reason=f"{action.skill.value} on {action.target} already failed {n} times in this episode"
+                       f"{' (' + tried + ')' if tried else ''}; not repeating it"), audit
