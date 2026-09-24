@@ -40,6 +40,13 @@ WIRE_SCHEMA = _object({
 WIRE_SCHEMA["properties"]["rationale"] = {"type": "string", "maxLength": 1000}
 
 
+# Final2 2.3: optional relational reference; code binds the instance
+# (planner/relations.py). Optional, so older replies stay valid.
+WIRE_SCHEMA["properties"]["reference"] = _object({
+    "relation": {"type": "string", "enum": ["", "next_to", "left_of", "right_of", "closest_to", "farthest_from"]},
+    "anchor_class": _TEXT, "anchor_color": _TEXT})
+
+
 class PlanContractError(ValueError):
     pass
 

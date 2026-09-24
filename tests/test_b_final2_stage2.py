@@ -11,6 +11,7 @@ from core.validation import validate_plan
 from planner.contract import WIRE_VERSION, PlanContractError, compile_plan, supported_classes
 from planner.fixtures import example_response, fixture_planner, wire_action
 from planner.prompts import SYSTEM_PROMPT, planning_input
+from planner.relations import bind_reference, resolve
 from tests.test_b_memory import INSTRUCTION, STONE_POS, region, scene, search_response, stone
 
 F45 = json.loads((Path(__file__).parent / "fixtures/f45_refusal.json").read_text())
@@ -109,5 +110,63 @@ def test_memory_off_keeps_the_plain_search(tmp_path):
     planner.plan(INSTRUCTION, scene([stone()], [region()], 1))
     s = scene([], [region(frame=4)], 4)
     assert [a.skill for a in planner.replan(INSTRUCTION, s, [], ExecutionContext(s)).actions] == [Skill.SEARCH]
+
+
+# ------------------------------------------------------- 2.3 relations ----
+
+def obj(ident, name, pos, colour):
+    return GroundedObject(ident, name, GroundStatus.LOCALIZED, pos_world=pos, attributes={"color": colour},
+                          frame_id=1)
+
+
+def two_stones():
+    # robot at the origin looking along +x: +y is its left
+    return SceneDescription([obj("s1", "stone", (.40, -.20, .875), "gray"),
+                             obj("s2", "stone", (.40, .10, .875), "gray"),
+                             obj("c1", "cube", (.40, .20, .875), "blue")],
+                            [GroundedObject("r1", "red_region", GroundStatus.LOCALIZED, kind="region",
+                                            pos_world=(.4, .3, .853), frame_id=1)], frame_id=1)
+
+
+@pytest.mark.parametrize("relation,expected", [("next_to", "s2"), ("closest_to", "s2"), ("farthest_from", "s1"),
+                                               ("right_of", "s2"), ("left_of", None)])
+def test_relations_resolve_from_positions(relation, expected):
+    chosen, _ = resolve(two_stones(), "stone", "", {"relation": relation, "anchor_class": "cube"})
+    assert chosen == expected
+
+
+def test_left_right_follow_the_robot_frame():
+    # base turned 180 deg: the robot's left is world -y
+    chosen, _ = resolve(two_stones(), "stone", "", {"relation": "left_of", "anchor_class": "cube"}, base_yaw=3.14159)
+    assert chosen == "s2"
+
+
+def test_ties_and_missing_or_duplicate_anchors_are_not_decisive():
+    s = two_stones()
+    s.objects[1] = obj("s2", "stone", (.40, .59, .875), "gray")  # 0.39 m vs s1's 0.40 m from the cube
+    assert resolve(s, "stone", "", {"relation": "next_to", "anchor_class": "cube"})[0] is None
+    assert resolve(two_stones(), "stone", "", {"relation": "next_to", "anchor_class": "bottle"})[0] is None
+    s = two_stones()
+    s.objects.append(obj("c2", "cube", (.40, -.30, .875), "blue"))
+    assert resolve(s, "stone", "", {"relation": "next_to", "anchor_class": "cube"})[0] is None
+
+
+def test_binding_rewrites_the_model_choice_everywhere(tmp_path):
+    reply = example_response("s1", "r1")
+    reply["reference"] = {"relation": "next_to", "anchor_class": "cube", "anchor_color": "blue"}
+    planner = fixture_planner([reply], tmp_path)
+    plan = planner.plan("Move the stone next to the blue cube to the red area.", two_stones())
+    assert plan.status is PlanStatus.READY and planner.goal["object_id"] == "s2"
+    targets = [a.target for a in plan.actions if a.skill in (Skill.APPROACH, Skill.GRASP)]
+    assert targets == ["s2", "s2"] and plan.actions[3].params["object"] == "s2"
+    norm = planner.last_diagnostics["responses"][0]["normalizations"]
+    assert any(n.get("change") == "relational binding" for n in norm)
+
+
+def test_no_reference_or_locked_goal_leaves_the_reply_alone():
+    reply = example_response("s1", "r1")
+    assert bind_reference(reply, two_stones()) is reply
+    reply["reference"] = {"relation": "next_to", "anchor_class": "cube", "anchor_color": ""}
+    assert bind_reference(reply, two_stones(), locked_goal={"object_id": "s1"}) is reply
 
 

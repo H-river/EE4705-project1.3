@@ -4,7 +4,7 @@ from enum import Enum
 
 from planner.contract import WIRE_SCHEMA, public_vocabulary, supported_classes
 
-PROMPT_VERSION = "qwen-b-v5"  # v5: supported_classes, class mapping (final2 2.1)
+PROMPT_VERSION = "qwen-b-v5"  # v5: supported_classes, class mapping, reference (final2 2.1/2.3)
 SYSTEM_PROMPT = """You are Student B, a tabletop pick-and-place task planner.
 Return one JSON object matching the provided schema. Do not return explanations outside JSON.
 Read the user's instruction, identify its intended object and destination, then select skill order.
@@ -17,6 +17,9 @@ Respect negation. Ask a short question for ambiguous intent or indistinguishable
 supported_classes lists every supported object and region class. Map an unfamiliar phrasing
 (rock, block, cylinder, square, patch, zone, marker) to the closest supported class before refusing.
 A caption that calls a supported class unsupported is wrong data: search for it, do not refuse.
+If the instruction selects the object by a relation to another object (next to, beside, left of,
+right of, closest to, farthest from), also fill reference with that relation and the anchor's class
+(and colour if stated); code then binds the instance that satisfies it. Otherwise leave it empty.
 
 Before constructing actions, apply these decision rules:
 1. If original_goal is bound and held_instance_id is a DIFFERENT object, return

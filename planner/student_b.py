@@ -14,6 +14,7 @@ from core.types import ExecutionContext, GroundedObject, GroundStatus, Plan, Pla
 from planner.config import QwenPlannerConfig
 from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan, search_target
 from planner.memory import EpisodeMemory
+from planner.relations import bind_reference
 from planner.prompts import PROMPT_VERSION, SYSTEM_PROMPT, json_value, planning_input
 
 
@@ -196,7 +197,10 @@ class StudentBPlanner(Planner):
                                                 system=SYSTEM_PROMPT, json_schema=WIRE_SCHEMA)
                 if isinstance(response, ContentFiltered):
                     raise APIError(response.detail)  # same prompt would be refused again
-                plan, goal = compile_plan(response.parsed, context, self._goal, self._known,
+                pose = self._base_pose()
+                wire = bind_reference(response.parsed, context.scene, pose[2] if pose else 0.0,
+                                      self._goal, normalizations)
+                plan, goal = compile_plan(wire, context, self._goal, self._known,
                                           normalizations=normalizations)
                 plan = self._approach_from_memory(plan, goal, context, audit)
             except (SchemaError, PlanContractError) as exc:
