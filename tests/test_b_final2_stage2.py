@@ -170,3 +170,63 @@ def test_no_reference_or_locked_goal_leaves_the_reply_alone():
     assert bind_reference(reply, two_stones(), locked_goal={"object_id": "s1"}) is reply
 
 
+# ------------------------------------------------ 2.4 history guard ----
+
+def failed(skill, target, code=ErrorCode.TARGET_LOST):
+    return ExecutionResult(Action(skill, target), False, code)
+
+
+def ok(skill, target):
+    return ExecutionResult(Action(skill, target), True)
+
+
+def f28_history(n_grasp_failures, searches_between=True):
+    """RUN 5 f28: APPROACH ok, GRASP TARGET_LOST, SEARCH ok, ... repeated."""
+    history = []
+    for k in range(n_grasp_failures):
+        history += [ok(Skill.APPROACH, "s1"), failed(Skill.GRASP, "s1")]
+        if searches_between:
+            history.append(ok(Skill.SEARCH, "gray stone"))
+    return history
+
+
+def replan_after(tmp_path, history, reply=None):
+    planner = fixture_planner([example_response("s1", "r1"), reply or example_response("s1", "r1")], tmp_path)
+    s = scene([stone()], [region()], 1)
+    planner.plan(INSTRUCTION, s)
+    return planner, planner.replan(INSTRUCTION, s, history, ExecutionContext(s))
+
+
+def test_one_failure_is_retried_unchanged(tmp_path):
+    _, plan = replan_after(tmp_path, f28_history(1))
+    assert plan.status is PlanStatus.READY and "standoff_rotation_deg" not in plan.actions[0].params
+
+
+def test_two_failures_without_a_search_search_first(tmp_path):
+    planner, plan = replan_after(tmp_path, f28_history(2, searches_between=False))
+    assert plan.status is PlanStatus.NEEDS_SEARCH and [a.skill for a in plan.actions] == [Skill.SEARCH]
+    assert planner.last_diagnostics["history_guard"]["decision"] == "SEARCH first"
+
+
+def test_f28_two_failures_after_searching_rotate_the_approach(tmp_path):
+    planner, plan = replan_after(tmp_path, f28_history(2))
+    assert plan.status is PlanStatus.READY
+    assert plan.actions[0].skill is Skill.APPROACH and plan.actions[0].params["standoff_rotation_deg"] == 90.0
+    assert not validate_plan(plan, ExecutionContext(scene([stone()], [region()], 1)))
+    _, plan = replan_after(tmp_path / "b", f28_history(3))
+    assert plan.actions[0].params["standoff_rotation_deg"] == -90.0
+
+
+def test_f28_four_failures_are_rejected_with_a_reason(tmp_path):
+    planner, plan = replan_after(tmp_path, f28_history(4))
+    assert plan.status is PlanStatus.REJECTED and not plan.actions
+    assert "GRASP on s1 already failed 4 times" in plan.reason
+    assert planner.last_diagnostics["history_guard"]["decision"] == "REJECTED"
+
+
+def test_synthetic_orchestrator_entries_do_not_count(tmp_path):
+    history = [ExecutionResult(Action(Skill.STOP), False, ErrorCode.INVALID_ACTION)] * 3
+    history += [ExecutionResult(Action(Skill.VERIFY, params={"condition": "object_in_region"}), False,
+                                ErrorCode.VERIFY_FAILED)] * 3
+    _, plan = replan_after(tmp_path, history)
+    assert plan.status is PlanStatus.READY

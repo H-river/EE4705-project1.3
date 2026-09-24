@@ -13,6 +13,7 @@ from core.llm_client import APIError, ContentFiltered, LLMClient, SchemaError
 from core.types import ExecutionContext, GroundedObject, GroundStatus, Plan, PlanStatus, SceneDescription
 from planner.config import QwenPlannerConfig
 from planner.contract import COMPILER_VERSION, PlanContractError, WIRE_SCHEMA, compile_plan, search_target
+from planner.history_guard import guard as history_guard
 from planner.memory import EpisodeMemory
 from planner.relations import bind_reference
 from planner.prompts import PROMPT_VERSION, SYSTEM_PROMPT, json_value, planning_input
@@ -203,6 +204,9 @@ class StudentBPlanner(Planner):
                 plan, goal = compile_plan(wire, context, self._goal, self._known,
                                           normalizations=normalizations)
                 plan = self._approach_from_memory(plan, goal, context, audit)
+                plan, guard_audit = history_guard(plan, history, goal, lambda cls: search_target(goal, cls))
+                if guard_audit:
+                    audit["history_guard"] = guard_audit
             except (SchemaError, PlanContractError) as exc:
                 response = response or getattr(exc, "response", None)
                 last_error = str(exc)
