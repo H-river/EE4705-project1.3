@@ -193,50 +193,55 @@ Score it against the real API:
 ```
 
 Selection is matched to the actual object by image-box IoU (≥0.30), not by ID
-string. Reported Target Grounding Accuracy across repeated live runs on this
-dataset has ranged **76.7%–86.7%**, depending on prompt/code version and
-run-to-run model variance — see the "tried and reverted" notes in §5 before
-citing a single number as final.
+string.
 
 **Additional metrics**, each reusing an existing `eval.grounding` run wherever
-possible (no extra model calls) rather than recapturing:
+possible (no extra model calls) rather than recapturing. Reuse the same
+`$a_dataset` and evaluation output folder from the grounding run above:
 
 ```bash
-.venv/bin/python -m eval.a_scene_description --eval-dir <existing eval run> \
+a_eval="runs/my_a_evaluation_$(date +%Y%m%d_%H%M%S)"
+.venv/bin/python -m eval.grounding run --dataset "$a_dataset/dataset.json" --out "$a_eval"
+```
+
+**Scene Description Accuracy** — object-mention recall and hallucination check
+against ground truth, using the answers already saved in `$a_eval`:
+
+```bash
+.venv/bin/python -m eval.a_scene_description --eval-dir "$a_eval" \
   --dataset "$a_dataset/dataset.json"
 ```
-Scene Description Accuracy: exact object-mention recall + hallucination check
-against ground truth. Has surfaced the same region/stone confusion found in
-grounding failures, independently, across a larger sample.
+
+**Bounding Box Precision** — IoU between predicted and ground-truth boxes on
+correctly-selected unique targets, also from `$a_eval`:
 
 ```bash
-.venv/bin/python -m eval.a_bbox_precision --eval-dir <existing eval run> \
+.venv/bin/python -m eval.a_bbox_precision --eval-dir "$a_eval" \
   --dataset "$a_dataset/dataset.json"
 ```
-Bounding Box Precision: IoU between predicted and ground-truth boxes on
-correctly-selected unique targets. Consistently ≥0.80 mean IoU, comfortably
-above a 0.5 "tight box" threshold.
+
+**Spatial Reasoning Accuracy** — containment and relative-distance VQA
+questions with geometrically-computed ground truth. This needs its own
+capture, since it tests different scenes from the grounding dataset:
 
 ```bash
-.venv/bin/python -m eval.a_spatial capture <dir> \
-  --n-containment 20 --n-distance 20
-.venv/bin/python -m eval.a_spatial run --dataset <capture>/dataset.json --out <dir>
+a_spatial_dataset="runs/my_a_spatial_$(date +%Y%m%d_%H%M%S)"
+.venv/bin/python -m eval.a_spatial capture --out "$a_spatial_dataset" \
+  --n-containment 10 --n-distance 10
+
+a_spatial_eval="runs/my_a_spatial_eval_$(date +%Y%m%d_%H%M%S)"
+.venv/bin/python -m eval.a_spatial run --dataset "$a_spatial_dataset/dataset.json" \
+  --out "$a_spatial_eval"
 ```
-Spatial Reasoning Accuracy: containment and relative-distance VQA questions
-with geometrically-computed ground truth. Only tested on well-separated,
-unambiguous placements so far — not yet on boundary/near-tie cases.
+
+**VQA example questions** — tests the exact three example questions from the
+project brief (*"What objects are nearby?"*, *"Where is the stone?"*, *"Which
+object is inside the red area?"*), reusing `$a_dataset`:
 
 ```bash
-.venv/bin/python -m eval.a_vqa_check --eval-dir <existing eval run> \
+.venv/bin/python -m eval.a_vqa_check --eval-dir "$a_eval" \
   --dataset "$a_dataset/dataset.json"
 ```
-Tests the exact three example VQA questions from the project brief (*"What
-objects are nearby?"*, *"Where is the stone?"*, *"Which object is inside the
-red area?"*). Found that semantically equivalent phrasings of the same
-question can disagree by 10–25 percentage points, and that `ground()`'s
-structured answer and `describe()`'s free-text answer can disagree on the same
-underlying fact — an adaptability limitation worth reporting alongside the
-headline accuracy number, not papered over by it.
 
 Keep a dataset as a development set once you've used its failures to change
 anything; capture a fresh one before citing a final accuracy claim, since
