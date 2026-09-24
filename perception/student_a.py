@@ -315,6 +315,59 @@ class StudentAPerception(Perception):
                 region_half_extents_xy=(.08, .08) if region and pos is not None else None))
         return result
 
+    # Round 9 step 4: a released object the classifier does not recognise.
+    DEPTH_IN_REGION_MIN_POINTS = 150
+    DEPTH_IN_REGION_HEIGHT_M = (.015, .25)
+
+    def _depth_in_region(self, obs, result):
+        """In an executor-internal describe() (no fresh hint: PLACE's check and
+        the final verification), the instance the hint says is held or was
+        released may be missing because the VLM mislabelled it (a green bottle
+        standing on the red region reported as a gray stone). If its expected
+        position lies in a LOCALIZED region's footprint and depth shows a
+        cluster standing 1.5-25 cm above that region's plane inside the
+        footprint, report the instance there with pos_basis='depth_in_region'.
+        Colour and class are not re-checked; identity comes from the hint."""
+        hint = getattr(self, '_hint', None)
+        if getattr(self, '_fresh_hint', False) or hint is None:
+            return result
+        if hint.held_object_id:
+            ident, expected = hint.held_object_id, hint.held_pos_world
+        elif hint.released is not None:
+            ident, expected = hint.released.instance_id, hint.released.expected_pos_world
+        else:
+            return result
+        if (not ident or expected is None or ident not in self._tracks
+                or any(g.instance_id == ident for g in result)):
+            return result
+        lo, hi = self.DEPTH_IN_REGION_HEIGHT_M
+        for region in result:
+            if (region.kind != 'region' or region.status is not GroundStatus.LOCALIZED
+                    or region.region_half_extents_xy is None or region.bbox_xyxy is None):
+                continue
+            centre = np.asarray(region.pos_world, dtype=float)
+            half = np.asarray(region.region_half_extents_xy, dtype=float)
+            if np.any(np.abs(np.asarray(expected[:2], dtype=float) - centre[:2]) > half):
+                continue
+            cloud = backproject(obs, tuple(int(v) for v in region.bbox_xyxy))
+            if cloud is None:
+                continue
+            height = cloud[:, 2] - centre[2]
+            keep = (np.all(np.abs(cloud[:, :2] - centre[:2]) <= half, axis=1)
+                    & (height >= lo) & (height <= hi))
+            points = cloud[keep]
+            if len(points) < self.DEPTH_IN_REGION_MIN_POINTS:
+                continue
+            name, colour = self._tracks[ident]['key']
+            pos = tuple(float(v) for v in np.median(points, axis=0))
+            self._tracks[ident]['pos'] = pos
+            return result + [GroundedObject(
+                ident, name, GroundStatus.LOCALIZED, bbox_xyxy=region.bbox_xyxy, pos_world=pos,
+                confidence=.5, source='depth_in_region', kind='object', frame_id=obs.frame_id,
+                attributes={'color': colour, 'pos_basis': 'depth_in_region',
+                            'localization': f'{len(points)} depth points above the region plane'})]
+        return result
+
     # Round 6 (step 3): identities across a grasp and a release.
     HINT_RADIUS_M = .15
     HINT_BOX_MARGIN = .2
@@ -447,7 +500,15 @@ class StudentAPerception(Perception):
         if hint is not None:
             self._hint = hint
             self._held_id = hint.held_object_id
-        return self._observe(obs, query)[0]
+        self._fresh_hint = hint is not None
+        try:
+            scene = self._observe(obs, query)[0]
+            if scene is not None and not self._fresh_hint:
+                found = self._depth_in_region(obs, scene.objects + scene.regions)
+                scene.objects += [g for g in found[len(scene.objects) + len(scene.regions):]]
+            return scene
+        finally:
+            self._fresh_hint = False
 
     def ground(self, obs, target):
         if target in self._tracks:
