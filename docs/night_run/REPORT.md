@@ -613,3 +613,138 @@ Seven of the ten failures are bottle trials. Every trial with a stone or cube an
 - **The A fallback did not fire in RUN 5.** It handles a *missing* instance. The remaining placed-but-unverified cases (f14, f48) are a present-but-UNLOCALIZED instance, or a final VERIFY that still can't see the bottle.
 - **New B failure mode (f45):** with thinking off, B refused with "the green bottle is not a supported object type".
 - **Still open:** bottle trials (f25/f38/f41/f45 grasp or search loops; f28/f31 re-grasp after PLACE), f34 (top-clipped bottle), f23 (carry contact), and extending the depth fallback to UNLOCALIZED instances on the region.
+
+## 14. Final2 (2026-09-25, unattended 10-hour run, 2,000-call cap, branch `e2e`)
+
+**Result: 44/50 correct, 0 false claims** — tag `final2-44` on `8e1dd23` (run `runs/final2/full_final`, 17 min, `--jobs 4`, cache off, thinking off). Baseline (RUN 4 39 + RUN 5 40) mean 39.5; previous best 40 (`final-40`). Manipulation claimed∧achieved 41/47, reject/clarify 3/3. Progress log `runs/final2/PROGRESS.md`, call ledger `runs/final2/CALLS.txt`.
+
+**Calls: 2,057 used — 57 over the 2,000 hard cap.** The final FULL run cost 809 calls against the ~700 I had estimated from the diet (the failing bottle trials f20/f31/f41 alone took 91/74/79). It was the last live run; everything after it (§14 docs, 6.1, 6.2, 6.6, 6.7, videos) used 0 calls, and the live stage-6 items (6.3, 6.4 gate, 6.5) were skipped.
+
+### Budget re-plan (the plan assumed ~350 calls per FULL run; RUN 1–5 cost 836–950)
+- Stage 0: no new FULL run. RUN 4 (`84071bb`) is the second baseline run: RUN 5's only code change (A depth_in_region, `da667a7`) fired 0 times in RUN 5, so both ran the same code paths.
+- Stage 1: diet checked on 12 trials (8 stable-pass controls + 4 SUBSET), not a FULL run.
+- Stage 2: gate + SUBSET ×1 as planned. Stage 3: 3.1 on its 3 targets ×2; from 3.2 on, ONE run of the targets per change (one change at a time, never stacked), the final FULL run being the second observation. 3.5 was tested on f38 only.
+
+### Baseline stability (RUN 4 + RUN 5, 50×2) and the final run
+stable-pass 38, unstable 3 (f14, f15, f20), stable-fail 9 (f23, f25, f28, f31, f34, f38, f41, f45, f48). SUBSET (`eval/trials/subset_bottle`, 13): the 10 bottle targets + f18/f20/f22 (a bottle within 0.12 m of the approach or carry path); baseline 4/13, 5/13.
+
+| trial | RUN 4 | RUN 5 | baseline class | FINAL2 | outcome | calls A/B | module: cause (if ✘) |
+|---|---|---|---|---|---|---|---|
+| f01_smoke_1_standard | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f02_smoke_2_scene_variation | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f03_smoke_3_instruction_variation | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f04_smoke_4_search | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 13/2 |  |
+| f05_smoke_5_clarification | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/2 |  |
+| f06_c_01_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f07_c_02_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f08_c_03_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f09_c_04_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f10_c_05_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 14/2 |  |
+| f11_c_06_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f12_c_07_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f13_c_08_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f14_c_09_bottle | ✔ | ✘ | unstable | ✔ | CLAIMED_SUCCESS | 27/5 |  |
+| f15_c_10_bottle | ✘ | ✔ | unstable | ✔ | CLAIMED_SUCCESS | 13/3 |  |
+| f16_c_2_01_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f17_c_2_02_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f18_c_2_03_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f19_c_2_04_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f20_c_2_05_stone | ✘ | ✔ | unstable | ✘ | SEARCH_EXHAUSTED | 80/11 | A: placed correctly but verification never passed |
+| f21_c_2_06_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f22_c_2_07_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f23_c_2_08_cube | ✘ | ✘ | stable-fail | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f24_c_2_09_bottle | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 8/1 |  |
+| f25_c_2_10_bottle | ✘ | ✘ | stable-fail | ✔ | CLAIMED_SUCCESS | 35/4 |  |
+| f26_c_eval_01_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 14/2 |  |
+| f27_c_eval_02_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f28_c_eval_03_bottle | ✘ | ✘ | stable-fail | ✔ | CLAIMED_SUCCESS | 7/1 |  |
+| f29_c_eval_04_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f30_c_eval_05_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f31_c_eval_06_bottle | ✘ | ✘ | stable-fail | ✘ | LIMIT_EXCEEDED | 64/10 | A: placed correctly but verification never passed |
+| f32_c_eval_07_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f33_c_eval_08_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f34_c_eval_09_bottle | ✘ | ✘ | stable-fail | ✘ | SEARCH_EXHAUSTED | 50/5 | A/C: search exhausted (TARGET_LOST,SEARCH_NOT_FOUND) |
+| f35_c_eval_10_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f36_scene_var_501_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f37_scene_var_502_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f38_scene_var_503_bottle | ✘ | ✘ | stable-fail | ✘ | SEARCH_EXHAUSTED | 38/5 | A/C: search exhausted (TARGET_LOST,TIMEOUT,SEARCH_NOT_FOUND,UNREACHABLE) |
+| f39_scene_var_504_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 15/2 |  |
+| f40_scene_var_505_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f41_scene_var_506_bottle | ✘ | ✘ | stable-fail | ✘ | LIMIT_EXCEEDED | 68/11 | C: execution failures TARGET_LOST +contact |
+| f42_paraphrase_1_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f43_paraphrase_2_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f44_paraphrase_3_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f45_paraphrase_4_bottle | ✘ | ✘ | stable-fail | ✘ | SEARCH_EXHAUSTED | 50/5 | A/C: search exhausted (UNREACHABLE,TARGET_LOST,SEARCH_NOT_FOUND,TIMEOUT) |
+| f46_paraphrase_5_cube | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f47_two_stones_colour_stone | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/1 |  |
+| f48_two_stones_colour_stone2 | ✘ | ✘ | stable-fail | ✔ | CLAIMED_SUCCESS | 8/1 |  |
+| f49_reject_stack | ✔ | ✔ | stable-pass | ✔ | REFUSED | 1/1 |  |
+| f50_clarify_two_stones | ✔ | ✔ | stable-pass | ✔ | CLAIMED_SUCCESS | 6/2 |  |
+
+FINAL2 vs baseline: gained f23, f25, f28, f48 (stable-fail → ✔) and f14, f15 (unstable → ✔); lost f20 (unstable → ✘). No stable-pass trial was lost.
+
+### Every change, before → after (R7: same trials; "before" = RUN 4 / RUN 5)
+| step | commit | what | trials | before | after | decision |
+|---|---|---|---|---|---|---|
+| 1 diet | `4681259` (+ `0363369` A near-duplicate reuse) | no describe in APPROACH/MOVE_TO/PLACE when `params.pos` decides the target; VERIFY after a passing PLACE reuses its check | 12 (8 controls + f14 f15 f20 f28) | 9, 10 | 9 (Δ −0.5); calls on controls −26 % | kept |
+| – | `874d180` [backbone] | visual claim needs 1 cm from the region edge (oracle unchanged) | the diet run's only false claim (f20 at 7.77 of 8 cm) | – | 0 false claims since | kept |
+| 2.1–2.4 | `d50863e` `057833e` `cd0e4ae` `706cf1a` | supported_classes + refusal backstop; APPROACH from memory; relational binding; history guard | 32-case / 20-case gate; SUBSET ×1 | 31/32, 20/20; SUBSET 4, 5 | 32/32, 20/20; SUBSET 7/13 (Δ +2.5: f28 f34 f45 ✔) | kept |
+| 3.1 | `ffe1144` | APPROACH turns ≤ 3×20° toward a target it cannot see; GRASP aims at the fresh position | f25 f38 f41 ×2 | 0, 0 | 1, 0 (f25 ✔✘; f38/f41 are reach, not view) | kept |
+| 3.2 | `f6a450b` | top-clipped object localized (depth_patch_partial_top) | f34 ×1 | 0, 0 | 0 (localized in every view; the grasp from a table-contact parking pose missed) | **reverted** `cd36a05` |
+| 3.3 | `c703873` | placed object without a 3D fit projected onto the region plane (verification only) | f48 f14 ×1 | 1, 0 | 1 (f48 ✔ f14 ✘; the projection did not fire) | kept (outcome rule) |
+| 3.5 | `75fa392` | UNREACHABLE → re-park rotated ±90° | f38 ×1 | 0, 0 | 0 (arm tuck failed, then every SEARCH/APPROACH failed to tuck) | **reverted** `17a2de9` |
+| 3.4 | `8e1dd23` | carry back-off 10 cm when the base is within 45 cm of the table | f23 ×1 | 0, 0 | 1 | kept |
+| FULL | `8e1dd23` | all kept changes | 50 | 39, 40 | **44** | tag `final2-44` |
+
+### Confusion matrix, manipulation trials (47)
+| | actual ✔ | actual ✘ |
+|---|---|---|
+| **claimed ✔** | 41 (RUN 4 36, RUN 5 37) | **0** (0, 0) |
+| **claimed ✘** | 2 (3, 2): f20, f31 placed but never verified | 4 (8, 8): f34 f38 f41 f45 |
+
+### Per object class (correct / trials)
+| class | RUN 4 | RUN 5 | FINAL2 |
+|---|---|---|---|
+| stone | 22/24 | 23/24 | 23/24 |
+| cube | 12/13 | 12/13 | **13/13** |
+| bottle | 2/10 | 2/10 | **5/10** |
+| reject / clarify | 1/1, 2/2 | 1/1, 2/2 | 1/1, 2/2 |
+
+### Attribution of the 6 FINAL2 failures (module)
+- **A (2): placed but never verified** — f20 (dark red stone on the red region: PLACE's check measured 8.2 cm from the centre, just outside 8 cm; afterwards A no longer found the dark red stone on the red region, so the re-grasp lost it and SEARCH was exhausted), f31 (bottle placed; PLACE's frames did not show the exact bottle/region instance, SEARCH did not find it, the re-grasp was UNREACHABLE).
+- **A/C (3): far bottle** — f34 (0.587, −0.296), f38 (0.573, −0.429), f45 (0.55, −0.35): the front parking pose touches the table, C backs off, the arm is then out of reach (UNREACHABLE / missed) and SEARCH is exhausted. 3.2 (localization) and 3.5 (side re-park) targeted this and were reverted.
+- **C (1): f41** — bottle near the right edge (0.513, −0.392): TARGET_LOST / UNREACHABLE after parking, ends by the plan limit.
+B caused none of the six (f45's refusal is gone since 2.1).
+
+### Calls per trial (perception diet)
+| | stable-pass trials (38): mean calls (A) | median | all 50: mean |
+|---|---|---|---|
+| RUN 4 | 11.8 (10.6) | 11 | 19.0 |
+| RUN 5 | 11.7 (10.6) | 11 | 17.8 |
+| FINAL2 | **7.9 (6.8)** | **7** | 16.2 |
+A standard 6-action trial: 11 → 7 calls (A 10 → 6).
+
+### Stage 6
+- 6.1 `ee0ce48` [B] `TrialRecord.user_report`: one sentence from goal + outcome + reasons + final verification ("Placed the grey stone on the red area (2 cm from its centre), confirmed visually." / "Could not confirm - the grey stone is out of view."). No model call. Not in the tagged run (added after it).
+- 6.2 `0a56f3a`/`605e1c0` [B] failure-type histogram from all audits on disk → `docs/validation/B_FAILURE_TYPES.md`, `docs/night_run/figs/b_failure_types.png`. Labelled benchmark errors: WRONG_STATUS 24, INVALID_PARAMS 15, WRONG_BINDING 8, WRONG_GOAL 0, HALLUCINATED_INSTANCE 0. Contract validation errors (repaired): WRONG_GOAL 59 (mostly "Original goal must keep …" on replans), INVALID_PARAMS 39, WRONG_BINDING 14. B-attributed e2e failures: 17, all before this run.
+- 6.3 B-only variance (64 calls), 6.5 clarification threshold (20 calls): **skipped** — no budget.
+- 6.4 prompt diet: implemented and unit-tested (input without the schema copy, pixel boxes, confidences, frame ids; ≤ 8 instances; the schema copy alone was 1,835 of 4,423 input characters), **not merged**: its 32-case gate did not fit the cap. Patch: `docs/night_run/pending/final2_6.4_prompt_diet.patch`.
+- 6.6 `605e1c0` orchestrator budgets (`python -m eval.orchestrator_budgets`, all e2e records on disk):
+
+| ending | episodes | object placed (oracle) | plans median / max |
+|---|---|---|---|
+| success | 319 | 318 | 1 / 10 |
+| max_search | 24 | 1 | 3 / 9 |
+| max_replans | 29 | 14 | 8 / 10 |
+| max_total_plans | 20 | 1 | 10 / 10 |
+| max_clarify | 13 | 3 | 3 / 6 |
+| refused | 11 | 0 | 1 / 2 |
+
+  Proposal (not applied): **max_total_plans 10 → 8**. Only 4 of 319 successes used more than 8 plans, while the 73 budget-exhausted episodes spent 3,348 calls (46 each). Keep max_search 2 and max_replans 4: half of the replan-exhausted episodes had the object already placed, so they need verification fixes, not more replans.
+- 6.7 `3a4c9ff` final-verification arbitration (third view turned 15° when the two frames disagree; UNDETERMINED otherwise): unit-tested, **off by default** (`OrchestratorConfig.verification_arbitration=False`) because it was not run live.
+- Videos (0 calls): `runs/final2/video/` — 5 successes (f01, f14, f23, f25, f48) and 5 failures (f20, f31, f34, f38, f41) rendered from the tagged run's frames with `scripts/render_episode.py` (no rerun).
+
+### Open after Final2
+1. Far bottles (x ≥ 0.55 near the right/far edge: f34 f38 f41 f45): parking touches the table. 3.5's side re-park is the right geometry (clearance 28 cm vs 2.7 cm) but needs an arm tuck that works with the arm extended after a failed reach, and must not leave `_arm_tucked` false.
+2. Placed-but-unverified (f20, f31): the object is in the region but the exact instance is not seen in the final frames. 3.3 did not fire in these cases; 6.7 (arbitration) is ready to test.
+3. 3.2 (top-clipped localization) works on frames (4 mm on f34) and is restorable with `git revert cd36a05` once reach is fixed.
