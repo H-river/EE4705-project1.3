@@ -180,6 +180,11 @@ class StudentCExecutor(ClosedLoopExecutor):
         
         return super()._execute(action, env, perception)
 
+    @staticmethod
+    def _planned_pos(action):
+        """True when resolve_action_position would return params["pos"]."""
+        return (action.params or {}).get("pos") is not None
+
     def reset(self):
         super().reset()
         self._arm_tucked = False
@@ -308,17 +313,16 @@ class StudentCExecutor(ClosedLoopExecutor):
 #APPROACH function: park the base so the target lands inside the right arm's workspace.
     def _approach(self, action, env, perception):
         """Park the base so the target lands inside the right arm's workspace."""
-        # 1. Fresh observation + scene: never reuse a stale/cached position.
-        #    Taken BEFORE the arm tuck (final2 diet): nothing has moved since
-        #    the orchestrator's plan-time capture, so the image is identical
-        #    and A reuses its prediction for it instead of a new model call.
-        #    The target position only parks the base; GRASP re-localizes.
-        obs = env.get_obs()
-        scene = perception.describe(obs)
-
         tuck_result, tuck_error = self._tuck_arm(action, env)
         if tuck_result is not None:
             return tuck_result
+
+        # 1. Fresh observation + scene: never reuse a stale/cached position.
+        #    Final2 diet: when the action carries params["pos"] (B's compiler
+        #    always sets it from the plan-time scene), resolve_action_position
+        #    returns that override and never reads the scene, so no capture.
+        #    The position only parks the base; GRASP re-localizes.
+        scene = None if self._planned_pos(action) else perception.describe(env.get_obs())
 
         # 2. Resolve the action's target into a world position. This honors
         #    an explicit params["pos"] override first, and otherwise looks
@@ -480,7 +484,8 @@ class StudentCExecutor(ClosedLoopExecutor):
         # self._scene() (inherited) does describe() + the staleness check and
         # raises TargetResolutionError on failure; execute()'s outer wrapper
         # catches that, so no try/except is needed here.
-        scene = self._scene(env, perception)
+        # Final2 diet: no capture when params["pos"] decides the target anyway.
+        scene = None if self._planned_pos(action) else self._scene(env, perception)
         pos = resolve_action_position(action, scene)  # also raises on missing/unlocalized
 
         try:
@@ -540,11 +545,6 @@ class StudentCExecutor(ClosedLoopExecutor):
         if motion_recovery_info is not None:
             info["motion_recovery"] = motion_recovery_info
             info["base_repositioned"] = base_repositioned
-        if success:
-            # Final2 diet: a region is fixed in the world, so an immediately
-            # following PLACE on it reuses this localization.
-            self._diet_last = {"skill": Skill.MOVE_TO, "target": action.target,
-                               "pos": np.asarray(pos, dtype=float).copy(), "frame_id": scene.frame_id}
 
         return ExecutionResult(action, success, error_code,
                             recovery_attempted=recovery_attempted, info=info)
@@ -559,17 +559,9 @@ class StudentCExecutor(ClosedLoopExecutor):
         if not env.is_attached():
             return ExecutionResult(action, False, ErrorCode.NOT_HOLDING)
 
-        prev = self._diet_prev or {}
-        region_frame = prev.get("frame_id")
-        if (prev.get("skill") is Skill.MOVE_TO and prev.get("target") == action.target
-                and action.params.get("pos") is None):
-            # Final2 diet: MOVE_TO just localized this region (static) and
-            # carried the object there; no new capture needed to aim the release.
-            region_pos = prev["pos"].copy()
-        else:
-            scene = self._scene(env, perception)
-            region_pos = resolve_action_position(action, scene)
-            region_frame = scene.frame_id
+        # Final2 diet: no capture when params["pos"] decides the target anyway.
+        scene = None if self._planned_pos(action) else self._scene(env, perception)
+        region_pos = resolve_action_position(action, scene)
 
         obj_id = action.params.get("object") or self._held_id
         if not obj_id or obj_id != self._held_id:
@@ -644,7 +636,7 @@ class StudentCExecutor(ClosedLoopExecutor):
             error_code=ErrorCode.NONE if check.passed else ErrorCode.PLACE_FAILED,
             recovery_attempted=view_attempts > 0,
             info={"detail": check.detail, "verification_frame_id": check.frame_id,
-                  "view_recovery_attempts": view_attempts, "region_frame_id": region_frame},
+                  "view_recovery_attempts": view_attempts},
         )
 
 #SEARCH function: rotate the base through nearby viewpoints until perception

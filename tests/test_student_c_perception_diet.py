@@ -63,48 +63,50 @@ def _describes(perception, start):
     return len(perception.frames) - start
 
 
-def test_call_sequence_of_a_standard_plan(monkeypatch):
+STONE, REGION, CARRY = [.4, -.15, .88], [.4, .3, .853], [.4, .3, 1.033]
+
+
+def _plan(with_pos):
+    pos = (lambda p: {"pos": p}) if with_pos else (lambda p: {})
+    return [Action(Skill.APPROACH, "p0", pos(STONE)), Action(Skill.GRASP, "p0", pos(STONE)),
+            Action(Skill.MOVE_TO, "p2", pos(CARRY)), Action(Skill.PLACE, "p2", {"object": "p0", **pos(REGION)}),
+            Action(Skill.VERIFY, None, {"condition": "object_in_region", "object": "p0", "region": "p2"})]
+
+
+def _run(monkeypatch, plan):
     env, c, perception = _pipeline(monkeypatch)
     per_action = {}
-    plan = [Action(Skill.APPROACH, "p0"), Action(Skill.GRASP, "p0"), Action(Skill.MOVE_TO, "p2"),
-            Action(Skill.PLACE, "p2", {"object": "p0"}),
-            Action(Skill.VERIFY, None, {"condition": "object_in_region", "object": "p0", "region": "p2"})]
     for action in plan:
         start = len(perception.frames)
         result = c.execute(action, env, perception)
         assert result.success, (action.skill, result.info)
         per_action[action.skill] = _describes(perception, start)
-    # APPROACH 1 (the plan-time image: a prediction reuse in A), GRASP 1 (fresh
-    # localization), MOVE_TO 1, PLACE 2 (only its two-frame verification;
-    # the region comes from MOVE_TO), VERIFY 0 (PLACE's check reused).
-    assert per_action == {Skill.APPROACH: 1, Skill.GRASP: 1, Skill.MOVE_TO: 1,
-                          Skill.PLACE: 2, Skill.VERIFY: 0}
+    return per_action
 
 
-def test_approach_describes_before_the_arm_moves(monkeypatch):
+def test_call_sequence_of_a_compiled_plan(monkeypatch):
+    # B's compiler sets params.pos on APPROACH/GRASP/MOVE_TO/PLACE. APPROACH,
+    # MOVE_TO and PLACE never read a scene then; GRASP still re-localizes;
+    # PLACE keeps its two-frame verification; VERIFY reuses PLACE's check.
+    assert _run(monkeypatch, _plan(True)) == {Skill.APPROACH: 0, Skill.GRASP: 1, Skill.MOVE_TO: 0,
+                                             Skill.PLACE: 2, Skill.VERIFY: 0}
+
+
+def test_without_planned_positions_every_action_localizes(monkeypatch):
+    assert _run(monkeypatch, _plan(False)) == {Skill.APPROACH: 1, Skill.GRASP: 1, Skill.MOVE_TO: 1,
+                                              Skill.PLACE: 3, Skill.VERIFY: 0}
+
+
+def test_place_releases_at_the_region_not_at_the_carry_height(monkeypatch):
     env, c, perception = _pipeline(monkeypatch)
-    c.execute(Action(Skill.APPROACH, "p0"), env, perception)
-    kinds = [k for k, _ in env.log]
-    assert kinds.index("describe") < kinds.index("arm")
-    # ...and the described frame is the very first capture of the action.
-    assert env.log[0][0] == "obs" and env.log[1] == ("describe", env.log[0][1])
-
-
-def test_place_localizes_the_region_itself_when_moveto_did_not_precede(monkeypatch):
-    env, c, perception = _pipeline(monkeypatch)
-    env.attached, c._held_id = True, "p0"
-    start = len(perception.frames)
-    result = c.execute(Action(Skill.PLACE, "p2", {"object": "p0"}), env, perception)
-    assert result.success and _describes(perception, start) == 3
-
-
-def test_place_after_moveto_to_another_target_localizes_again(monkeypatch):
-    env, c, perception = _pipeline(monkeypatch)
-    env.attached, c._held_id = True, "p0"
-    c._diet_last = {"skill": Skill.MOVE_TO, "target": "p9", "pos": np.zeros(3), "frame_id": 1}
-    start = len(perception.frames)
-    assert c.execute(Action(Skill.PLACE, "p2", {"object": "p0"}), env, perception).success
-    assert _describes(perception, start) == 3
+    releases = []
+    monkeypatch.setattr(skills, "move_to", lambda env, pos: (releases.append(np.asarray(pos)), move_success(env, pos))[1])
+    for action in _plan(True)[:3]:
+        assert c.execute(action, env, perception).success
+    offset = c._held_offset.copy()
+    assert c.execute(_plan(True)[3], env, perception).success
+    # PLACE's move: region support point + 6 cm release height (not + carry clearance)
+    assert np.allclose(releases[-1], np.asarray(REGION) + [0, 0, c._RELEASE_HEIGHT_M] - offset)
 
 
 def test_verify_recaptures_when_anything_intervened_or_moved(monkeypatch):
