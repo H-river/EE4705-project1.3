@@ -11,6 +11,7 @@ from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, Groun
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
+from core.g1 import approach_base_pose
 from core.scene_geometry import table_aabb, table_center_xy
 from core.types import IMAGE_HEIGHT, IMAGE_WIDTH
 
@@ -339,8 +340,15 @@ class StudentCExecutor(ClosedLoopExecutor):
             )
 
         # 3. Run the reference motion primitive with body/table contact checks.
+        #    Final2 3.5: B's history guard may ask for a standoff rotated
+        #    around the target (params standoff_rotation_deg).
+        rotation = (action.params or {}).get("standoff_rotation_deg")
         try:
-            primitive_result = skills.approach(self._contact_guard(env), pos)
+            if rotation:
+                primitive_result = self._repark(env, pos, [float(rotation), -float(rotation)])
+                primitive_result.info["standoff_rotation_deg"] = float(rotation)
+            else:
+                primitive_result = skills.approach(self._contact_guard(env), pos)
         except _BodyTableContact as exc:
             recovered = self._restore_after_contact(env)
             if recovered:
@@ -439,6 +447,84 @@ class StudentCExecutor(ClosedLoopExecutor):
                 break
         return info
 
+    # Final2 3.5: rotated re-parking around a target.
+    _PARK_CLEAR_M = 0.15   # parking pose at least this far outside the table top
+    _PATH_CLEAR_M = 0.12   # every point of the base path at least this far
+
+    @staticmethod
+    def _table_clearance(xy):
+        """Distance from the table top's footprint (negative inside)."""
+        (x0, y0, _), (x1, y1, _) = table_aabb()
+        x, y = float(xy[0]), float(xy[1])
+        if x0 < x < x1 and y0 < y < y1:
+            return -min(x - x0, x1 - x, y - y0, y1 - y)
+        return math.hypot(max(x0 - x, 0.0, x - x1), max(y0 - y, 0.0, y - y1))
+
+    @classmethod
+    def _path_clearance(cls, a, b):
+        a, b = np.asarray(a, dtype=float)[:2], np.asarray(b, dtype=float)[:2]
+        n = max(2, int(np.linalg.norm(b - a) / 0.02) + 1)
+        return min(cls._table_clearance(a + (b - a) * t) for t in np.linspace(0.0, 1.0, n))
+
+    @classmethod
+    def _rotated_parking(cls, target, base, degrees):
+        t = np.asarray(target, dtype=float)[:2]
+        r = math.radians(degrees)
+        rot = np.array([[math.cos(r), -math.sin(r)], [math.sin(r), math.cos(r)]])
+        virtual = t + rot @ (np.asarray(base, dtype=float)[:2] - t)
+        return approach_base_pose(t, virtual)
+
+    @classmethod
+    def _base_legs(cls, base, pose):
+        """Straight, or via one axis-aligned waypoint, keeping _PATH_CLEAR_M."""
+        start, goal = (float(base[0]), float(base[1])), (pose[0], pose[1])
+        if cls._path_clearance(start, goal) >= cls._PATH_CLEAR_M:
+            return [pose]
+        for via in ((start[0], goal[1]), (goal[0], start[1])):
+            if min(cls._path_clearance(start, via), cls._path_clearance(via, goal)) >= cls._PATH_CLEAR_M:
+                return [(via[0], via[1], float(base[2])), pose]
+        return None
+
+    def _repark(self, env, target, rotations):
+        """Drive the base (contact-guarded) to the parking pose of ``target``
+        with the approach direction rotated by the first of ``rotations``
+        (degrees) whose pose and path stay clear of the table; best clearance first."""
+        base = np.asarray(env.get_base_pose(), dtype=float)
+        options = []
+        for deg in rotations:
+            pose = self._rotated_parking(target, base, deg)
+            legs = self._base_legs(base, pose)
+            options.append((self._table_clearance(pose[:2]), deg, pose, legs))
+        options.sort(key=lambda o: -o[0])
+        info = {"primitive": "repark", "options": [{"rotation_deg": d, "clearance_m": round(c, 3),
+                                                    "path_ok": l is not None} for c, d, _, l in options]}
+        chosen = next((o for o in options if o[0] >= self._PARK_CLEAR_M and o[3] is not None), None)
+        if chosen is None:
+            return SkillResult(False, ErrorCode.UNREACHABLE, {**info, "detail": "no clear rotated parking pose"})
+        _, deg, pose, legs = chosen
+        info.update(rotation_deg=deg, pose=[round(v, 3) for v in pose], legs=len(legs))
+        guard = self._contact_guard(env)
+        try:
+            for leg in legs:
+                env.set_base_target(*leg)
+
+                def arrived(leg=leg):
+                    b = env.get_base_pose()
+                    yaw = math.atan2(math.sin(b[2] - leg[2]), math.cos(b[2] - leg[2]))
+                    return (math.hypot(b[0] - leg[0], b[1] - leg[1]) < skills.BASE_POS_TOL
+                            and abs(yaw) < skills.BASE_YAW_TOL)
+
+                if not skills._step_until(guard, arrived, timeout_s=skills.DEFAULT_TIMEOUT_S):
+                    env.stop_motion()
+                    return SkillResult(False, ErrorCode.TIMEOUT, {**info, "detail": "re-parking timed out"})
+        except _BodyTableContact as exc:
+            self._restore_after_contact(env)
+            return SkillResult(False, ErrorCode.TIMEOUT, {**info, "detail": "table contact while re-parking",
+                                                          "contacts": exc.contacts})
+        env.stop_motion()
+        env.step(100)
+        return SkillResult(True, ErrorCode.NONE, info)
+
 #REACH function: move the TCP to the target's current position, then independently confirm the measured position actually got there.
     def _reach(self, action, env, perception):
         """REACH: move the TCP to the target's current position, then
@@ -462,6 +548,7 @@ class StudentCExecutor(ClosedLoopExecutor):
 
         attempts = []
         primitive = None
+        self._reparked = False
         for attempt in range(self.grasp_attempts):  # inherited default: 2
             # Rule: never grasp against an old/cached position — re-observe every attempt.
             obs = env.get_obs()
@@ -479,7 +566,9 @@ class StudentCExecutor(ClosedLoopExecutor):
                                        info={"detail": "GRASP target is not an object"})
 
             prev = self._diet_prev or {}
-            if attempt == 0 and prev.get("skill") is Skill.APPROACH and prev.get("target") == action.target:
+            if attempt > 0 and getattr(self, "_reparked", False):
+                pos = np.asarray(target.pos_world, dtype=float)  # 3.5: the base moved; fresh position
+            elif attempt == 0 and prev.get("skill") is Skill.APPROACH and prev.get("target") == action.target:
                 # Final2 3.1: APPROACH had to turn to see the target; the base
                 # turned since the plan, so grasp at the FRESH position.
                 pos = np.asarray(target.pos_world, dtype=float)
@@ -538,6 +627,22 @@ class StudentCExecutor(ClosedLoopExecutor):
                 # skills.grasp() claimed success but nothing is attached — don't trust it.
                 primitive = SkillResult(False, ErrorCode.GRASP_MISSED, {"detail": "No attachment after grasp"})
 
+            if (primitive.error_code is ErrorCode.UNREACHABLE and attempt + 1 < self.grasp_attempts
+                    and not env.is_attached()):
+                # Final2 3.5: out of reach from this parking pose (f38/f41: a
+                # bottle in the far table corner; the front parking pose hits
+                # the table). Re-park with the approach direction rotated
+                # 90 deg around the target, then re-observe and grasp there.
+                env.stop_motion()
+                self._arm_tucked = False
+                tuck, _ = self._tuck_arm(action, env)
+                park = self._repark(env, pos, [90.0, -90.0]) if tuck is None else tuck
+                attempts[-1]["repark"] = {"success": park.success, **{k: v for k, v in park.info.items()
+                                                                      if k != "contacts"}}
+                if not park.success:
+                    break
+                self._reparked = True
+                continue
             if primitive.error_code is not ErrorCode.GRASP_MISSED or attempt + 1 == self.grasp_attempts:
                 break  # not a retryable failure, or out of attempts
             env.stop_motion()  # cancel the failed reach before retrying
