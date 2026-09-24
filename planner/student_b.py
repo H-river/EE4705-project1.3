@@ -50,6 +50,7 @@ class StudentBPlanner(Planner):
         self._episode_id = uuid4().hex
         self._call_index = 0
         self.last_diagnostics = None
+        self.rationales = []  # E3: one entry per planning call, for the trial record
         if hasattr(self, "memory"):
             self.memory.reset()
 
@@ -83,6 +84,13 @@ class StudentBPlanner(Planner):
         if key:
             text = text.replace(key, "[REDACTED]")
         return json.loads(text)
+
+    def _rationale(self, audit, response, status):
+        parsed = getattr(response, "parsed", None) if response is not None else None
+        text = parsed.get("rationale", "") if isinstance(parsed, dict) else ""
+        audit["rationale"] = text or None
+        self.rationales.append({"call": self._call_index, "status": status, "rationale": text or None,
+                                "used_memory_for": audit.get("used_memory_for")})
 
     def _save(self, audit):
         path = self.audit_root / self._episode_id / f"{self._call_index:03d}.json"
@@ -182,6 +190,7 @@ class StudentBPlanner(Planner):
                 audit.update(accepted=True, compiled_plan=json_value(plan), goal=goal,
                              repair_count=attempt, first_pass_valid=(attempt == 0),
                              normalization_count=len(normalizations))
+                self._rationale(audit, response, plan.status.value)
                 self._save(audit)
                 return plan
         audit.update(error=last_error, repair_count=max(0, len(audit["responses"]) - 1))
@@ -190,6 +199,7 @@ class StudentBPlanner(Planner):
             # REJECTED plan lets the orchestrator replan instead of ERROR.
             plan = Plan(status=PlanStatus.REJECTED, reason=f"Planner output rejected by the contract: {last_error}")
             audit["compiled_plan"] = json_value(plan)
+            self._rationale(audit, response, plan.status.value)
             self._save(audit)
             return plan
         self._save(audit)

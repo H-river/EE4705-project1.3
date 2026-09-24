@@ -289,6 +289,10 @@ def _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store, e
     t0 = time.monotonic()
     episode = orch.run(record.instruction)
     record.timings["wall_s"] = time.monotonic() - t0
+    planner = getattr(orch, "planner", None)
+    planner = getattr(planner, "inner", planner)  # --video wraps B in an observer
+    if getattr(planner, "rationales", None) is not None:
+        record.extra["b_rationales"] = list(planner.rationales)  # E3
     for role, client in (clients or {}).items():
         stats = getattr(client, "stats", None)
         if stats is not None:

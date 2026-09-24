@@ -154,7 +154,7 @@ def _stage_result(name, plan, planner, errors, expected, context, initial_scene)
             first_errors = [str(exc)]
     return {"name": name, "plan": json_value(plan), "goal": planner.goal, "errors": errors,
             "first_response_correct": not first_errors, "first_response_errors": first_errors,
-            "repair_count": audit["repair_count"], "normalization_count": audit.get("normalization_count", 0),
+            "repair_count": audit["repair_count"], "rationale": audit.get("rationale"), "normalization_count": audit.get("normalization_count", 0),
             "audit_path": audit["audit_path"],
             "cached_responses": sum(bool(r["response"] and r["response"]["cached"]) for r in audit["responses"])}
 

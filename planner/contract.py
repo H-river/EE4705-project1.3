@@ -33,6 +33,10 @@ WIRE_SCHEMA = _object({
     "reason": {"type": "string", "maxLength": 1000},
     "clarification_question": {"type": "string", "maxLength": 500},
 })
+# E3: optional short rationale for the chosen status (the model writes 1-4
+# sentences; a 300-char cap turned 2/32 valid plans into REJECTED). Optional so that
+# recorded replies without it stay valid; it never affects the compiled plan.
+WIRE_SCHEMA["properties"]["rationale"] = {"type": "string", "maxLength": 1000}
 
 
 class PlanContractError(ValueError):
