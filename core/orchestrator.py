@@ -54,6 +54,7 @@ class OrchestratorConfig:
     max_action_attempts: int = 2  # attempts per action (1 initial + retries)
     max_total_actions: int = 40  # overall execution bound
     max_total_plans: int = 10  # overall planning bound (includes clarifications)
+    verification_arbitration: bool = False  # final2 6.7: third view when the two frames disagree
 
 
 @dataclass
@@ -376,6 +377,7 @@ class Orchestrator:
         if grasp_target is None or place_region is None:
             return VerificationResult(False, "object_in_region",
                                       detail="no completed grasp+place to verify")
-        verification = verify_placement(self.env, self.perception, grasp_target, place_region)
+        verification = verify_placement(self.env, self.perception, grasp_target, place_region,
+                                        arbitrate=self.config.verification_arbitration)
         self._mark(verification.frame_id)
         return verification

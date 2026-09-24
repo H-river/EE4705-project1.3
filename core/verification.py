@@ -60,12 +60,22 @@ def check_placement(scene: SceneDescription, object_id: str, region_id: str,
     return verdict(ok, f"offset xyz={delta.round(4).tolist()}, half extents={list(half)}")
 
 
+ARBITRATION_YAW_RAD = np.radians(15.0)
+
+
 def verify_placement(env: RobotEnvProtocol, perception: Perception,
-                     object_id: str, region_id: str) -> VerificationResult:
+                     object_id: str, region_id: str, *, arbitrate: bool = False) -> VerificationResult:
     """Two fresh visual checks 0.2 simulated seconds apart, with release,
     height, footprint and <=2 cm object drift required at both checks.
     The evaluator separately performs its longer ground-truth stability test.
+
+    Final2 6.7 (``arbitrate``, off by default): when the two frames disagree
+    (one passes, the other fails), a third frame is taken from a view with the
+    base turned 15 deg; it decides only if it passes AND agrees with the passing
+    frame on position; otherwise the result is UNDETERMINED (passed=None).
     """
+    if arbitrate:
+        return _arbitrated(env, perception, object_id, region_id)
     first = None
     for sample in range(2):
         if sample:
@@ -92,3 +102,56 @@ def verify_placement(env: RobotEnvProtocol, perception: Perception,
         first = obj.name, np.asarray(obj.pos_world).copy(), region.name
     result.detail += f"; released and stable across {VISUAL_STABILITY_S}s"
     return result
+
+
+def _observe_check(env, perception, object_id, region_id):
+    obs = env.get_obs()
+    scene = perception.describe(obs)
+    if scene.frame_id != obs.frame_id or abs(scene.sim_time - obs.sim_time) > 1e-9:
+        return VerificationResult(False, "object_in_region", "stale scene observation", obs.frame_id), None
+    if CONTENT_FILTERED_NOTE in scene.ambiguities:
+        return VerificationResult(None, "object_in_region", CONTENT_FILTERED_NOTE, obs.frame_id, source="vision"), None
+    result = check_placement(scene, object_id, region_id, attached=env.is_attached())
+    obj = scene.find(object_id)
+    return result, (np.asarray(obj.pos_world, dtype=float) if result.passed else None)
+
+
+def _arbitrated(env, perception, object_id, region_id):
+    """Both frames are always checked; see verify_placement(arbitrate=True)."""
+    first, p1 = _observe_check(env, perception, object_id, region_id)
+    env.step(max(1, int(round(VISUAL_STABILITY_S / env.timestep()))))
+    second, p2 = _observe_check(env, perception, object_id, region_id)
+    if first.passed is None or second.passed is None:
+        return first if first.passed is None else second
+    if first.passed and second.passed:
+        drift = float(np.linalg.norm(p2 - p1))
+        if drift > STABILITY_DRIFT_M:
+            return VerificationResult(False, "object_in_region", f"object drift {drift:.4f} m", second.frame_id)
+        second.detail += f"; released and stable across {VISUAL_STABILITY_S}s"
+        return second
+    if not first.passed and not second.passed:
+        return second
+    # Disagreement: a third view from a base turned 15 deg (and back).
+    passing, ppos = (first, p1) if first.passed else (second, p2)
+    base = np.asarray(env.get_base_pose(), dtype=float)
+    env.set_base_target(float(base[0]), float(base[1]), float(base[2] + ARBITRATION_YAW_RAD))
+    for _ in range(200):
+        env.step(10)
+        b = env.get_base_pose()
+        if abs(np.arctan2(np.sin(b[2] - base[2] - ARBITRATION_YAW_RAD), np.cos(b[2] - base[2] - ARBITRATION_YAW_RAD))) < 0.05:
+            break
+    env.stop_motion()
+    third, p3 = _observe_check(env, perception, object_id, region_id)
+    env.set_base_target(float(base[0]), float(base[1]), float(base[2]))
+    for _ in range(200):
+        env.step(10)
+        b = env.get_base_pose()
+        if abs(np.arctan2(np.sin(b[2] - base[2]), np.cos(b[2] - base[2]))) < 0.05:
+            break
+    env.stop_motion()
+    if third.passed and float(np.linalg.norm(p3 - ppos)) <= STABILITY_DRIFT_M:
+        third.detail += "; two of three frames agree (third from a view turned 15 deg)"
+        return third
+    return VerificationResult(None, "object_in_region",
+                              f"UNDETERMINED: frames disagree ({first.detail} / {second.detail} / third: {third.detail})",
+                              third.frame_id, source="vision")
