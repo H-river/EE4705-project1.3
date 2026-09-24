@@ -467,3 +467,132 @@ c_2_08 could not be rerun, so this uses the round-6 run plus a **0-call, cache-o
 3. **SEARCH ping-pong K5** (c_2_10): object and region are never localized in the same frame.
 4. **C transport contact** (c_2_08): see step 5.
 5. **Regression check:** run the 12 successful trials once on the round-7 code.
+
+## 13. Final (2026-09-24, unattended 5-hour run, branch `e2e`)
+
+**Result: `SCORE 40/50 false_claims=0`**. The target was ≥ 43/50, so it was **missed by 3**. The tag is `final-40` on `3ba1a37`, the RUN 1 code. Manipulation trials (claimed ∧ achieved): **37/47**. Reject/clarify trials with the expected outcome: **3/3** (f05 clarify, f49 reject, f50 clarify). **0 false claims** in both full runs. Log: `runs/final/PROGRESS.md`. Calls: `runs/final/CALLS.txt` (2288 live attempts in total; RUN 1 903, RUN 2 836).
+
+Scoring, fixed before RUN 1:
+- "Correct" for a success trial means claimed ∧ achieved (oracle).
+- A reject trial is correct when the outcome is REFUSED.
+- A clarify trial is correct when a clarification was asked, its scripted answer consumed, and the task then claimed and achieved.
+
+### What this run changed
+- **Memory ownership moved to B** (see CHANGES "Memory ownership: B"). `planner/memory.py` remembers where each instance was last LOCALIZED. When the bound goal region is out of view, B plans from the remembered region (≤ 40 frames old, ≤ 0.5 m of base motion). It never recalls the object to grasp or a held or released instance. A lost its `memory_*` attributes and `recall()`; C lost its disabled search memory. B planned from memory in 23/110 of its RUN 1 calls (median age 17 frames).
+- **Final 50-trial set** `eval/trials/final50`: the 35 earlier e2e trials plus 15 new ones (6 jittered scenes, 5 paraphrases, 2 two-stone scenes that name the colour, 1 reject, 1 clarify).
+- **`eval.runner --jobs N`**: fresh subprocess per trial, 2700 s kill, rerun on provider errors, merged table and score. A full 50-trial run takes 17 min with 4 lanes. There was no HTTP 429 and no provider rerun in either run.
+- **B runs with `EE4705_QWEN_THINKING=false`**. On the 32-case planning gate (cache off) it scored 31/32, against 32/32 with thinking on. Mean latency per case fell from 17.6 s to 5.9 s (−66 %) and output tokens by 72 %.
+- **Planning-suite scoring**: a SEARCH target `"<goal colour> <class>"` now counts as its class label. The round-7 change produces these targets, and 4 correct plans had been scored as failures (#26).
+
+### Confusion matrix, manipulation trials (47)
+
+| | achieved | not achieved |
+|---|---|---|
+| **RUN 1 claimed** | 37 | **0** |
+| **RUN 1 not claimed** | 1 (f14) | 9 |
+| **RUN 2 claimed** | 35 | **0** |
+| **RUN 2 not claimed** | 3 | 9 |
+
+Correct refusals: 1/1 (f49, stacking). Correct clarifications: 2/2 (f05, f50).
+
+### RUN 1 vs RUN 2
+
+| | RUN 1 (`3ba1a37`) | RUN 2 (`79c70fe`, + STAGE F fixes 1 and 2) |
+|---|---|---|
+| score | **40/50** | 38/50 |
+| false claims | 0 | 0 |
+| manipulation | 37/47 | 35/47 |
+| live attempts | 903 | 836 |
+
+- **Gained in RUN 2:** f25, because of fix 1: the bottle grasp attached with `out_of_view_after_approach=true`. f19 was model variance (B bound "red stone").
+- **Lost in RUN 2:** f15, f24, f28, all bottle trials whose MOVE_TO used fix 2's standoff parking and then failed at PLACE/VERIFY. f17 hit table contacts during the fix-2 carry.
+- RUN 2 < RUN 1, so both fixes were reverted (`ba7b98d`, `31d6f23`).
+- **Untested candidate:** fix 1 alone (`git revert 31d6f23`).
+
+### Kept / reverted in this run
+
+| commit | what | status |
+|---|---|---|
+| `020e901` [B] | EpisodeMemory in B; PLACE+pos validation for an out-of-view region | kept |
+| `63b0c32` [A-fix] | A: no memory_* attributes / recall() | kept |
+| `9867d99` [C-fix] | C: disabled search memory deleted | kept |
+| `deb29f8` [B] | planning suite: coloured SEARCH target matches its class label | kept |
+| `10601aa` / `54e9dbf` / `ddef524` / `3ba1a37` [chore] | final50 set, `--jobs` runner, final_run.sh, thinking off | kept |
+| `70c6bb1` [C-fix] | GRASP at the planned position when parking took the target out of view | **reverted** (`31d6f23`) |
+| `79c70fe` [C-fix] | carry parking ≥ 0.25 m from the table + one contact retry | **reverted** (`ba7b98d`) |
+
+Full rows (#23–#34) are in `docs/night_run/CHANGES.md`.
+
+### RUN 1 per-trial table (tagged run) with RUN 2 column
+
+| # | trial | expected | RUN 1 outcome | claimed | actual | correct | wall s | calls A/B | module | cause (manual for failures) | RUN 2 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | f01_smoke_1_standard | success | CLAIMED_SUCCESS | True | True | ✔ | 52.0 | 10/1 | - |  | ✔ |
+| 2 | f02_smoke_2_scene_variation | success | CLAIMED_SUCCESS | True | True | ✔ | 40.3 | 10/1 | - |  | ✔ |
+| 3 | f03_smoke_3_instruction_variation | success | CLAIMED_SUCCESS | True | True | ✔ | 44.5 | 10/1 | - |  | ✔ |
+| 4 | f04_smoke_4_search | success | CLAIMED_SUCCESS | True | True | ✔ | 87.1 | 16/2 | - |  | ✔ |
+| 5 | f05_smoke_5_clarification | clarify | CLAIMED_SUCCESS | True | True | ✔ | 60.1 | 10/2 | - |  | ✔ |
+| 6 | f06_c_01_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 47.1 | 10/1 | - |  | ✔ |
+| 7 | f07_c_02_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 52.0 | 10/1 | - |  | ✔ |
+| 8 | f08_c_03_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 61.4 | 10/1 | - |  | ✔ |
+| 9 | f09_c_04_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 49.2 | 10/1 | - |  | ✔ |
+| 10 | f10_c_05_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 116.4 | 17/2 | - |  | ✔ |
+| 11 | f11_c_06_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 71.8 | 10/1 | - |  | ✔ |
+| 12 | f12_c_07_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 65.4 | 10/1 | - |  | ✔ |
+| 13 | f13_c_08_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 58.5 | 10/1 | - |  | ✔ |
+| 14 | f14_c_09_bottle | success | FAILED | False | True | ✘ | 237.8 | 40/10 | A | bottle released inside the region (oracle: actual=True), but C's PLACE check and the final verification never saw the exact bottle/region instances; the re-grasp loop then went TARGET_LOST | ✘ FAILED |
+| 15 | f15_c_10_bottle | success | CLAIMED_SUCCESS | True | True | ✔ | 81.1 | 12/1 | - |  | ✘ FAILED |
+| 16 | f16_c_2_01_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 53.5 | 10/1 | - |  | ✔ |
+| 17 | f17_c_2_02_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 59.0 | 10/1 | - |  | ✘ CLARIFICATION_EXHAUSTED |
+| 18 | f18_c_2_03_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 51.3 | 10/1 | - |  | ✔ |
+| 19 | f19_c_2_04_stone | success | CLARIFICATION_EXHAUSTED | False | False | ✘ | 11.0 | 1/1 | B | "red stone" vs A colour "dark_red": B asked which stone; no scripted answer | ✔ |
+| 20 | f20_c_2_05_stone | success | SEARCH_EXHAUSTED | False | False | ✘ | 107.0 | 27/2 | B | goal colour "red" ≠ A colour "dark_red": SEARCH("red stone") can never match | ✘ SEARCH_EXHAUSTED |
+| 21 | f21_c_2_06_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 64.1 | 10/1 | - |  | ✔ |
+| 22 | f22_c_2_07_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 53.3 | 10/1 | - |  | ✔ |
+| 23 | f23_c_2_08_cube | success | CLARIFICATION_EXHAUSTED | False | False | ✘ | 53.6 | 6/2 | C | torso–table contact on both MOVE_TO attempts (parking 0.125 m from the table box); A then re-IDed the held cube and B asked about it | ✘ CLARIFICATION_EXHAUSTED |
+| 24 | f24_c_2_09_bottle | success | CLAIMED_SUCCESS | True | True | ✔ | 60.2 | 11/1 | - |  | ✘ FAILED |
+| 25 | f25_c_2_10_bottle | success | LIMIT_EXCEEDED | False | False | ✘ | 172.7 | 33/11 | C | after APPROACH the bottle (0.35,−0.35) left the head view; every GRASP raised TARGET_LOST | ✔ |
+| 26 | f26_c_eval_01_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 56.4 | 17/2 | - |  | ✔ |
+| 27 | f27_c_eval_02_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 62.0 | 10/1 | - |  | ✔ |
+| 28 | f28_c_eval_03_bottle | success | CLAIMED_SUCCESS | True | True | ✔ | 65.1 | 12/1 | - |  | ✘ FAILED |
+| 29 | f29_c_eval_04_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 46.5 | 10/1 | - |  | ✔ |
+| 30 | f30_c_eval_05_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 47.1 | 10/1 | - |  | ✔ |
+| 31 | f31_c_eval_06_bottle | success | LIMIT_EXCEEDED | False | False | ✘ | 237.7 | 69/10 | A | PLACE released the bottle in the region xy, but it fell over; PLACE check never saw the instances; re-grasp loop | ✘ FAILED |
+| 32 | f32_c_eval_07_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 46.2 | 10/1 | - |  | ✔ |
+| 33 | f33_c_eval_08_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 47.8 | 10/1 | - |  | ✔ |
+| 34 | f34_c_eval_09_bottle | success | SEARCH_EXHAUSTED | False | False | ✘ | 90.7 | 35/3 | A | bottle at the far edge is top-clipped in every SEARCH view: "clipped object centre is below the table top" → UNLOCALIZED | ✘ SEARCH_EXHAUSTED |
+| 35 | f35_c_eval_10_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 40.7 | 10/1 | - |  | ✔ |
+| 36 | f36_scene_var_501_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 39.9 | 10/1 | - |  | ✔ |
+| 37 | f37_scene_var_502_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 42.0 | 10/1 | - |  | ✔ |
+| 38 | f38_scene_var_503_bottle | success | SEARCH_EXHAUSTED | False | False | ✘ | 93.2 | 30/3 | C | far bottle (x≈0.56): GRASP reach stopped 3 cm high ("nothing_in_range"), then out of view | ✘ SEARCH_EXHAUSTED |
+| 39 | f39_scene_var_504_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 60.9 | 19/2 | - |  | ✔ |
+| 40 | f40_scene_var_505_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 46.7 | 10/1 | - |  | ✔ |
+| 41 | f41_scene_var_506_bottle | success | LIMIT_EXCEEDED | False | False | ✘ | 169.2 | 48/11 | C | bottle out of head view after APPROACH → GRASP TARGET_LOST loop | ✘ SEARCH_EXHAUSTED |
+| 42 | f42_paraphrase_1_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 39.6 | 10/1 | - |  | ✔ |
+| 43 | f43_paraphrase_2_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 37.2 | 10/1 | - |  | ✔ |
+| 44 | f44_paraphrase_3_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 43.9 | 10/1 | - |  | ✔ |
+| 45 | f45_paraphrase_4_bottle | success | LIMIT_EXCEEDED | False | False | ✘ | 200.0 | 56/12 | C | bottle out of head view after APPROACH → GRASP TARGET_LOST loop | ✘ SEARCH_EXHAUSTED |
+| 46 | f46_paraphrase_5_cube | success | CLAIMED_SUCCESS | True | True | ✔ | 51.3 | 10/1 | - |  | ✔ |
+| 47 | f47_two_stones_colour_stone | success | CLAIMED_SUCCESS | True | True | ✔ | 41.9 | 10/1 | - |  | ✔ |
+| 48 | f48_two_stones_colour_stone2 | success | CLAIMED_SUCCESS | True | True | ✔ | 103.7 | 28/4 | - |  | ✔ |
+| 49 | f49_reject_stack | reject | REFUSED | False | None | ✔ | 7.2 | 1/1 | - |  | ✔ |
+| 50 | f50_clarify_two_stones | clarify | CLAIMED_SUCCESS | True | True | ✔ | 43.1 | 11/2 | - |  | ✔ |
+
+### Attribution and cause histogram (RUN 1, 10 incorrect)
+
+By module: **C 5 · A 3 · B 2** (manual; the automatic first pass is in `runs/final/run_1/E2E_TABLE.md`).
+
+| cause | trials | module |
+|---|---|---|
+| Bottle leaves the head view after APPROACH, so GRASP raises TARGET_LOST in a loop | 3 (f25, f41, f45) | C (parking) |
+| Bottle at the far edge: reach stops short / top-clipped in every SEARCH view | 2 (f38, f34) | C / A |
+| Bottle released on the region but PLACE check / final verification never sees the instances (one fell over) | 2 (f14, f31) | A |
+| "red stone" vs A colour `dark_red` (clarification / SEARCH never matches) | 2 (f19, f20) | B |
+| Torso–table contact during carry (MOVE_TO) | 1 (f23) | C |
+
+Seven of the ten failures are bottle trials. Every trial with a stone or cube and no colour clash succeeded.
+
+### Open items per module
+- **A**: tall objects near the image edge. Top-clipped bottle → "clipped object centre is below the table top". After a release the exact instance often isn't seen (bottle on the red region).
+- **B**: map instruction colours to A's palette through the public vocabulary ("red stone" is a synonym of the `dark_red` stone). This is not in the STAGE F list, so it wasn't done; it would address f19/f20. Memory is region-only.
+- **C**: parking next to a bottle at the table's front-right edge takes it out of the head view (fix 1 addresses this; it's untested alone). Far-edge reach limit (x ≈ 0.56). Carry contact (f23; fix 2 did not solve it and hurt bottles).
