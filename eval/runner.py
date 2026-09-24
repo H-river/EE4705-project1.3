@@ -3,7 +3,8 @@
 
 Usage:
     python -m eval.runner --mode {grounding,planning,manipulation,e2e} \
-        --trials eval/trials/smoke [--mock-all] [--out runs] [--video]
+        --trials eval/trials/smoke [--mock-all] [--out runs] [--video] \
+        [--jobs N] [--only id1,id2] [--no-cache] [--trial-timeout S]
 
 Modes select which Student modules are REAL (the others are backbone
 mocks):
@@ -238,6 +239,7 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     store = ObservationStore(persist_dir=trial_dir / "frames")
     env = RobotEnv(world, store=store)
     perception, planner, executor, module_config = build_modules(mode, mock_all, world, oracle, fault)
+    perception_module = perception
     if hasattr(planner, "base_pose_source"):
         # Public proprioception only: lets B expire remembered positions after base motion.
         planner.base_pose_source = env.get_base_pose
@@ -271,9 +273,10 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     else:
         orch = Orchestrator(perception, planner, spy, env, clarifier,
                             config=OrchestratorConfig(), store=store)
+    clients = {"A": getattr(perception_module, "client", None), "B": getattr(planner, "client", None)}
     try:
         record, failures = _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store,
-                                           expected, trial_dir, recorder)
+                                           expected, trial_dir, recorder, clients)
     finally:
         if recorder is not None:
             world.recorder = None
@@ -281,10 +284,15 @@ def run_trial(trial: dict, mode: str, mock_all: bool, run_dir: pathlib.Path,
     return record, failures
 
 
-def _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store, expected, trial_dir, recorder):
+def _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store, expected, trial_dir, recorder,
+                    clients=None):
     t0 = time.monotonic()
     episode = orch.run(record.instruction)
     record.timings["wall_s"] = time.monotonic() - t0
+    for role, client in (clients or {}).items():
+        stats = getattr(client, "stats", None)
+        if stats is not None:
+            record.api_stats[role] = stats.as_dict()
     record.timings["sim_end_s"] = world.sim_time
 
     record.outcome = episode.outcome.value
@@ -357,9 +365,34 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("runs"))
     parser.add_argument("--video", action="store_true",
                         help="record each episode with demo/recording.py (episode.mp4 + episode.json)")
+    parser.add_argument("--jobs", type=int, default=1,
+                        help="N > 1: run trials in N parallel lanes of fresh subprocesses (eval.parallel); "
+                             "--out is then the run root (job_<k>/, merged/, E2E_TABLE.md)")
+    parser.add_argument("--only", default="",
+                        help="comma-separated trial ids to run from --trials")
+    parser.add_argument("--no-cache", action="store_true",
+                        help="disable the A and B response caches (every model call is live)")
+    parser.add_argument("--trial-timeout", type=float, default=2700.0,
+                        help="--jobs only: wall-clock kill per trial, seconds (1.5 x the 1800 s trial cap)")
     args = parser.parse_args(argv)
 
+    if args.no_cache:
+        import os
+
+        os.environ["EE4705_QWEN_CACHE_DIR"] = ""  # QwenPlannerConfig: "" -> no cache
+        os.environ["EE4705_VLM_CACHE_DIR"] = ""  # VisionConfig: "" -> no cache
     trials = load_trials(args.trials)
+    if args.only:
+        wanted = [t.strip() for t in args.only.split(",") if t.strip()]
+        trials = [t for t in trials if str(t.get("id", pathlib.Path(t["_path"]).stem)) in wanted]
+        missing = set(wanted) - {str(t.get("id", pathlib.Path(t["_path"]).stem)) for t in trials}
+        if missing:
+            print(f"ERROR: unknown trial id(s): {sorted(missing)}", file=sys.stderr)
+            return 2
+    if args.jobs > 1:
+        from eval.parallel import run_parallel
+
+        return run_parallel(args, trials)
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = args.out / f"{stamp}_{args.mode}{'_mockall' if args.mock_all else ''}"
     n = 1
