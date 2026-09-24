@@ -85,15 +85,17 @@ def _run(monkeypatch, plan):
 
 
 def test_call_sequence_of_a_compiled_plan(monkeypatch):
-    # B's compiler sets params.pos on APPROACH/GRASP/MOVE_TO/PLACE. APPROACH,
-    # MOVE_TO and PLACE never read a scene then; GRASP still re-localizes;
-    # PLACE keeps its two-frame verification; VERIFY reuses PLACE's check.
-    assert _run(monkeypatch, _plan(True)) == {Skill.APPROACH: 0, Skill.GRASP: 1, Skill.MOVE_TO: 0,
+    # B's compiler sets params.pos on APPROACH/GRASP/MOVE_TO/PLACE. APPROACH
+    # (target) and MOVE_TO and PLACE (release aim) never read a scene for
+    # it; APPROACH looks once from the parking pose (final2 3.1), and GRASP's
+    # capture of that same instant is a prediction reuse in A. PLACE keeps
+    # its two-frame verification; VERIFY reuses PLACE's check.
+    assert _run(monkeypatch, _plan(True)) == {Skill.APPROACH: 1, Skill.GRASP: 1, Skill.MOVE_TO: 0,
                                              Skill.PLACE: 2, Skill.VERIFY: 0}
 
 
 def test_without_planned_positions_every_action_localizes(monkeypatch):
-    assert _run(monkeypatch, _plan(False)) == {Skill.APPROACH: 1, Skill.GRASP: 1, Skill.MOVE_TO: 1,
+    assert _run(monkeypatch, _plan(False)) == {Skill.APPROACH: 2, Skill.GRASP: 1, Skill.MOVE_TO: 1,
                                               Skill.PLACE: 3, Skill.VERIFY: 0}
 
 

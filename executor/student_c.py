@@ -362,6 +362,20 @@ class StudentCExecutor(ClosedLoopExecutor):
         env.stop_motion()
         env.step(100)
 
+        # 4b. Final2 3.1: is the target in view from the parking pose? RUN 5
+        #     f25: the bottle was cut off at the right image edge after
+        #     parking and GRASP failed TARGET_LOST four times. If A cannot
+        #     localize it, turn toward it. GRASP's own capture right after
+        #     this one is the same instant, so A reuses this answer (no call).
+        turn = None
+        if primitive_result.success and action.target:
+            try:
+                turn = self._look_for_target(action, env, perception)
+            except TargetResolutionError as exc:
+                turn = {"steps": 0, "detail": str(exc)}  # parking itself succeeded
+            if turn.get("steps"):
+                self._diet_last = {"skill": Skill.APPROACH, "target": action.target, "turned": turn}
+
         # 5. Convert SkillResult -> ExecutionResult.
         post = env.get_obs()
         return ExecutionResult(
@@ -369,8 +383,60 @@ class StudentCExecutor(ClosedLoopExecutor):
             success=primitive_result.success,
             error_code=primitive_result.error_code,
             post_frame_id=post.frame_id,
-            info={**primitive_result.info, "arm_tucked": True, "tuck_error_m": tuck_error},
+            info={**primitive_result.info, "arm_tucked": True, "tuck_error_m": tuck_error,
+                  **({"turned_to_find": turn} if turn and turn.get("steps") else {})},
         )
+
+    _TURN_STEP_RAD = math.radians(20)
+    _TURN_MAX_STEPS = 3
+
+    @staticmethod
+    def _localized(scene, target):
+        ref = scene.find(target or "") if scene is not None else None
+        return ref is not None and ref.status is GroundStatus.LOCALIZED and ref.pos_world is not None
+
+    def _look_for_target(self, action, env, perception):
+        """Final2 3.1: after parking, turn the base in place toward the planned
+        target position in <= 20 deg steps (at most 3) until A localizes it.
+        Never grasps; returns what happened."""
+        scene = self._scene(env, perception)
+        info = {"steps": 0, "found": self._localized(scene, action.target)}
+        if info["found"]:
+            return info
+        base = np.asarray(env.get_base_pose(), dtype=float)
+        planned = (action.params or {}).get("pos")
+        bearing = 0.0
+        if planned is not None:
+            bearing = math.atan2(planned[1] - base[1], planned[0] - base[0]) - base[2]
+            bearing = math.atan2(math.sin(bearing), math.cos(bearing))
+        # Parking puts the target ahead-right, so without a clear bearing turn right.
+        direction = 1.0 if bearing > math.radians(5) else -1.0
+        info.update(direction="left" if direction > 0 else "right", bearing_deg=math.degrees(bearing))
+        guard = self._contact_guard(env)
+        for step in range(1, self._TURN_MAX_STEPS + 1):
+            yaw = float(base[2] + direction * self._TURN_STEP_RAD * step)
+            env.set_base_target(float(base[0]), float(base[1]), yaw)
+
+            def turned():
+                b = env.get_base_pose()
+                return abs(math.atan2(math.sin(b[2] - yaw), math.cos(b[2] - yaw))) < skills.BASE_YAW_TOL
+
+            try:
+                ok = skills._step_until(guard, turned, timeout_s=4.0, chunk=1)
+            except _BodyTableContact as exc:
+                info.update(contact=True, contacts=exc.contacts)
+                self._restore_after_contact(env)
+                break
+            env.stop_motion()
+            env.step(50)
+            info["steps"] = step
+            if not ok:
+                info["detail"] = "turn timed out"
+                break
+            if self._localized(self._scene(env, perception), action.target):
+                info["found"] = True
+                break
+        return info
 
 #REACH function: move the TCP to the target's current position, then independently confirm the measured position actually got there.
     def _reach(self, action, env, perception):
@@ -410,7 +476,13 @@ class StudentCExecutor(ClosedLoopExecutor):
                 return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
                                        info={"detail": "GRASP target is not an object"})
 
-            pos = resolve_action_position(action, scene)  # world meters, object center
+            prev = self._diet_prev or {}
+            if attempt == 0 and prev.get("skill") is Skill.APPROACH and prev.get("target") == action.target:
+                # Final2 3.1: APPROACH had to turn to see the target; the base
+                # turned since the plan, so grasp at the FRESH position.
+                pos = np.asarray(target.pos_world, dtype=float)
+            else:
+                pos = resolve_action_position(action, scene)  # world meters, object center
 
             # Open first: closing without opening first can "pinch nothing" and still look closed.
             if not self._open(env):
