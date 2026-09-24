@@ -6,8 +6,8 @@ import numpy as np
 
 from core import skills
 from core.action_targets import TargetResolutionError, resolve_action_position
-from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, GroundedObject, GroundStatus,
-                        SceneDescription, Skill, SkillResult)
+from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, GroundStatus,
+                        Skill, SkillResult)
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
@@ -180,7 +180,6 @@ class StudentCExecutor(ClosedLoopExecutor):
     def reset(self):
         super().reset()
         self._arm_tucked = False
-        self._search_memory = {}
         self._initial_base_pose = None
 
     @staticmethod
@@ -235,49 +234,6 @@ class StudentCExecutor(ClosedLoopExecutor):
             return False
         self._back_off_from_contact(env)
         return True
-
-    # disabled: executor must not modify perception output (no call sites remain)
-    def _install_search_memory(self, perception):
-        if getattr(perception, "_student_c_search_memory", None) is self:
-            return
-
-        describe = perception.describe
-
-        def describe_with_memory(obs, *args, **kwargs):
-            scene = describe(obs, *args, **kwargs)
-            objects = list(scene.objects)
-            regions = list(scene.regions)
-            present_ids = {item.instance_id for item in objects + regions}
-            for item in self._search_memory.values():
-                if item.instance_id in present_ids:
-                    continue
-                remembered = GroundedObject(
-                    item.instance_id, item.name, item.status,
-                    bbox_xyxy=item.bbox_xyxy, pos_world=item.pos_world,
-                    confidence=item.confidence, source=item.source,
-                    kind=item.kind, frame_id=scene.frame_id,
-                    attributes=dict(item.attributes),
-                    region_half_extents_xy=item.region_half_extents_xy,
-                )
-                (regions if remembered.kind == "region" else objects).append(remembered)
-            return SceneDescription(
-                objects=objects,
-                regions=regions,
-                caption=scene.caption,
-                ambiguities=scene.ambiguities,
-                frame_id=scene.frame_id,
-                sim_time=scene.sim_time,
-            )
-
-        perception.describe = describe_with_memory
-        perception._student_c_search_memory = self
-
-    # disabled: executor must not modify perception output (no call sites remain)
-    def _remember_search_result(self, perception, grounded):
-        if grounded is None or grounded.status is not GroundStatus.LOCALIZED:
-            return
-        self._search_memory[grounded.instance_id] = grounded
-        self._install_search_memory(perception)
 
     def _tuck_arm(self, action, env):
         if self._arm_tucked:
@@ -709,8 +665,6 @@ class StudentCExecutor(ClosedLoopExecutor):
                                           "contacts": exc.contacts})
 
         if primitive.success:
-            # disabled: executor must not modify perception output
-            # self._remember_search_result(perception, primitive.info.get("grounded"))
             # The robot's viewpoint just changed (possibly a lot). Remember
             # this as the new "home" view so a later PLACE view-recovery
             # (_restore_view) returns here, not to wherever the episode
