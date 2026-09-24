@@ -218,6 +218,7 @@ class StudentAPerception(Perception):
         self._tracks = {}
         self._next_id = 0
         self._predictions = OrderedDict()
+        self._recent_images = []  # (rgb, digest) of the last model-answered frames
         self._held_id = None  # instance believed held; set from the tracking hint
         self._hint = None
         self.last_diagnostics = None
@@ -429,6 +430,11 @@ class StudentAPerception(Perception):
                  'responses': [], 'prediction_reused': False}
         self.last_diagnostics = audit
         try:
+            if key not in self._predictions:
+                twin = self._near_duplicate(obs.rgb, obs.sim_time)
+                if twin is not None and (twin, query, grounding) in self._predictions:
+                    audit['near_duplicate_of'] = twin
+                    key = (twin, query, grounding)
             if key in self._predictions:
                 wire, source = self._predictions[key]
                 audit['prediction_reused'] = True
@@ -465,6 +471,7 @@ class StudentAPerception(Perception):
                 self._predictions[key] = (wire, source)
                 if len(self._predictions) > 16:
                     self._predictions.popitem(last=False)
+                self._recent_images = [(obs.rgb.copy(), digest, obs.sim_time)] + self._recent_images[:3]
             audit['response_source'] = source
             audit['wire'] = wire
             wire, audit['dropped_detections'], fits = drop_off_table(wire, obs)
@@ -493,6 +500,24 @@ class StudentAPerception(Perception):
             if self.config.llm.api_key:
                 serialized = serialized.replace(self.config.llm.api_key, '[REDACTED]')
             write_json(audit_dir / 'audit.json', json.loads(serialized))
+
+    # Final2 stage 1: two renders of an unchanged simulation state can differ
+    # by a few pixels by one level (GPU noise), which defeats the exact
+    # image-sha reuse. A frame of the SAME simulation instant (no step in
+    # between) within this tolerance of a recently answered frame reuses
+    # that answer.
+    NEAR_DUPLICATE_MAX_PIXELS = 64
+    NEAR_DUPLICATE_MAX_LEVEL = 3
+
+    def _near_duplicate(self, rgb, sim_time):
+        for old, digest, old_time in self._recent_images:
+            if old.shape != rgb.shape or abs(old_time - sim_time) > 1e-9:
+                continue
+            diff = np.abs(old.astype(np.int16) - rgb.astype(np.int16))
+            if (int(diff.max()) <= self.NEAR_DUPLICATE_MAX_LEVEL
+                    and int(np.count_nonzero(diff.max(axis=-1))) <= self.NEAR_DUPLICATE_MAX_PIXELS):
+                return digest
+        return None
 
     def describe(self, obs, query=None, *, hint=None):
         # The latest hint stays in force for later describe()/ground() calls
