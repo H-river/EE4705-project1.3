@@ -30,6 +30,14 @@ Each detection has name (stone, cube, bottle, red_region), color (gray, dark_red
 blue, green, red, or empty), bbox [left,top,right,bottom] normalized to 0..1000,
 and confidence 0..1. Detect ALL visible supported objects and the red region,
 including multiple objects of the same class. Never infer invisible objects.
+Before finalizing detections, count how many separate physical objects of each
+shape you can see, even if they share a class and color. If you see two
+stone-shaped objects anywhere in the image, report two separate stone
+detections with two different boxes -- never merge them or report only one.
+Do not report the same bounding box coordinates for two differently-named or
+differently-colored detections. If a candidate object and the red region would
+occupy an identical or near-identical box, only the region is real; report it
+once, as red_region, and do not also report it as a separate object.
 Do not output world coordinates, simulator names, or tracking IDs.
 
 For a grounding query, selected must follow these exact rules, in order:
