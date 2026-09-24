@@ -1,0 +1,82 @@
+{
+ "source": "final RUN 5 (da667a7) f48_two_stones_colour_stone2, A audit session 0df55b1e36a1, frame 92 = final verification sample 1 (oracle: stone in region, stable)",
+ "frame_id": 92,
+ "sim_time": 35.57999999999752,
+ "camera_name": "head",
+ "intrinsics": [
+  [
+   415.69219381653056,
+   0.0,
+   319.5
+  ],
+  [
+   0.0,
+   415.69219381653056,
+   239.5
+  ],
+  [
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "t_world_camera": [
+  [
+   0.906699603180115,
+   -0.40217906880839016,
+   0.12707409730325206,
+   0.20744188548553766
+  ],
+  [
+   -0.4102477779500274,
+   -0.7709752881756656,
+   0.4871281820111752,
+   0.287703324963535
+  ],
+  [
+   -0.0979417698435412,
+   -0.4938107953810486,
+   -0.8640360571672049,
+   1.13272657210808
+  ],
+  [
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "wire": {
+  "detections": [
+   {
+    "name": "stone",
+    "color": "dark_red",
+    "bbox": [
+     910,
+     610,
+     1000,
+     820
+    ],
+    "confidence": 0.95
+   },
+   {
+    "name": "red_region",
+    "color": "red",
+    "bbox": [
+     700,
+     380,
+     1000,
+     1000
+    ],
+    "confidence": 0.98
+   }
+  ],
+  "selected": [],
+  "answer": "Visible supported objects: one dark_red stone. Visible region: one red_region. No cubes or bottles are visible."
+ },
+ "stone_pos_frame_91": [
+  0.38624357141822024,
+  0.288268240903935,
+  0.8540013037342944
+ ]
+}

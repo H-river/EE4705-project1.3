@@ -519,6 +519,46 @@ class StudentAPerception(Perception):
                 return digest
         return None
 
+    # Final2 3.3: a placed object that A detects on the region but cannot fit
+    # in 3D (RUN 5 f48: the dark_red stone on the red region, 'ellipsoid
+    # surface fit is unreliable'; 134 such frames in RUN 1-5) is projected
+    # along the ray through its box centre onto the region plane at the class
+    # centre height. Only in describe() calls without a fresh hint (C's checks
+    # and the final verification), never for the held object, and only when
+    # the result lies PLANE_PROJECTED_INSET_M inside the region footprint.
+    # pos_basis 'plane_projected' is for verification only: C never grasps it.
+    PLANE_PROJECTED_INSET_M = 0.03
+
+    def _plane_projected(self, obs, g, regions):
+        if (g.status is not GroundStatus.UNLOCALIZED or g.bbox_xyxy is None
+                or g.instance_id == getattr(self, '_held_id', None)
+                or 'held' in (g.attributes.get('localization') or '')):
+            return g
+        size = _object_size(g.name, g.attributes.get('color'))
+        if size is None:
+            return g
+        x1, y1, x2, y2 = g.bbox_xyxy
+        u, v = (x1 + x2) / 2, (y1 + y2) / 2
+        k, t = obs.intrinsics, obs.t_world_camera
+        ray = t[:3, :3] @ np.array([(u - k[0, 2]) / k[0, 0], (v - k[1, 2]) / k[1, 1], 1.0])
+        for r in regions:
+            if (r.status is not GroundStatus.LOCALIZED or r.pos_world is None or r.bbox_xyxy is None
+                    or not (r.bbox_xyxy[0] <= u <= r.bbox_xyxy[2] and r.bbox_xyxy[1] <= v <= r.bbox_xyxy[3])):
+                continue
+            height = float(r.pos_world[2]) + size[2] / 2
+            if abs(ray[2]) < 1e-6 or (height - t[2, 3]) / ray[2] <= 0:
+                continue
+            p = t[:3, 3] + ray * (height - t[2, 3]) / ray[2]
+            half = r.region_half_extents_xy or (.08, .08)
+            inset = np.abs(p[:2] - np.asarray(r.pos_world[:2])) <= np.asarray(half) - self.PLANE_PROJECTED_INSET_M
+            if not np.all(inset):
+                continue
+            return replace(g, status=GroundStatus.LOCALIZED, pos_world=tuple(float(c) for c in p),
+                           attributes={**g.attributes, 'pos_basis': 'plane_projected',
+                                       'localization': 'box centre projected onto the region plane '
+                                                       f'(3D fit failed: {g.attributes.get("localization")})'})
+        return g
+
     def describe(self, obs, query=None, *, hint=None):
         # The latest hint stays in force for later describe()/ground() calls
         # made by the executor inside an action (they carry no hint).
@@ -531,6 +571,7 @@ class StudentAPerception(Perception):
             if scene is not None and not self._fresh_hint:
                 found = self._depth_in_region(obs, scene.objects + scene.regions)
                 scene.objects += [g for g in found[len(scene.objects) + len(scene.regions):]]
+                scene.objects = [self._plane_projected(obs, g, scene.regions) for g in scene.objects]
             return scene
         finally:
             self._fresh_hint = False

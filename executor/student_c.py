@@ -393,7 +393,8 @@ class StudentCExecutor(ClosedLoopExecutor):
     @staticmethod
     def _localized(scene, target):
         ref = scene.find(target or "") if scene is not None else None
-        return ref is not None and ref.status is GroundStatus.LOCALIZED and ref.pos_world is not None
+        return (ref is not None and ref.status is GroundStatus.LOCALIZED and ref.pos_world is not None
+                and ref.attributes.get("pos_basis") != "plane_projected")
 
     def _look_for_target(self, action, env, perception):
         """Final2 3.1: after parking, turn the base in place toward the planned
@@ -470,7 +471,8 @@ class StudentCExecutor(ClosedLoopExecutor):
 
             target = scene.find(action.target or "")
             if (target is None or target.status is not GroundStatus.LOCALIZED
-                    or target.pos_world is None):
+                    or target.pos_world is None
+                    or target.attributes.get("pos_basis") == "plane_projected"):  # final2 3.3: verification only
                 raise TargetResolutionError(f"Target {action.target!r} needs fresh, unambiguous 3D evidence")
             if target.kind != "object":
                 return ExecutionResult(action, False, ErrorCode.INVALID_ACTION,
