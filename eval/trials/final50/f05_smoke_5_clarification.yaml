@@ -1,0 +1,38 @@
+id: f05_smoke_5_clarification
+category: robustness_clarification
+instruction: move the stone onto the red region
+scene:
+  seed: 15
+  objects:
+  - name: stone
+    pos:
+    - 0.4
+    - -0.15
+    - 0.88
+  - name: stone2
+    pos:
+    - 0.5
+    - -0.02
+    - 0.88
+  - name: cube
+    pos:
+    - 0.35
+    - 0.12
+    - 0.88
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+clarification_responses:
+- the gray one
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: true
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: clarify
+source_trial: smoke/smoke_5_clarification.yaml

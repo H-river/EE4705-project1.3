@@ -1,0 +1,39 @@
+id: f41_scene_var_506_bottle
+category: final_scene_variation
+instruction: Move the green bottle to the red area.
+scene:
+  seed: 506
+  objects:
+  - name: stone
+    pos:
+    - 0.441
+    - -0.152
+    - 0.88
+    yaw: 0.201
+  - name: cube
+    pos:
+    - 0.381
+    - 0.136
+    - 0.88
+    yaw: 0.295
+  - name: bottle
+    pos:
+    - 0.513
+    - -0.392
+    - 0.915
+    yaw: -0.074
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.015
+clarification_responses: []
+expected:
+  target: bottle
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: success

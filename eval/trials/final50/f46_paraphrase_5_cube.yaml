@@ -1,0 +1,36 @@
+id: f46_paraphrase_5_cube
+category: final_instruction_paraphrase
+instruction: I'd like the cube moved over to the red target
+scene:
+  seed: 515
+  objects:
+  - name: stone
+    pos:
+    - 0.4
+    - -0.15
+    - 0.88
+  - name: cube
+    pos:
+    - 0.4
+    - 0.15
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.55
+    - -0.35
+    - 0.915
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+clarification_responses: []
+expected:
+  target: cube
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: success

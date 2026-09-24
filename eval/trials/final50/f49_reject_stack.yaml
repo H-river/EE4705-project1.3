@@ -1,0 +1,29 @@
+id: f49_reject_stack
+category: final_reject
+instruction: Stack the blue cube on top of the green bottle.
+scene:
+  seed: 531
+  objects:
+  - name: stone
+    pos:
+    - 0.4
+    - -0.15
+    - 0.88
+  - name: cube
+    pos:
+    - 0.4
+    - 0.15
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.55
+    - -0.35
+    - 0.915
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+clarification_responses: []
+expected:
+  feasible: false
+  outcome: reject

@@ -1,0 +1,36 @@
+id: f47_two_stones_colour_stone
+category: final_two_stones_colour
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 521
+  objects:
+  - name: stone
+    pos:
+    - 0.45
+    - -0.05
+    - 0.88
+  - name: stone2
+    pos:
+    - 0.38
+    - -0.22
+    - 0.88
+  - name: cube
+    pos:
+    - 0.35
+    - 0.12
+    - 0.88
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: success

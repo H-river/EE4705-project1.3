@@ -1,0 +1,39 @@
+id: f39_scene_var_504_stone
+category: final_scene_variation
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 504
+  objects:
+  - name: stone
+    pos:
+    - 0.373
+    - -0.225
+    - 0.88
+    yaw: -0.084
+  - name: cube
+    pos:
+    - 0.449
+    - 0.135
+    - 0.88
+    yaw: -0.443
+  - name: bottle
+    pos:
+    - 0.552
+    - -0.407
+    - 0.915
+    yaw: 0.227
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.253
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: success

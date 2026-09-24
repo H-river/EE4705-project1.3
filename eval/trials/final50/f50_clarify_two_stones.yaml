@@ -1,0 +1,37 @@
+id: f50_clarify_two_stones
+category: final_clarify
+instruction: put the stone on the red area
+scene:
+  seed: 541
+  objects:
+  - name: stone
+    pos:
+    - 0.36
+    - -0.08
+    - 0.88
+  - name: stone2
+    pos:
+    - 0.47
+    - -0.2
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.56
+    - -0.38
+    - 0.915
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+clarification_responses:
+- the gray one
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: true
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: clarify

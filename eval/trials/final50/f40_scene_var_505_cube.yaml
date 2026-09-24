@@ -1,0 +1,39 @@
+id: f40_scene_var_505_cube
+category: final_scene_variation
+instruction: Move the blue cube to the red area.
+scene:
+  seed: 505
+  objects:
+  - name: stone
+    pos:
+    - 0.452
+    - -0.18
+    - 0.88
+    yaw: 0.304
+  - name: cube
+    pos:
+    - 0.359
+    - 0.1
+    - 0.88
+    yaw: 0.081
+  - name: bottle
+    pos:
+    - 0.482
+    - -0.313
+    - 0.915
+    yaw: 0.409
+  robot_init:
+    x: 0.0
+    y: 0.0
+    yaw: 0.298
+clarification_responses: []
+expected:
+  target: cube
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required:
+  - GRASP
+  - PLACE
+  outcome: success
