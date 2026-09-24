@@ -1,0 +1,115 @@
+[
+  {
+    "model": "qwen3.7-flash-2026-07-15",
+    "suite": "eval",
+    "n": 32,
+    "correct": 29,
+    "accuracy": 0.90625,
+    "first_response_accuracy": 0.875,
+    "latency_mean_s": 4.413613181750179,
+    "latency_median_s": 3.9531651155011787,
+    "calls": 40,
+    "prompt_tokens": 100817,
+    "completion_tokens": 12167,
+    "errors": [
+      "status: expected NEEDS_SEARCH, got NEEDS_CLARIFICATION",
+      "object_id: expected i914, got i258",
+      "action 0: wrong approach target/state",
+      "action 1: wrong grasp target/order",
+      "action 2: wrong transport target/state",
+      "action 3: wrong placement target/order",
+      "action 4: wrong placement verification",
+      "status: expected NEEDS_SEARCH, got REJECTED"
+    ]
+  },
+  {
+    "model": "qwen3.7-flash-2026-07-15",
+    "suite": "var",
+    "n": 20,
+    "correct": 17,
+    "accuracy": 0.85,
+    "first_response_accuracy": 0.8,
+    "latency_mean_s": 3.561759886049913,
+    "latency_median_s": 3.970539568003005,
+    "calls": 21,
+    "prompt_tokens": 53705,
+    "completion_tokens": 5743,
+    "errors": [
+      "status: expected READY, got NEEDS_CLARIFICATION",
+      "object_id: expected v662, got ",
+      "status: expected READY, got NEEDS_CLARIFICATION",
+      "object_id: expected v642, got ",
+      "object_id: expected v194, got v514",
+      "action 0: wrong approach target/state",
+      "action 1: wrong grasp target/order",
+      "action 2: wrong transport target/state",
+      "action 3: wrong placement target/order",
+      "action 4: wrong placement verification"
+    ]
+  },
+  {
+    "model": "qwen3.7-plus-2026-05-26",
+    "suite": "eval",
+    "n": 32,
+    "correct": 31,
+    "accuracy": 0.96875,
+    "first_response_accuracy": 0.96875,
+    "latency_mean_s": 5.306476419749288,
+    "latency_median_s": 5.4456420649985375,
+    "calls": 39,
+    "prompt_tokens": 97876,
+    "completion_tokens": 11154,
+    "errors": [
+      "status: expected INFEASIBLE, got REJECTED"
+    ]
+  },
+  {
+    "model": "qwen3.7-plus-2026-05-26",
+    "suite": "var",
+    "n": 20,
+    "correct": 19,
+    "accuracy": 0.95,
+    "first_response_accuracy": 0.9,
+    "latency_mean_s": 4.899658421399726,
+    "latency_median_s": 5.829914084497432,
+    "calls": 21,
+    "prompt_tokens": 53715,
+    "completion_tokens": 6359,
+    "errors": [
+      "object_id: expected v194, got v514",
+      "action 0: wrong approach target/state",
+      "action 1: wrong grasp target/order",
+      "action 2: wrong transport target/state",
+      "action 3: wrong placement target/order",
+      "action 4: wrong placement verification"
+    ]
+  },
+  {
+    "model": "qwen3.7-max-2026-06-08",
+    "suite": "eval",
+    "n": 32,
+    "correct": 32,
+    "accuracy": 1.0,
+    "first_response_accuracy": 0.96875,
+    "latency_mean_s": 6.194713628500949,
+    "latency_median_s": 6.355061657497572,
+    "calls": 39,
+    "prompt_tokens": 97879,
+    "completion_tokens": 11469,
+    "errors": []
+  },
+  {
+    "model": "qwen3.7-max-2026-06-08",
+    "suite": "var",
+    "n": 20,
+    "correct": 20,
+    "accuracy": 1.0,
+    "first_response_accuracy": 0.95,
+    "latency_mean_s": 5.827351695200195,
+    "latency_median_s": 6.731953126000008,
+    "calls": 21,
+    "prompt_tokens": 53700,
+    "completion_tokens": 6691,
+    "errors": []
+  }
+]
