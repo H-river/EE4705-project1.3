@@ -218,8 +218,8 @@ correctly-selected unique targets. Consistently ≥0.80 mean IoU, comfortably
 above a 0.5 "tight box" threshold.
 
 ```bash
-.venv/bin/python -m eval.a_spatial capture --out <new dir> \
-  --n-containment N --n-distance N
+.venv/bin/python -m eval.a_spatial capture <dir> \
+  --n-containment 20 --n-distance 20
 .venv/bin/python -m eval.a_spatial run --dataset <capture>/dataset.json --out <dir>
 ```
 Spatial Reasoning Accuracy: containment and relative-distance VQA questions
