@@ -4,7 +4,7 @@ from enum import Enum
 
 from planner.contract import WIRE_SCHEMA, public_vocabulary
 
-PROMPT_VERSION = "qwen-b-v3"
+PROMPT_VERSION = "qwen-b-v4"  # v4: instances carry color_words (round 9)
 SYSTEM_PROMPT = """You are Student B, a tabletop pick-and-place task planner.
 Return one JSON object matching the provided schema. Do not return explanations outside JSON.
 Read the user's instruction, identify its intended object and destination, then select skill order.
@@ -86,12 +86,26 @@ def json_value(value):
     return value
 
 
+def color_words(colour):
+    """Instruction words that name this colour (round 9 colour aliasing):
+    the colour itself, spaced, its base colour for a shade, and spellings.
+    'dark_red' -> ['dark_red', 'dark red', 'red']; 'gray' -> ['gray', 'grey']."""
+    if not colour:
+        return []
+    words = [colour, colour.replace("_", " ")]
+    base = colour.split("_")[-1]
+    words.append(base)
+    words += [w.replace("gray", "grey") for w in list(words) if "gray" in w]
+    return list(dict.fromkeys(words))
+
+
 def planning_input(instruction, scene, history, context, goal, clarification):
     # Explicit fields exclude oracle data and executor-private diagnostic blobs.
     objects = [{"instance_id": g.instance_id, "name": g.name, "kind": g.kind,
                 "status": g.status.value, "pos_world": g.pos_world,
                 "bbox_xyxy": g.bbox_xyxy, "confidence": g.confidence,
                 "attributes": {k: v for k, v in g.attributes.items() if k in ("color",)},
+                "color_words": color_words(g.attributes.get("color")),
                 "frame_id": g.frame_id,
                 "region_half_extents_xy": g.region_half_extents_xy}
                for g in scene.objects + scene.regions]

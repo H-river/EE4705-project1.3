@@ -105,6 +105,40 @@ def _normalize_action_fields(wire):
     return result, changes
 
 
+_SPELLING = {"grey": "gray"}
+
+
+def _colour_key(value):
+    """'Dark Red' / 'dark-red' / 'dark_red' -> 'dark_red'; 'grey' -> 'gray'."""
+    words = (value or "").strip().lower().replace("-", " ").replace("_", " ").split()
+    return "_".join(_SPELLING.get(w, w) for w in words)
+
+
+def colour_matches(word, attribute):
+    """An instruction colour word matches a perceived/vocabulary colour when it
+    is the same colour, or the attribute is a shade of it: 'red' matches
+    'dark_red', 'grey' matches 'gray'. A shade does not match its base the
+    other way round ('dark red' does not match 'red')."""
+    w, a = _colour_key(word), _colour_key(attribute)
+    return bool(w and a) and (a == w or a.endswith("_" + w))
+
+
+def palette_colour(word, cls, scene=None):
+    """The palette colour an instruction colour refers to for class ``cls``:
+    the colour itself if the vocabulary or scene has it, else the unique
+    vocabulary/scene colour of that class that is a shade of it, else the word."""
+    colours = {e["attributes"].get("color") for e in public_vocabulary()
+               if e["name"] == cls and e["kind"] == "object"}
+    if scene is not None:
+        colours |= {g.attributes.get("color") for g in scene.objects if g.name == cls}
+    colours.discard(None)
+    key = _colour_key(word)
+    if key in {_colour_key(c) for c in colours}:
+        return next(c for c in colours if _colour_key(c) == key)
+    shades = sorted(c for c in colours if colour_matches(word, c))
+    return shades[0] if len(shades) == 1 else word
+
+
 def split_search_target(target):
     """'<colour> <class>' or '<class>' -> (class, colour or '').  'dark red'
     and 'dark_red' are the same colour."""
@@ -132,6 +166,14 @@ def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=
     scene, goal = context.scene, dict(wire["goal"])
     known = known or {}
     status = PlanStatus(wire["status"])
+    if goal["object_color"] and goal["object_name"]:
+        # Round 9: 'red stone' names the dark_red stone (colour aliasing).
+        colour = palette_colour(goal["object_color"], goal["object_name"], scene)
+        if colour != goal["object_color"]:
+            if normalizations is not None:
+                normalizations.append({"field": "goal.object_color", "change": "colour alias",
+                                       "from": goal["object_color"], "to": colour})
+            goal["object_color"] = colour
 
     def require(ok, message):
         if not ok:
@@ -156,7 +198,8 @@ def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=
         if ref:
             require(ref.kind == role and name == ref.name, f"Goal {role} ID/class/role mismatch")
             if role == "object" and goal["object_color"]:
-                require(ref.attributes.get("color") == goal["object_color"], "Goal object color mismatch")
+                require(colour_matches(goal["object_color"], ref.attributes.get("color")),
+                        "Goal object color mismatch")
     searches = [a for a in wire["actions"] if a["skill"] == Skill.SEARCH.value]
     if status is PlanStatus.READY and searches:
         # A READY plan that still has to SEARCH is really a NEEDS_SEARCH plan:
@@ -195,7 +238,7 @@ def compile_plan(wire, context, locked_goal=None, known=None, *, normalizations=
             cls, colour = split_search_target(target)
             require(bool(cls) and cls in (goal["object_name"], goal["region_name"]),
                     "SEARCH must name a goal class; preserve color and other constraints in the goal")
-            require(not colour or (cls == goal["object_name"] and colour == goal["object_color"]),
+            require(not colour or (cls == goal["object_name"] and colour_matches(colour, goal["object_color"])),
                     "SEARCH colour must be the goal object's colour")
             target = search_target(goal, cls)
         else:

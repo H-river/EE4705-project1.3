@@ -1,0 +1,286 @@
+{
+ "f19_c_2_04_stone": {
+  "instruction": "Move the red stone to the red area.",
+  "scene": {
+   "objects": [
+    {
+     "instance_id": "a1",
+     "name": "cube",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      187,
+      191,
+      253,
+      265
+     ],
+     "pos_world": [
+      0.39948455811849143,
+      0.14983204083160578,
+      0.8751650892300878
+     ],
+     "confidence": 1.0,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "blue",
+      "localization": "RGB-D fit with public class geometry"
+     },
+     "region_half_extents_xy": null
+    },
+    {
+     "instance_id": "a4",
+     "name": "stone",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      400,
+      146,
+      453,
+      190
+     ],
+     "pos_world": [
+      0.47612009491567153,
+      -0.08206228793528364,
+      0.8736230436485591
+     ],
+     "confidence": 1.0,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "gray",
+      "localization": "RGB-D fit with public class geometry"
+     },
+     "region_half_extents_xy": null
+    },
+    {
+     "instance_id": "a3",
+     "name": "stone",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      366,
+      224,
+      438,
+      282
+     ],
+     "pos_world": [
+      0.35387150428516634,
+      -0.02155495266179727,
+      0.8737850754552918
+     ],
+     "confidence": 1.0,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "dark_red",
+      "localization": "RGB-D fit with public class geometry"
+     },
+     "region_half_extents_xy": null
+    },
+    {
+     "instance_id": "a0",
+     "name": "bottle",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      580,
+      34,
+      640,
+      144
+     ],
+     "pos_world": [
+      0.5537482651988478,
+      -0.3448495486916495,
+      0.8934069227587126
+     ],
+     "confidence": 1.0,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "green",
+      "localization": "partial RGB-D: visible part pushed by the class half extent",
+      "pos_basis": "depth_patch_partial"
+     },
+     "region_half_extents_xy": null
+    }
+   ],
+   "regions": [
+    {
+     "instance_id": "a2",
+     "name": "red_region",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      0,
+      196,
+      171,
+      331
+     ],
+     "pos_world": [
+      0.3996429551479853,
+      0.2997384084217596,
+      0.8532477283783112
+     ],
+     "confidence": 1.0,
+     "source": "qwen_vlm:live",
+     "kind": "region",
+     "frame_id": 0,
+     "attributes": {
+      "color": "red",
+      "localization": "partial RGB-D fit of the visible region part",
+      "pos_basis": "depth_patch_partial"
+     },
+     "region_half_extents_xy": [
+      0.08,
+      0.08
+     ]
+    }
+   ],
+   "caption": "Visible supported objects: one blue cube, two stones (one gray, one dark red), and one green bottle. One red region is also visible.",
+   "ambiguities": [],
+   "frame_id": 0,
+   "sim_time": 1.0000000000000007
+  },
+  "source": "runs/final/run_1/job_2/audit_a/8f90dc331b1f/2c2a356d2110/audit.json"
+ },
+ "f20_c_2_05_stone": {
+  "instruction": "Move the red stone to the red area.",
+  "scene": {
+   "objects": [
+    {
+     "instance_id": "a4",
+     "name": "stone",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      352,
+      139,
+      404,
+      183
+     ],
+     "pos_world": [
+      0.41351419548504836,
+      -0.18196059134918197,
+      0.8740896929735603
+     ],
+     "confidence": 0.98,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "gray",
+      "localization": "RGB-D fit with public class geometry"
+     },
+     "region_half_extents_xy": null
+    },
+    {
+     "instance_id": "a3",
+     "name": "stone",
+     "status": "UNLOCALIZED",
+     "bbox_xyxy": [
+      39,
+      95,
+      84,
+      132
+     ],
+     "pos_world": null,
+     "confidence": 0.97,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "dark_red",
+      "localization": "ellipsoid surface fit is unreliable"
+     },
+     "region_half_extents_xy": null
+    },
+    {
+     "instance_id": "a1",
+     "name": "cube",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      435,
+      62,
+      490,
+      111
+     ],
+     "pos_world": [
+      0.5493404641460928,
+      -0.3497550457857571,
+      0.8752693254372386
+     ],
+     "confidence": 0.99,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "blue",
+      "localization": "RGB-D fit with public class geometry"
+     },
+     "region_half_extents_xy": null
+    },
+    {
+     "instance_id": "a0",
+     "name": "bottle",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      0,
+      115,
+      109,
+      248
+     ],
+     "pos_world": [
+      0.39788501215128347,
+      0.15380522888027076,
+      0.920460868864031
+     ],
+     "confidence": 0.98,
+     "source": "qwen_vlm:live",
+     "kind": "object",
+     "frame_id": 0,
+     "attributes": {
+      "color": "green",
+      "localization": "partial RGB-D: visible part pushed by the class half extent",
+      "pos_basis": "depth_patch_partial"
+     },
+     "region_half_extents_xy": null
+    }
+   ],
+   "regions": [
+    {
+     "instance_id": "a2",
+     "name": "red_region",
+     "status": "LOCALIZED",
+     "bbox_xyxy": [
+      0,
+      184,
+      32,
+      276
+     ],
+     "pos_world": [
+      0.41561757270359595,
+      0.2375127554283567,
+      0.853273879218912
+     ],
+     "confidence": 0.95,
+     "source": "qwen_vlm:live",
+     "kind": "region",
+     "frame_id": 0,
+     "attributes": {
+      "color": "red",
+      "localization": "partial RGB-D fit of the visible region part",
+      "pos_basis": "depth_patch_partial"
+     },
+     "region_half_extents_xy": [
+      0.08,
+      0.08
+     ]
+    }
+   ],
+   "caption": "Visible supported objects: a gray stone, a dark_red stone, a blue cube, and a green bottle. A red region is also visible.",
+   "ambiguities": [],
+   "frame_id": 0,
+   "sim_time": 1.0000000000000007
+  },
+  "source": "runs/final/run_1/job_3/audit_a/afa724f639f7/cdc0139232df/audit.json"
+ }
+}
