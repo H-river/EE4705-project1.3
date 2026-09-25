@@ -36,6 +36,10 @@ equal statistical weight.
 | + duplicate-instance + identical-bbox guards | 5 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
 | + duplicate-instance + identical-bbox guards | 6 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
 | + duplicate-instance + identical-bbox guards | 7 (repeat, same dataset) | 30 | 27 | 90.0% | 10/10 | 9/10 | 8/10 | 0 |
+| Current shipped code (guards confirmed reverted; `vision_contract.py` byte-identical to the reframe-only version) | 8 (repeat, same dataset) | 30 | 27 | 90.0% | 10/10 | 9/10 | 8/10 | 0 |
+| Current shipped code | 9 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
+| Current shipped code | 10 (repeat, same dataset) | 30 | 25 | 83.3% | 10/10 | 8/10 | 7/10 | 0 |
+| Current shipped code | 11 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 9/10 | 7/10 | 0 |
  
 **Validator/prompt ablation — outcome of each change, isolated:**
  
@@ -45,21 +49,39 @@ equal statistical weight.
 | Duplicate-instance + identical-bbox guards (added on top) | No net accuracy gain across 4 repeated runs (83.3%, 86.7%, 86.7%, 83.3% — mean 85.0%); introduced new instability in previously-stable cases; the case the bbox guard specifically targeted (`a_04`) failed in every run regardless |
  
 **Case-level reproducibility, same dataset (`dataset_sha256: 40403a54...`),
-11 runs total (spans both the reframe-only and +guards code versions):**
+15 runs total (spans the reframe-only, +guards, and current-shipped-code
+versions — all three share the same `vision_contract.py` SYSTEM text once the
+guards were reverted, so they are pooled as one series):**
  
-| Case | Kind | Result across 11 runs | Interpretation |
+| Case | Kind | Result across 15 runs | Interpretation |
 |---|---|---|---|
-| `a_04` | missing | FAIL ×11 | Deterministic model limitation (region/object box conflated at image boundary) |
-| `a_23` | ambiguous | FAIL ×11 | Deterministic model limitation (one of two same-class objects not detected) |
-| `a_10` | missing | PASS ×8, FAIL ×1 | Mostly stable; one outlier, not a repeatable pattern |
-| `a_17` | ambiguous | PASS ×7, FAIL ×1 | Mostly stable; one outlier, not a repeatable pattern |
-| `a_19` | missing | PASS ×7, FAIL ×1 | Mostly stable; one outlier, not a repeatable pattern |
-| `a_16` | missing | FAIL ×6, PASS ×2 | Non-deterministic, leans FAIL |
-| `a_28` | ambiguous | FAIL ×7, PASS ×2 | Non-deterministic, leans FAIL; earlier "genuine improvement" reading stays retracted |
+| `a_23` | ambiguous | FAIL ×15 | Still fully deterministic across every run recorded so far (one of two same-class objects not detected) |
+| `a_04` | missing | FAIL ×13, PASS ×2 | **No longer treated as deterministic.** Passed for the first time in runs 8 and 11 of this batch — see note below |
+| `a_10` | missing | PASS ×12, FAIL ×1 | Mostly stable; one outlier, not a repeatable pattern |
+| `a_19` | missing | PASS ×11, FAIL ×1 | Mostly stable; one outlier, not a repeatable pattern |
+| `a_17` | ambiguous | PASS ×9, FAIL ×3 | Weakly non-deterministic; two more flips this batch than previously recorded |
+| `a_16` | missing | FAIL ×10, PASS ×2 | Non-deterministic, leans FAIL |
+| `a_28` | ambiguous | FAIL ×11, PASS ×2 | Non-deterministic, leans FAIL; earlier "genuine improvement" reading stays retracted |
  
-The 90.0% run (the current single-run high point) is not yet independently
-repeated — treat it the same as every other individual run in this table,
-not as a new stable baseline, until confirmed again.
+**Correction to the previous entry**: `a_04` was reported above as
+"deterministic, FAIL ×11" through the last update. Two of the four most
+recent runs (both taken on the exact same dataset and, per this session's
+review of the current zip, the exact same `vision_contract.py`) came back
+PASS. That retracts the "deterministic model limitation" framing for
+`a_04` specifically — it now belongs in the same non-deterministic bucket as
+`a_16`/`a_28`, just with a higher pass rate (2/15 vs. their ~15-20%). `a_23`
+is now the only case with a clean FAIL streak across every run recorded.
+Whether the 2 new passes reflect real non-determinism in the model or a
+side-effect of `student_a.py`'s new `_plane_projected`/`_depth_in_region`
+fallbacks (both new in this session's reviewed zip, both scoped to
+non-fresh-hint `describe()` calls — `eval.grounding` calls `ground()`
+directly, which should NOT go through those fallbacks) has not been isolated;
+worth re-running with a debugger/log check on which code path produced the
+two PASS cases before writing this up as resolved.
+ 
+The 90.0% figure (runs 7 and 8) has now been reproduced once, but the
+83.3%–90.0% spread across 11 runs on the current code means neither end
+should be read as "the" accuracy — report a range, not a point estimate.
  
 ## Scene Description Accuracy
  
@@ -69,23 +91,32 @@ not as a new stable baseline, until confirmed again.
 | "What objects are nearby?" (PDF's exact wording, same 30 scenes) | 30 | 20 | 66.7% |
 | "What supported objects and colors are visible?" (repeat, later code version) | 30 | 17 | 56.7% |
 | "What supported objects and colors are visible?" (repeat, later code version) | 30 | 15 | 50.0% |
+| "What supported objects and colors are visible?" (repeat, current shipped code) | 30 | 17 | 56.7% |
  
-**Hallucination breakdown, most recent run (15 failing cases, all
-hallucinations, zero missed-object failures except one case that both missed
-and hallucinated):**
+Four runs of the same default query on the same 30 scenes now read 55.2%,
+56.7%, 50.0%, 56.7% — a roughly 50–57% band, not a single number; scene
+description accuracy should be reported as a range against the ≥90% target.
+ 
+**Hallucination breakdown, most recent run (13 failing cases, all
+hallucinations, zero missed-object failures):**
  
 | Hallucinated class | Count | Share of all 30 cases |
 |---|---|---|
-| stone | 7 | 23.3% |
+| stone | 5 | 16.7% |
 | cube | 5 | 16.7% |
-| bottle | 2 | 6.7% |
-| region | 1 | 3.3% (first time this class has been hallucinated, not just stone/cube/bottle) |
+| bottle | 3 | 10.0% |
+| region | 1 | 3.3% |
  
 `eval.a_vqa_check` (object-mention recall/hallucination, run on the same
-data) reports the identical 15/30 "fully correct" count and the identical
+data) reports the identical 17/30 "fully correct" count and the identical
 per-case hallucinated-class list as `eval.a_scene_description` above — the
 two scripts measure the same underlying thing in different report formats;
 treat their results as one data point, not two independent confirmations.
+This run's `eval.a_vqa_check` also reports **0/30 color self-consistency
+mismatches** (`find_color_mismatches`), versus the earlier finding of 2
+mismatches (`a_12`, `a_19`) on a previous run — the color self-consistency
+failure mode is evidently non-deterministic too, not a standing defect on
+those two specific scenes.
  
 Every failure in this run was a hallucination, not a missed object — recall
 itself is not the limiting factor; the model reliably reports what it can
@@ -100,6 +131,10 @@ elsewhere.
 | 1 | 10 | 0.872 | 10/10 = 100.0% |
 | 2 (repeat) | 10 | 0.874 | 10/10 = 100.0% |
 | 3 (repeat) | 10 | 0.860 | 10/10 = 100.0% |
+| 4 (repeat) | 10 | 0.868 | 10/10 = 100.0% |
+ 
+Mean IoU across 4 runs: 0.868 (range 0.860–0.874) — stable, well clear of the
+≥0.5 pass threshold every time.
  
 ## Spatial Reasoning Accuracy
  
@@ -112,10 +147,11 @@ elsewhere.
 | Relative distance (larger sample) | 10 | 10 | 100.0% |
 | **Combined (n=20)** | **20** | **20** | **100.0%** |
 | Combined (n=20, independent repeat) | 20 | 20 | 100.0% |
+| Combined (n=20, 2nd independent repeat) | 20 | 20 | 100.0% |
  
 Test cases were deliberately well-separated, not boundary/near-tie placements;
 this measures reliability on unambiguous spatial relations only, now
-confirmed consistent across three independent runs.
+confirmed consistent across four independent runs.
  
 ## VQA example-question cross-check
  
@@ -146,38 +182,38 @@ method and which question framing was used — see "Remaining limits" below.
   (`"clipped object centre is below the table top"`, case `f34`) — a bug in
   `partial_object_center`'s rest-height margin check for that orientation,
   open as of round 9.
-- **Region/object confusion at the image boundary**: reproduced in 11/11 runs
-  on one specific scene (`a_04`), confirmed against the full merged codebase
-  (off-table filtering, class/color palette validation, edge-clipped partial
-  localization, and tracking hints all active). Traced to why none of these
-  catch it: the fabricated detection shares the real region's exact box and
-  depth data, so it reads as a legitimately on-table position with a
-  perfectly valid color for its (wrong) class — every individual field is
-  independently valid, so no field-level or geometric filter can flag it.
-  This is a detection-time class hallucination, not a filterable artifact.
-  One run additionally showed the hallucinated color changing between the
-  general scene description (`dark_red`) and the targeted grounding call for
-  "the gray stone" (`gray`) at the identical box, in the same evaluation run
-  — the clearest single instance yet of the fabrication adapting to match
-  the query rather than anything actually rendered. The same run also
-  triggered the team's independently-tracked "clipped object centre is below
-  the table top" rejection (previously documented only for a real bottle,
-  case `f34`) on this fabricated stone, indicating that geometry check's
-  edge case is not specific to bottles.
-- **Duplicate-instance recall** (`a_23`, 11/11 failures): the model omits one of
-  two present same-class objects roughly 1 in 5 same-class-duplicate scenes,
-  despite an explicit system-prompt instruction to report every instance.
-  Confirmed unaddressed by the full merged fix set for the same structural
-  reason — every downstream filter operates on detections the model already
-  produced; none can recover a detection that was never emitted.
-- **Response non-determinism**: across 10 runs on an identical scene, prompt,
-  and dataset at `temperature=0`, only 2 of 30 cases (`a_04`, `a_23`) were
-  fully deterministic (10/10 fails each). Everything else that ever failed
-  showed some variance, ranging from a single outlier (`a_10`, `a_17`, `a_19`
-  — 1 flip in 8–9 runs) to genuine instability (`a_16`, `a_28` — roughly
-  30–20% flip rate). A single evaluation run is one sample, not a stable
-  result; only a case that fails across many independent runs should be
-  treated as a real, reproducible limitation rather than noise.
+- **Region/object confusion at the image boundary** (`a_04`): **retracted as
+  "deterministic."** It reproduced in 11/11 runs through the previous update,
+  but 2 of the 4 most recent runs on the identical dataset and current
+  shipped code came back PASS. The underlying mechanism (a fabricated
+  detection sharing the real region's exact box/depth, so every individual
+  field reads as valid) is unchanged and still the best explanation for why
+  it fails as often as it does, but it can no longer be called a stable
+  100%-reproducible limitation — treat it as a high-frequency but genuinely
+  non-deterministic failure (13/15 runs), in the same category as `a_16` and
+  `a_28`, not a separate "proven" class. The earlier query-adaptive-color and
+  `f34`-style rejection observations from prior runs still stand as evidence
+  of the mechanism; they just no longer imply the failure is unavoidable
+  every time.
+- **Duplicate-instance recall** (`a_23`, now 15/15 failures): the only case in
+  the dataset that has never once passed across every run recorded. The model
+  omits one of two present same-class objects, despite an explicit
+  system-prompt instruction to report every instance, and confirmed
+  unaddressed by the full merged fix set for the same structural reason —
+  every downstream filter operates on detections the model already produced;
+  none can recover a detection that was never emitted. This is now the
+  strongest deterministic-failure claim in the whole dataset.
+- **Response non-determinism**: across 15 runs on an identical scene, prompt,
+  and dataset at `temperature=0`, **no case has proven fully deterministic
+  except `a_23`** (the `a_04` correction above). Everything else that ever
+  failed showed some variance, ranging from a single outlier (`a_10`, `a_19`
+  — 1 flip in 12) to moderate instability (`a_17` — 3 flips in 12) to genuine
+  instability (`a_16`, `a_28`, and now `a_04` — 13–20% flip rate). A single
+  evaluation run is one sample, not a stable result; this dataset has now
+  produced enough repeats that the practical takeaway is: report accuracy as
+  a range (83.3%–90.0% on current code) and name `a_23` as the one
+  reproducible failure, rather than claiming any other case is "solved" or
+  "broken" from a small number of runs.
 - **Query-phrasing sensitivity**: semantically equivalent scene-description
   queries differ by 11.5 percentage points (55.2% vs. 66.7%); the same
   presence/absence fact differs by 26.7 points depending on interface method
@@ -189,4 +225,3 @@ method and which question framing was used — see "Remaining limits" below.
   instability elsewhere; this is treated as a characterized limit of
   prompt-only iteration on an already-lengthy system prompt, not an
   unfinished task.
- 
