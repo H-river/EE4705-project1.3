@@ -1,0 +1,26 @@
+id: c1_22
+category: bonus_C1
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 100122
+  objects:
+  - name: stone
+    pos:
+    - 0.3172
+    - -0.1928
+    - 0.88
+    yaw: -1.2023
+  robot_init:
+    x: 0.005
+    y: 0.0042
+    yaw: 0.1141
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP
