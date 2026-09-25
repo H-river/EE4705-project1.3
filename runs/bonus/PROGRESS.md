@@ -105,3 +105,7 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   fresh process). ACT is deterministic at inference (VAE latent = 0), so its results are unaffected.
   DP 5k/10k/15k (GPU, unseeded: 18/19/19) are re-scored seeded on CPU; old files in
   runs/bonus/eval/curves/diffusion_base/gpu_unseeded/.
+- DP VAL (seeded, CPU eval): 5k 18, 10k 19, 15k 19, 20k 19, 25k 19, 30k 19, 35k 20, 40k 19, 45k 19, 50k 19, 55k 19, 60k 19.
+  Selected 35k (only 20/20). runs/bonus/best/diffusion → train/diffusion_base/checkpoints/035000. ≥ 30 % at 30k → no
+  retries. Training finished 02:00 (60k steps, ~4.5 h at 3.6 it/s). Stage 4 DONE.
+- Figure docs/bonus/figs/curves_act_dp.png; data docs/bonus/data/diffusion_base.csv.

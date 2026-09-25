@@ -1,0 +1,4 @@
+step,success,n,rate,wrong_object,mean_time_to_attach_s
+5000,18,20,0.900,0,3.37
+10000,19,20,0.950,0,2.74
+15000,19,20,0.950,0,2.89
