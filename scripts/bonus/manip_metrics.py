@@ -42,7 +42,8 @@ def trial_metrics(rec: dict) -> dict:
 
 
 def run_metrics(run: pathlib.Path) -> dict:
-    rows = [trial_metrics(json.loads(p.read_text())) for p in sorted((run / "merged").glob("*/trial_record.json"))]
+    recs = sorted((run / "merged").glob("*/trial_record.json")) or sorted(run.glob("*_manipulation/*/trial_record.json"))
+    rows = [trial_metrics(json.loads(p.read_text())) for p in recs]  # --jobs N: merged/; --jobs 1: <ts>_manipulation/
     n = len(rows)
     ok_t = [r["grasp_s"] for r in rows if r["grasp_ok"] and r["grasp_s"] is not None]
     return {"run": str(run), "n": n,

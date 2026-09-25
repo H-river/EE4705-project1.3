@@ -109,3 +109,17 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   Selected 35k (only 20/20). runs/bonus/best/diffusion → train/diffusion_base/checkpoints/035000. ≥ 30 % at 30k → no
   retries. Training finished 02:00 (60k steps, ~4.5 h at 3.6 it/s). Stage 4 DONE.
 - Figure docs/bonus/figs/curves_act_dp.png; data docs/bonus/data/diffusion_base.csv.
+
+## Stage 6 — DP (02:10–02:50)
+- DP full executor: C1 29/30, C2 27/30, C3 0/30, C4 30/30; WRONG_OBJECT 0, undetected 0, false claims 0.
+  C2 misses are the same far layouts as ACT (c2_04, c2_20; c2_16). C3: 415 grasp calls (retries), none attached.
+- DP skill level: C1 30/30 (3.20 s), C2 25/30, C3 1/30, C4 27/30 (full executor recovers C4 by retrying).
+- DP sampler ablation C1 (full / skill): DDIM 5 29/30 · 30/30; DDIM 10 29/30 · 30/30; DDIM 50 29/30 · 30/30;
+  DDPM 50 29/30 · 30/30 (verified the scheduler class and step count really change).
+  NOTE: a first attempt of these three ran with broken kwargs (a ':'-split in the shell loop cut the JSON) → 0/30,
+  invalid; moved to runs/bonus/invalid/ and re-run.
+- ACT n_action_steps full-executor numbers (JOBS=1 layout) now read too: 10 → 29/30, 50 → 29/30.
+- Videos: docs/bonus/videos/diffusion_{success_c1_00,failure_c2_20,ood_c3_00}.mp4.
+- State-only variants: lerobot ACT/DP require an image or observation.environment_state, so state-only = q (7) as
+  observation.state + target_pos (3) as observation.environment_state (sliced stats). act_state 25k, diffusion_state 30k
+  (retry-protocol lengths) training from 02:55.

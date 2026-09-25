@@ -27,7 +27,7 @@ CELL_NAMES = {"C1": "C1 in-dist.", "C2": "C2 ±20 cm", "C3": "C3 bottle (OOD)", 
 
 def manip(label: str, cell: str):
     run = ROOT / "runs/bonus/manip" / f"{label}_{cell}"
-    if not (run / "merged").exists():
+    if not run.exists():
         return None
     return manip_metrics.run_metrics(run)
 

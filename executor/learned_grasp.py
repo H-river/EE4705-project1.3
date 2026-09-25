@@ -108,6 +108,7 @@ class LeRobotPolicy:
             self._set_diffusion_sampler(num_inference_steps, scheduler)
         self.policy.to(self.device).eval()
         self.needs_image = bool(cfg.image_features)
+        self.env_state = "observation.environment_state" in cfg.input_features
         self.pre, self.post = make_pre_post_processors(
             cfg, pretrained_path=str(ckpt),
             preprocessor_overrides={"device_processor": {"device": self.device}})
@@ -137,7 +138,12 @@ class LeRobotPolicy:
 
     def __call__(self, state: np.ndarray, image: Optional[np.ndarray]) -> np.ndarray:
         t = self.torch
-        obs = {"observation.state": t.from_numpy(state.astype(np.float32))[None], "task": ["grasp the target object"]}
+        st = t.from_numpy(state.astype(np.float32))[None]
+        if self.env_state:  # state-only checkpoints: q -> state, target -> environment_state
+            obs = {"observation.state": st[:, :7], "observation.environment_state": st[:, 7:]}
+        else:
+            obs = {"observation.state": st}
+        obs["task"] = ["grasp the target object"]
         if self.needs_image:
             obs["observation.image"] = t.from_numpy(image).permute(2, 0, 1)[None].float() / 255.0
         with t.no_grad():

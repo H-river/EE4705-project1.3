@@ -71,7 +71,8 @@ def build_cache(ds_root: pathlib.Path) -> pathlib.Path:
 
 
 class CacheDataset(torch.utils.data.Dataset):
-    def __init__(self, cache: pathlib.Path, episodes: list[int], obs_delta, act_delta, use_image: bool):
+    def __init__(self, cache: pathlib.Path, episodes: list[int], obs_delta, act_delta, use_image: bool,
+                 split_env_state: bool = False):
         self.cache = cache
         self.state = np.load(cache / "state.npy")
         self.action = np.load(cache / "action.npy")
@@ -84,6 +85,7 @@ class CacheDataset(torch.utils.data.Dataset):
         self.obs_delta = None if obs_delta is None else np.asarray(obs_delta)
         self.act_delta = np.asarray(act_delta)
         self.use_image = use_image
+        self.split_env_state = split_env_state  # state-only: q -> observation.state, target -> environment_state
         self._img = None
 
     def __len__(self):
@@ -113,6 +115,12 @@ class CacheDataset(torch.utils.data.Dataset):
             if self.use_image:
                 out["observation.image"] = torch.from_numpy(np.array(self._img[oi])).permute(0, 3, 1, 2)
                 out["observation.image_is_pad"] = torch.from_numpy(opad)
+        if self.split_env_state:
+            st = out.pop("observation.state")
+            out["observation.state"] = st[..., :7].contiguous()
+            out["observation.environment_state"] = st[..., 7:].contiguous()
+            if "observation.state_is_pad" in out:
+                out["observation.environment_state_is_pad"] = out["observation.state_is_pad"]
         out["index"] = t
         return out
 
@@ -154,7 +162,22 @@ def make_config(args, meta):
     cfg.output_features = {k: f for k, f in feats.items() if f.type is FeatureType.ACTION}
     cfg.input_features = {k: f for k, f in feats.items() if k not in cfg.output_features
                           and not (args.state_only and f.type is FeatureType.VISUAL)}
+    if args.state_only:
+        # lerobot ACT/DP need an image or an environment state: the target position IS environment state.
+        from lerobot.configs.types import PolicyFeature
+        cfg.input_features = {"observation.state": PolicyFeature(type=FeatureType.STATE, shape=(7,)),
+                              "observation.environment_state": PolicyFeature(type=FeatureType.ENV, shape=(3,))}
     return cfg
+
+
+def split_state_stats(stats: dict) -> dict:
+    """10-D observation.state stats -> 7-D state + 3-D environment_state (same numbers, sliced)."""
+    st = stats.pop("observation.state")
+    stats["observation.state"] = {k: (v[:7] if getattr(v, "ndim", 0) >= 1 and v.shape[0] == 10 else v)
+                                  for k, v in st.items()}
+    stats["observation.environment_state"] = {k: (v[7:] if getattr(v, "ndim", 0) >= 1 and v.shape[0] == 10 else v)
+                                              for k, v in st.items()}
+    return stats
 
 
 def save(out: pathlib.Path, step: int, policy, pre, post, opt, sched, args) -> None:
@@ -211,9 +234,12 @@ def main(argv=None) -> int:
     for s, v in IMAGENET_STATS.items():
         stats["observation.image"][s] = torch.tensor(v, dtype=torch.float32)
     cfg = make_config(args, meta)
+    if args.state_only:
+        stats = split_state_stats(stats)
     split = json.loads((args.dataset / "split.json").read_text())
     use_image = "observation.image" in cfg.input_features
-    ds = CacheDataset(cache, split["train"], cfg.observation_delta_indices, cfg.action_delta_indices, use_image)
+    ds = CacheDataset(cache, split["train"], cfg.observation_delta_indices, cfg.action_delta_indices, use_image,
+                      split_env_state=args.state_only)
     g = torch.Generator().manual_seed(args.seed)
     loader = torch.utils.data.DataLoader(
         ds, batch_size=args.batch, sampler=torch.utils.data.RandomSampler(ds, replacement=True,

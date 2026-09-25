@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 label=$1; policy=$2; ckpt=${3:-}; kwargs=${4:-}; cells=${5:-C1 C2 C3 C4}
 for cell in $cells; do
   out=runs/bonus/manip/${label}_${cell}
-  n=$(ls "$out"/merged/*/trial_record.json 2>/dev/null | wc -l)
+  n=$(ls "$out"/merged/*/trial_record.json "$out"/*_manipulation/*/trial_record.json 2>/dev/null | wc -l)
   if [ "$n" -ge 30 ]; then echo "$label $cell: already done ($n)"; continue; fi
   rm -rf "$out" "$out.grasp_calls.jsonl"
   EE4705_GRASP_LOG="$PWD/$out.grasp_calls.jsonl" EE4705_GRASP_POLICY=$policy EE4705_GRASP_CKPT=$ckpt EE4705_GRASP_KWARGS=$kwargs \
