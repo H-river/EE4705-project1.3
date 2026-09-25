@@ -30,6 +30,23 @@ def evaluated(csv_path: pathlib.Path) -> set[int]:
         return {int(r["step"]) for r in csv.DictReader(f)}
 
 
+def place_val(args, ckpt: pathlib.Path, step: int, name: str):
+    """Learned PLACE carry inside the full executor on the 20 VAL trials (grasp scripted)."""
+    import os
+    import place_metrics
+    out = ROOT / "runs/bonus/manip/val" / f"{name}_{step:06d}"
+    env = {**os.environ, "EE4705_PLACE_POLICY": args.policy, "EE4705_PLACE_CKPT": str(ckpt.resolve()),
+           "EE4705_PLACE_LOG": str(out) + ".place_calls.jsonl",
+           "EE4705_PLACE_KWARGS": '{"device": "%s"}' % args.device if args.device else ""}
+    subprocess.run([str(ROOT / ".venv/bin/python"), "-m", "eval.runner", "--mode", "manipulation", "--trials",
+                    str(ROOT / "eval/trials/bonus_val"), "--out", str(out), "--jobs", str(args.workers)],
+                   cwd=ROOT, env=env, capture_output=True)
+    m = place_metrics.run(out)
+    s = {"n": m["n"], "success": m["task_success"], "rate": m["task_success"] / max(1, m["n"]), "wrong_object": 0,
+         "mean_time_to_attach_s": m["offset_cm_mean"]}  # for place, the last csv column holds the mean offset (cm)
+    return s, [m]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", type=pathlib.Path, required=True)
@@ -41,6 +58,8 @@ def main(argv=None) -> int:
     ap.add_argument("--last-step", type=int, required=True)
     ap.add_argument("--train-pid", type=int, default=None)
     ap.add_argument("--device", default=None, help="cpu: keep eval off the GPU while training runs")
+    ap.add_argument("--task", default="grasp", choices=("grasp", "place"),
+                    help="place: full-executor episodes on eval/trials/bonus_val (20), score = task success")
     args = ap.parse_args(argv)
     import eval_grasp
     name = args.name or args.run.name
@@ -55,9 +74,12 @@ def main(argv=None) -> int:
         for p in todo:
             time.sleep(5)  # let the writer finish the directory
             step = int(p.name)
-            rows = eval_grasp.run(args.policy, str(p / "pretrained_model"), "VAL", args.n, args.seed, args.workers,
-                                  {"device": args.device} if args.device else None)
-            s = eval_grasp.summarize(rows)
+            if args.task == "place":
+                s, rows = place_val(args, p / "pretrained_model", step, name)
+            else:
+                rows = eval_grasp.run(args.policy, str(p / "pretrained_model"), "VAL", args.n, args.seed, args.workers,
+                                      {"device": args.device} if args.device else None)
+                s = eval_grasp.summarize(rows)
             with (detail / f"{step:06d}.jsonl").open("w") as f:
                 f.write(json.dumps({"summary": s}) + "\n")
                 for r in rows:

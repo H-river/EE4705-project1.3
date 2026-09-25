@@ -1,0 +1,32 @@
+id: val_17
+category: bonus_VAL
+instruction: Move the blue cube to the red area.
+scene:
+  seed: 50017
+  objects:
+  - name: cube
+    pos:
+    - 0.3777
+    - 0.0943
+    - 0.88
+    yaw: 1.2796
+  - name: stone
+    pos:
+    - 0.2983
+    - 0.0112
+    - 0.88
+    yaw: -0.4682
+  robot_init:
+    x: -0.135
+    y: 0.0496
+    yaw: 0.1263
+clarification_responses: []
+expected:
+  target: cube
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP

@@ -1,0 +1,26 @@
+{
+  "seed": 2,
+  "hz": 10.0,
+  "image": 224,
+  "tried": 2010,
+  "kept": 2007,
+  "expert_success_rate": 0.9985074626865672,
+  "outcomes": {
+    "placed": 2007,
+    "place_calls=0": 3
+  },
+  "wrong_object": 0,
+  "by_class": {
+    "stone": 1037,
+    "cube": 970,
+    "bottle": 0
+  },
+  "with_distractor": 975,
+  "length_steps": {
+    "mean": 7.000996512207275,
+    "std": 0.031551848926731574,
+    "min": 7,
+    "max": 8,
+    "p50": 7.0
+  }
+}

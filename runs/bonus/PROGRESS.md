@@ -145,3 +145,20 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - scripted 48/50 (45/47 manip), ACT 38/50 (35/47), DP 38/50 (35/47); false claims 0 for all.
 - Learned-only losses: 9 bottle trials + f20 (stone2 at (0.60, 0.20), ~20 cm outside the training range).
   f41 (bottle) and f43 (REFUSED paraphrase) fail for all three. Will be rerun after 8.2 (bottle demos).
+
+### 8.1 data-size (in progress)
+- demos to 5,005 kept; datasets grasp_500 / grasp_1k / grasp_5k = first N episodes (nested with grasp_2k).
+- act_5k VAL: 5k 19, 10k 19, 15k–40k 20, 45k 19, 50k 20 → selected 50k. C1 full 29/30, skill C1 30/30 (2.84 s),
+  skill C2 26/30 (unchanged vs 2k: more in-range data does not fix out-of-range positions).
+- queue (scripts/bonus/queue_8.sh): act_1k → act_500 → act_2k_bottle (8.2).
+
+### 8.3 learned PLACE (tooling done)
+- LearnedPlaceSkill replaces only the PLACE carry (skills.move_to to the release pose), EE4705_PLACE_POLICY; release,
+  retreat and the vision placement check unchanged. Success requires TCP < 1.2 cm from the release pose (executor check).
+- Demos: scripts/bonus/collect_place_demos.py (full scripted episodes, record only the PLACE carry): 2,007 kept of 2,010
+  (3 never reached PLACE), 7 steps each (0.4 s carry + 0.3 s hold). Dataset runs/bonus/lerobot/place_2k.
+- VAL for place checkpoints = 20 full-executor trials eval/trials/bonus_val (seed 500), score = task success
+  (watch_ckpts --task place; scripts/bonus/train_task.sh with EVAL_TASK=place). Smoke (500 steps): 20/20, release
+  error 1.05 cm → the task is easy. Scripted place on C1: 29/30, final object offset 0.45 cm mean.
+- NOTE: never edit a shell script that a running queue is executing (bash reads incrementally); train.sh was restored
+  byte-identical and the extension lives in train_task.sh.
