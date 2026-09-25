@@ -11,7 +11,7 @@ from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, Groun
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
-from executor.learned_grasp import grasp_primitive
+from executor.learned_grasp import grasp_primitive, place_primitive
 from core.scene_geometry import table_aabb, table_center_xy
 from core.types import IMAGE_HEIGHT, IMAGE_WIDTH
 
@@ -687,7 +687,7 @@ class StudentCExecutor(ClosedLoopExecutor):
                                    info={"detail": "PLACE object differs from C's tracked grasp target"})
 
         release_pos = region_pos + np.array([0.0, 0.0, self._RELEASE_HEIGHT_M]) - self._held_offset
-        primitive = skills.move_to(env, release_pos)
+        primitive = place_primitive()(env, release_pos)  # EE4705_PLACE_POLICY (default: skills.move_to)
 
         if primitive.success and not env.is_attached():
             return ExecutionResult(action, False, ErrorCode.NOT_HOLDING,

@@ -119,3 +119,18 @@ def test_executor_grasp_goes_through_the_selected_policy(standard_world, env, or
     assert stub.calls > 0
     assert result.success, result
     assert standard_world.attached_body_name() == "stone"
+
+
+def test_learned_place_carry_reaches_release_pose_and_selector(standard_world, env, oracle, monkeypatch):
+    """8.3: LearnedPlaceSkill replaces the PLACE carry (move_to) and reports success only within EE_POS_TOL."""
+    from executor.learned_grasp import LearnedPlaceSkill, place_primitive
+    monkeypatch.delenv("EE4705_PLACE_POLICY", raising=False)
+    assert place_primitive() is skills.move_to
+    stone = oracle.object_pos("stone")
+    assert skills.approach(env, stone).success and skills.grasp(env, stone).success
+    target = env.get_ee_pos() + np.array([0.0, 0.03, 0.05])
+    res, _ = standard_world.robot.solve_arm_target(target)
+    r = LearnedPlaceSkill(StubPolicy(q_goal=res.q))(env, target)
+    assert r.success and r.info["ee_error"] < skills.EE_POS_TOL and env.is_attached()
+    r = LearnedPlaceSkill(StubPolicy(), max_s=2.0)(env, target + np.array([0.0, 0.0, 0.08]))
+    assert not r.success and r.error_code in (ErrorCode.TIMEOUT, ErrorCode.UNREACHABLE)

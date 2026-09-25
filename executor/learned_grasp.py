@@ -245,6 +245,87 @@ class LearnedGraspSkill:
         return SkillResult(True, ErrorCode.NONE, {**info, "attachment": handle})
 
 
+class LearnedPlaceSkill:
+    """Stage 8.3: drop-in for the ``skills.move_to(env, release_pos)`` call in
+    PLACE (carry the held object from the post-MOVE_TO pose down to the
+    release pose).  The release itself (open + ``skills.place``) and the
+    placement verification stay scripted and unchanged.  The rollout ends
+    when the TCP is within ``skills.EE_POS_TOL`` of the release pose (the
+    executor rejects anything farther, unchanged), when the commanded motion
+    settles within SETTLE_NEAR, or at the time limit."""
+
+    def __init__(self, policy: ArmPolicy | str, ckpt: Optional[str | os.PathLike] = None,
+                 max_s: float = MAX_S, **policy_kwargs) -> None:
+        if isinstance(policy, str):
+            policy = load_policy(policy, ckpt, **policy_kwargs)
+        self.policy = policy
+        self.max_s = float(max_s)
+        self.last_info: dict = {}
+
+    def __call__(self, env, pos_world: np.ndarray, timeout_s: Optional[float] = None) -> SkillResult:
+        p = np.asarray(pos_world, dtype=float)
+        every = max(1, int(round(1.0 / HZ / env.timestep())))
+        max_ticks = int(round(min(self.max_s, timeout_s or self.max_s) * HZ))
+        self.policy.reset()
+        t0 = env.sim_time()
+        prev_cmd, settled, ticks, stop, min_dist, dist = None, 0, 0, "timeout", float("inf"), float("inf")
+        for ticks in range(1, max_ticks + 1):
+            q = np.asarray(env.get_arm_q(), dtype=float)
+            state = np.concatenate([q, target_in_base(p, env.get_base_pose())])
+            image = head_image(env) if self.policy.needs_image else None
+            cmd = np.asarray(self.policy(state, image), dtype=float)
+            if cmd.shape != (7,) or not np.all(np.isfinite(cmd)):
+                return SkillResult(False, ErrorCode.UNREACHABLE, {"primitive": "move_to", "detail": "invalid policy action"})
+            env.set_arm_joint_target(cmd)
+            done = 0
+            while done < every:
+                k = min(SUBSTEPS, every - done)
+                env.step(k)
+                done += k
+                dist = float(np.linalg.norm(env.get_ee_pos() - p))
+                min_dist = min(min_dist, dist)
+                if dist < skills.EE_POS_TOL:
+                    stop = "reached"
+                    break
+            if stop == "reached":
+                break
+            if prev_cmd is not None and float(np.max(np.abs(cmd - prev_cmd))) < SETTLE_RAD:
+                settled += 1
+            else:
+                settled = 0
+            prev_cmd = cmd
+            if ticks >= MIN_TICKS and settled >= SETTLE_TICKS and dist < SETTLE_NEAR:
+                stop = "settled"
+                break
+        env.set_arm_joint_target(np.asarray(env.get_arm_q(), dtype=float))  # hold here for the release
+        info = {"primitive": "move_to", "policy": type(self.policy).__name__, "stop": stop, "ticks": ticks,
+                "rollout_s": env.sim_time() - t0, "ee_error": float(np.linalg.norm(env.get_ee_pos() - p)),
+                "min_ee_error": min_dist, "attached": env.is_attached()}
+        self.last_info = info
+        log = os.environ.get("EE4705_PLACE_LOG")
+        if log:
+            with open(log, "a") as f:
+                f.write(json.dumps({**info, "sim_time": env.sim_time()}) + "\n")
+        if info["ee_error"] < skills.EE_POS_TOL:
+            return SkillResult(True, ErrorCode.NONE, info)
+        return SkillResult(False, ErrorCode.UNREACHABLE if stop != "timeout" else ErrorCode.TIMEOUT, info)
+
+
+def place_primitive() -> Callable:
+    """The PLACE carry primitive selected by EE4705_PLACE_POLICY (default: skills.move_to)."""
+    kind = os.environ.get("EE4705_PLACE_POLICY", "scripted").strip().lower() or "scripted"
+    if kind not in POLICIES:
+        raise ValueError(f"EE4705_PLACE_POLICY={kind!r}; expected one of {POLICIES}")
+    if kind == "scripted":
+        return skills.move_to
+    key = ("place", kind, os.environ.get("EE4705_PLACE_CKPT", ""), os.environ.get("EE4705_PLACE_KWARGS", ""))
+    if key not in _CACHE:
+        kwargs = json.loads(key[3]) if key[3] else {}
+        ckpt = key[2] or str(ROOT / "runs/bonus/best" / f"place_{kind}")
+        _CACHE[key] = LearnedPlaceSkill(kind, ckpt, **kwargs)
+    return _CACHE[key]
+
+
 def load_policy(kind: str, ckpt: Optional[str | os.PathLike] = None, **kwargs) -> ArmPolicy:
     ckpt = pathlib.Path(ckpt) if ckpt else ROOT / "runs/bonus/best" / kind
     if kind in ("act", "diffusion"):
