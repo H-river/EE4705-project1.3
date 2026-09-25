@@ -36,10 +36,10 @@ equal statistical weight.
 | + duplicate-instance + identical-bbox guards | 5 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
 | + duplicate-instance + identical-bbox guards | 6 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
 | + duplicate-instance + identical-bbox guards | 7 (repeat, same dataset) | 30 | 27 | 90.0% | 10/10 | 9/10 | 8/10 | 0 |
-| Current shipped code (guards confirmed reverted; `vision_contract.py` byte-identical to the reframe-only version) | 8 (repeat, same dataset) | 30 | 27 | 90.0% | 10/10 | 9/10 | 8/10 | 0 |
-| Current shipped code | 9 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
-| Current shipped code | 10 (repeat, same dataset) | 30 | 25 | 83.3% | 10/10 | 8/10 | 7/10 | 0 |
-| Current shipped code | 11 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 9/10 | 7/10 | 0 |
+| Curren code (guards confirmed reverted; `vision_contract.py` byte-identical to the reframe-only version) | 8 (repeat, same dataset) | 30 | 27 | 90.0% | 10/10 | 9/10 | 8/10 | 0 |
+| Current code | 9 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 8/10 | 8/10 | 0 |
+| Current code | 10 (repeat, same dataset) | 30 | 25 | 83.3% | 10/10 | 8/10 | 7/10 | 0 |
+| Current code | 11 (repeat, same dataset) | 30 | 26 | 86.7% | 10/10 | 9/10 | 7/10 | 0 |
  
 **Validator/prompt ablation — outcome of each change, isolated:**
  
@@ -129,9 +129,9 @@ elsewhere.
 | Run | Cases checked | Mean IoU | Cases with IoU ≥ 0.5 |
 |---|---|---|---|
 | 1 | 10 | 0.872 | 10/10 = 100.0% |
-| 2 (repeat) | 10 | 0.874 | 10/10 = 100.0% |
-| 3 (repeat) | 10 | 0.860 | 10/10 = 100.0% |
-| 4 (repeat) | 10 | 0.868 | 10/10 = 100.0% |
+| 2 | 10 | 0.874 | 10/10 = 100.0% |
+| 3 | 10 | 0.860 | 10/10 = 100.0% |
+| 4 | 10 | 0.868 | 10/10 = 100.0% |
  
 Mean IoU across 4 runs: 0.868 (range 0.860–0.874) — stable, well clear of the
 ≥0.5 pass threshold every time.
@@ -146,8 +146,8 @@ Mean IoU across 4 runs: 0.868 (range 0.860–0.874) — stable, well clear of th
 | Containment (larger sample) | 10 | 10 | 100.0% |
 | Relative distance (larger sample) | 10 | 10 | 100.0% |
 | **Combined (n=20)** | **20** | **20** | **100.0%** |
-| Combined (n=20, independent repeat) | 20 | 20 | 100.0% |
-| Combined (n=20, 2nd independent repeat) | 20 | 20 | 100.0% |
+| Combined (n=20, 1t run) | 20 | 20 | 100.0% |
+| Combined (n=20, 2nd run) | 20 | 20 | 100.0% |
  
 Test cases were deliberately well-separated, not boundary/near-tie placements;
 this measures reliability on unambiguous spatial relations only, now
