@@ -83,3 +83,15 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   job subprocesses do use the learned policy.
 - ACT C1 (full executor): 29/30, 0 false claims. The one failure (c1_11) is LIMIT_EXCEEDED before any GRASP —
   identical for scripted, not a grasp failure.
+- 21:38 OOM killed the DP trainer (ACT stage-6 jobs + ACT skill evals + DP watcher eval + DP training at once).
+  The 5k checkpoint had been saved (VAL 18/20); resumed from it at ~21:45 (loss continuous). RULE: while DP
+  trains, at most ONE extra light process (JOBS=1 / workers=1).
+- ACT full executor: C1 29/30, C2 26/30 first-grasp (28/30 after the executor's retry/replan: c2_03, c2_16 missed
+  first, post-condition caught it, second attempt held), C3 0/30, C4 30/30; WRONG_OBJECT 0, undetected 0, false claims 0.
+- ACT skill level: C1 30/30 (3.18 s), C2 26/30, C3 0/30, C4 30/30 (2.83 s).
+- ACT C3 analysis: target z was constant in training (stone/cube centre 0.875); the bottle centre is 3.5 cm higher,
+  the policy aims too low (most min distances 5–10 cm); 12/234 calls reached 2.5 cm but did not attach (the
+  hand had displaced the tall bottle). Genuine OOD failure; see 8.2.
+- ACT ablation C1 (n_action_steps): 10 → full 29/30, skill 27/30 (3.23 s); 25 → 29/30, 30/30 (3.18 s);
+  50 → 29/30, 29/30 (2.71 s).
+- Videos (existing Recorder via eval.runner --video): docs/bonus/videos/act_{success_c1_00,failure_c2_04,ood_c3_00}.mp4
