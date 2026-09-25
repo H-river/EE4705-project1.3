@@ -47,21 +47,31 @@ _W: dict = {}
 
 
 def _init(policy: str, ckpt: str | None, kwargs: dict) -> None:
-    from core.env import RobotEnv
-    from core.world import SimWorld
-    _W["world"] = SimWorld()
-    _W["env"] = RobotEnv(_W["world"])
-    if policy == "scripted":
-        from core import skills
-        _W["skill"] = skills.grasp
-    else:
-        from executor.learned_grasp import LearnedGraspSkill
-        _W["skill"] = LearnedGraspSkill(policy, ckpt, **kwargs)
+    # A failing initializer makes multiprocessing.Pool respawn workers forever (map() hangs),
+    # so record the error and raise it from the first episode instead.
+    try:
+        from core.env import RobotEnv
+        from core.world import SimWorld
+        _W["world"] = SimWorld()
+        _W["env"] = RobotEnv(_W["world"])
+        if policy == "scripted":
+            from core import skills
+            _W["skill"] = skills.grasp
+        else:
+            if kwargs.get("device") == "cpu":
+                import torch
+                torch.set_num_threads(4)
+            from executor.learned_grasp import LearnedGraspSkill
+            _W["skill"] = LearnedGraspSkill(policy, ckpt, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        _W["error"] = f"{type(exc).__name__}: {exc}"
 
 
 def _episode(args) -> dict:
     import collect_grasp_demos as cg
     cell, seed, i = args
+    if "error" in _W:
+        raise RuntimeError(f"worker init failed: {_W['error']}")
     world, env, skill = _W["world"], _W["env"], _W["skill"]
     rng = np.random.default_rng([seed, i])
     cls, objs, robot = cg.sample_scene(rng, **CELLS[cell])
@@ -69,6 +79,9 @@ def _episode(args) -> dict:
     row = {"cell": cell, "seed": seed, "i": i, "class": cls, "objects": objs, "n_objects": len(objs)}
     if target is None:
         return {**row, "success": False, "reason": "approach_timeout", "wrong_object": False}
+    pol = getattr(skill, "policy", None)
+    if hasattr(pol, "set_episode_seed"):
+        pol.set_episode_seed(seed * 10000 + i)  # same sampling noise for this episode on any worker
     t0, w0 = env.sim_time(), time.perf_counter()
     res = skill(env, target)
     body = world.attached_body_name()
@@ -106,11 +119,12 @@ def main(argv=None) -> int:
     ap.add_argument("--n-action-steps", type=int, default=None)
     ap.add_argument("--inference-steps", type=int, default=None)
     ap.add_argument("--scheduler", default=None, choices=(None, "DDIM", "DDPM"))
+    ap.add_argument("--device", default=None, choices=(None, "cpu", "cuda"))
     ap.add_argument("--out", type=pathlib.Path, required=True)
     ap.add_argument("--tag", default="")
     args = ap.parse_args(argv)
     seed = DEFAULT_SEED[args.cell] if args.seed is None else args.seed
-    kwargs = {}
+    kwargs = {"device": args.device} if args.device else {}
     if args.n_action_steps:
         kwargs["n_action_steps"] = args.n_action_steps
     if args.inference_steps or args.scheduler:

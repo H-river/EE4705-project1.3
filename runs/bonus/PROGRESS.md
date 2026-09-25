@@ -96,3 +96,12 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   50 → 29/30, 29/30 (2.71 s).
 - Videos (existing Recorder via eval.runner --video): docs/bonus/videos/act_{success_c1_00,failure_c2_04,ood_c3_00}.mp4
 - 22:25 paused 5k/bottle collection (RAM: DP eval workers ~2.5 GB each); 5k log at ~2,700 tried; resume after DP.
+- 23:22 DP watcher hung at 20k: the trainer grew to 8.7 GB GPU; eval workers hit CUDA OOM in the Pool
+  initializer, and multiprocessing.Pool respawns failing workers forever (map never returns). Fixes:
+  (1) eval_grasp records init errors and raises them from the first episode (fail fast, no hang);
+  (2) checkpoint evals run on CPU while training (--device cpu; config loaded with device override; ~4 min / 20 eps);
+  (3) DP sampling noise came from torch's unseeded global RNG → evaluations were not reproducible. LeRobotPolicy now
+  re-seeds torch per rollout (eval: seed*10000+i per episode; full executor: per-process call counter, each trial is a
+  fresh process). ACT is deterministic at inference (VAE latent = 0), so its results are unaffected.
+  DP 5k/10k/15k (GPU, unseeded: 18/19/19) are re-scored seeded on CPU; old files in
+  runs/bonus/eval/curves/diffusion_base/gpu_unseeded/.

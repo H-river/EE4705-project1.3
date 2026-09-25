@@ -13,7 +13,7 @@ mkdir -p runs/bonus/logs
     --workers "${TRAIN_WORKERS:-5}" "$@" >> "runs/bonus/logs/$name.train.log" 2>&1 &
 pid=$!
 .venv/bin/python scripts/bonus/watch_ckpts.py --run "$out" --policy "$kind" --name "$name" --last-step "$steps" \
-    --train-pid "$pid" --workers "${EVAL_WORKERS:-3}" >> "runs/bonus/logs/$name.watch.log" 2>&1 &
+    --train-pid "$pid" --workers "${EVAL_WORKERS:-3}" --device "${EVAL_DEVICE:-cpu}" >> "runs/bonus/logs/$name.watch.log" 2>&1 &
 wpid=$!
 set +e
 wait "$pid"; echo "train exit $?" >> "runs/bonus/logs/$name.watch.log"

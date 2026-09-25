@@ -40,6 +40,7 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--last-step", type=int, required=True)
     ap.add_argument("--train-pid", type=int, default=None)
+    ap.add_argument("--device", default=None, help="cpu: keep eval off the GPU while training runs")
     args = ap.parse_args(argv)
     import eval_grasp
     name = args.name or args.run.name
@@ -54,7 +55,8 @@ def main(argv=None) -> int:
         for p in todo:
             time.sleep(5)  # let the writer finish the directory
             step = int(p.name)
-            rows = eval_grasp.run(args.policy, str(p / "pretrained_model"), "VAL", args.n, args.seed, args.workers)
+            rows = eval_grasp.run(args.policy, str(p / "pretrained_model"), "VAL", args.n, args.seed, args.workers,
+                                  {"device": args.device} if args.device else None)
             s = eval_grasp.summarize(rows)
             with (detail / f"{step:06d}.jsonl").open("w") as f:
                 f.write(json.dumps({"summary": s}) + "\n")

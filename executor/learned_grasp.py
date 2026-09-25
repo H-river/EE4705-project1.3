@@ -97,7 +97,10 @@ class LeRobotPolicy:
             raise ValueError(kind)
         self.torch = torch
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.policy = cls.from_pretrained(str(ckpt))
+        from lerobot.configs.policies import PreTrainedConfig
+        pcfg = PreTrainedConfig.from_pretrained(str(ckpt))
+        pcfg.device = self.device  # load straight onto the requested device (cpu evals while training)
+        self.policy = cls.from_pretrained(str(ckpt), config=pcfg)
         cfg = self.policy.config
         if n_action_steps is not None:
             cfg.n_action_steps = int(n_action_steps)
@@ -108,7 +111,7 @@ class LeRobotPolicy:
         self.pre, self.post = make_pre_post_processors(
             cfg, pretrained_path=str(ckpt),
             preprocessor_overrides={"device_processor": {"device": self.device}})
-        self.generator = torch.Generator(device="cpu").manual_seed(seed)
+        self.seed, self.calls = int(seed), 0
         self.reset()
 
     def _set_diffusion_sampler(self, steps: Optional[int], scheduler: Optional[str]) -> None:
@@ -122,7 +125,14 @@ class LeRobotPolicy:
         m.num_inference_steps = int(steps or cfg.num_inference_steps or cfg.num_train_timesteps)
         cfg.num_inference_steps = m.num_inference_steps
 
+    def set_episode_seed(self, seed: int) -> None:
+        """Diffusion sampling noise comes from torch's global RNG: re-seed it
+        per rollout so evaluations are reproducible (R6)."""
+        self.seed, self.calls = int(seed), 0
+
     def reset(self) -> None:
+        self.torch.manual_seed(self.seed * 1000 + self.calls)  # one fixed seed per rollout
+        self.calls += 1
         self.policy.reset()
 
     def __call__(self, state: np.ndarray, image: Optional[np.ndarray]) -> np.ndarray:
