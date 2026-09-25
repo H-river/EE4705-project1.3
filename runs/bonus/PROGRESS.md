@@ -162,3 +162,4 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   error 1.05 cm → the task is easy. Scripted place on C1: 29/30, final object offset 0.45 cm mean.
 - NOTE: never edit a shell script that a running queue is executing (bash reads incrementally); train.sh was restored
   byte-identical and the extension lives in train_task.sh.
+- act_1k VAL: 5k 16, 10k 18, 15k 19, 20k 19, 25k–40k 20, 45k 19, 50k 18 → 40k. C1 full 29/30, skill C1 29/30 (2.52 s), C2 25/30.
