@@ -2,7 +2,7 @@
 
 Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 
-## Stage 0 — environment (done 2026-09-25 ~19:50 +08)
+## Stage 0 — environment (done 2026-09-25 ~19:40 +08)
 - `pip install lerobot==0.6.1 h5py` into .venv: torch 2.11.0+cu130, CUDA OK (RTX 4080 laptop 12 GB),
   ACTConfig + DiffusionConfig instantiate (`scripts/bonus/check_env.py`).
 - Side effects: numpy 2.5.2 -> 2.2.6 (lerobot pin); mujoco 3.12.0 unchanged.
@@ -15,7 +15,7 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - Also installed `lerobot[dataset,training,diffusers-dep]==0.6.1` (datasets, diffusers 0.39, torchcodec, av).
   The stray `tests` package came back with it and was deleted again.
 
-## Stage 1 — expert data (done 2026-09-25 19:58)
+## Stage 1 — expert data (done 2026-09-25 ~19:48)
 - `scripts/bonus/collect_grasp_demos.py --n-keep 2000 --workers 10 --seed 0` -> runs/bonus/demos/ep_*.h5
   (episode i uses rng([0, i]); resumable). Post-APPROACH start state = reset + 0.5 s settle + arm tuck
   (C's _ARM_TUCK_OFFSET) + reference APPROACH to approach_base_pose ±3 cm/±5° + open gripper.
@@ -45,10 +45,10 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   (observation.image 224², observation.state 10-D, action 7-D), images stored as PNG (no video).
   Split 90/10 by episode (seeded permutation, split.json). `scripts/bonus/check_batch.py` loads a
   batch with a 50-step action chunk (+ action_is_pad).
-- Dataset built (2026-09-25 20:40): runs/bonus/lerobot/grasp_2k = first 2,000 kept episodes, 1,800 train /
+- Dataset built (2026-09-25 ~20:05): runs/bonus/lerobot/grasp_2k = first 2,000 kept episodes, 1,800 train /
   200 val episodes, 57,402 train frames, 1.9 GB. check_batch OK.
 
-## Stage 3 — ACT (started 20:50)
+## Stage 3 — ACT (started ~20:10)
 - lerobot-train was data-bound: 3 steps/s at batch 32 (data_s 0.29 s vs update 0.07 s) → ~4.6 h per 50k.
   Aborted at step ~1,300 (no checkpoint yet) and replaced with `scripts/bonus/train_policy.py`: same
   make_policy / presets / processors / ImageNet image stats / delta indices + pad masks, but batches come from
@@ -61,3 +61,9 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   → LearnedGraspSkill v2 trigger: ATTACH_TOL 2.5 cm from the grasp point, checked every 20 ms (TCP then ≤ 4.5 cm
   from the object centre, inside ATTACH_RADIUS 5 cm). Post-conditions unchanged; scripted unaffected.
   Same 5k checkpoint re-scored: 16/20. All curve points from here on use v2 (v1 detail kept as 005000_v1trigger.jsonl).
+- ACT VAL curve under v2: 5k 16, 10k 16, 15k 17, 20k 16, 25k 16 (/20). ≥ 30 % at 25k → no ACT retries needed.
+- The same VAL episodes (2, 4, 14) failed at 15k and 25k with stop="settled" 19–22 cm from the target after
+  1.2–1.7 s. With the settle stop disabled, all three attached (the policy resumes after a 1–2 s pause).
+  → v3: the settle stop only ends the rollout within SETTLE_NEAR = 5 cm of the grasp point; a pause farther away
+  runs to the 15 s limit. Tests updated (7 pass). All ACT checkpoints re-scored under v3 (v2 details in
+  runs/bonus/eval/curves/act_base/v2trigger/, v2 curve in runs/bonus/curves/act_base_v2trigger.csv).

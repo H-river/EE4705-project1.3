@@ -19,7 +19,14 @@ at ACT 5k 10/12 VAL misses came within 1.3-2 cm and then lifted away.  2.5 cm
 from the grasp point (2 cm above the object centre) keeps the TCP within
 4.5 cm of the centre, i.e. inside the 5 cm ATTACH_RADIUS used by
 try_attach_near_ee, so the trigger never fires where attaching is
-geometrically impossible.  Everything after that (lift check, the
+geometrically impossible.
+
+Settle stop (v3, same day): v2 also stopped whenever the commanded q stayed
+still for 0.5 s after the first second.  At ACT 15k/25k the same three VAL
+episodes "settled" 19-22 cm from the target; with the stop disabled the
+policy resumed after a 1-2 s pause and all three attached.  The settle stop
+now only applies once the TCP is within SETTLE_NEAR of the grasp point (a
+pause there is final); a pause farther away runs on until the time limit.  Everything after that (lift check, the
 executor's post-conditions) is unchanged.
 
 Selection: ``EE4705_GRASP_POLICY`` in {scripted, act, diffusion, mlp}
@@ -51,6 +58,7 @@ SETTLE_TICKS = 5  # 0.5 s
 MIN_TICKS = 10  # never stop on "settled" in the first second
 ATTACH_TOL = 0.025  # m from the grasp point (see module docstring, v2)
 SUBSTEPS = 10  # physics steps between proximity checks (20 ms)
+SETTLE_NEAR = 0.05  # m: "settled" only ends the rollout this close to the grasp point (v3)
 POLICIES = ("scripted", "act", "diffusion", "mlp")
 
 
@@ -202,7 +210,7 @@ class LearnedGraspSkill:
             else:
                 settled = 0
             prev_cmd = cmd
-            if ticks >= MIN_TICKS and settled >= SETTLE_TICKS:
+            if ticks >= MIN_TICKS and settled >= SETTLE_TICKS and dist < SETTLE_NEAR:
                 stop = "settled"
                 break
         info = {"primitive": "grasp", "policy": type(self.policy).__name__, "stop": stop, "ticks": ticks,

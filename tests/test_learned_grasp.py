@@ -57,13 +57,24 @@ def test_stub_policy_reaches_and_attaches_like_the_script(standard_world, env, o
     assert np.allclose(stub.states[-1][7:], target_in_base(stone, env.get_base_pose()), atol=0.03)
 
 
-def test_idle_policy_settles_and_misses(standard_world, env, oracle):
+def test_idle_policy_far_away_runs_to_the_time_limit(standard_world, env, oracle):
+    """v3: a pause far from the target is not final (policies resume after pausing)."""
     stone = oracle.object_pos("stone")
     assert skills.approach(env, stone).success
-    r = LearnedGraspSkill(StubPolicy())(env, stone)
+    t0 = env.sim_time()
+    r = LearnedGraspSkill(StubPolicy(), max_s=3.0)(env, stone)
     assert not r.success and r.error_code is ErrorCode.GRASP_MISSED
-    assert r.info["stop"] == "settled" and r.info["rollout_s"] < 2.0
+    assert r.info["stop"] == "timeout" and env.sim_time() - t0 >= 2.99
     assert not env.is_attached()
+
+
+def test_pause_near_the_grasp_point_settles(standard_world, env, oracle):
+    stone = oracle.object_pos("stone")
+    assert skills.approach(env, stone).success
+    # stops 3.5 cm above the grasp point: inside SETTLE_NEAR, outside ATTACH_TOL
+    q = _grasp_goal_q(standard_world, stone + np.array([0.0, 0.0, 0.035]))
+    r = LearnedGraspSkill(StubPolicy(q_goal=q))(env, stone)
+    assert r.info["stop"] == "settled" and learned_grasp.ATTACH_TOL < r.info["ee_error"] < learned_grasp.SETTLE_NEAR
 
 
 def test_invalid_action_and_already_holding(standard_world, env, oracle):
