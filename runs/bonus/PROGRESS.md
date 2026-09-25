@@ -123,3 +123,8 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - State-only variants: lerobot ACT/DP require an image or observation.environment_state, so state-only = q (7) as
   observation.state + target_pos (3) as observation.environment_state (sliced stats). act_state 25k, diffusion_state 30k
   (retry-protocol lengths) training from 02:55.
+- act_state (q → state, target → environment_state, no image) VAL: 5k 15, 10k 12, 15k 13, 20k 14, 25k 16 (/20).
+  Selected 25k. C1: full executor 29/30 (retries recover), skill level 26/30 (2.23 s) vs image ACT 30/30 (3.18 s).
+  → the head image DOES help ACT despite the target at the frame edge (earlier assumption wrong).
+- diffusion_state training 30k at 7.2 it/s (~70 min) from ~03:05.
+- Drafts: docs/bonus/RESULTS.md (tables via make_results.py --write) and docs/bonus/BONUS_SECTION.md.

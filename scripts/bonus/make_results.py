@@ -88,6 +88,36 @@ def skill_table(policies) -> str:
     return "\n".join(out)
 
 
+def detection_table(policies) -> str:
+    """Every learned-skill miss inside the full executor, and what the executor made of it."""
+    out = ["| Policy | learned-skill calls | misses (no attach) | GRASP actions reported success / failed "
+           "(≤ 2 skill calls each) | episodes recovered after a miss | undetected (reported success, wrong/no object) "
+           "| false task claims |", "|---|---|---|---|---|---|---|"]
+    for label, name in policies:
+        if label == "scripted":
+            continue
+        calls = misses = failed = okd = recovered = und = fc = 0
+        for c in CELLS:
+            side = ROOT / "runs/bonus/manip" / f"{label}_{c}.grasp_calls.jsonl"
+            m = manip(label, c)
+            if m is None or not side.exists():
+                continue
+            rows = [json.loads(line) for line in side.read_text().splitlines()]
+            calls += len(rows)
+            misses += sum(not r["attached"] for r in rows)
+            for p in sorted((ROOT / "runs/bonus/manip" / f"{label}_{c}").glob("**/trial_record.json")):
+                if p.parent.parent.name == "merged" or "_manipulation" in p.parent.parent.name:
+                    rec = json.loads(p.read_text())
+                    g = [e for e in rec["extra"].get("execution_records", []) if e["result"]["action"]["skill"] == "GRASP"]
+                    failed += sum(not e["result"]["success"] for e in g)
+                    okd += sum(bool(e["result"]["success"]) for e in g)
+            recovered += sum(1 for r in m["rows"] if r["grasp_any"] and not r["grasp_ok"])
+            und += m["undetected"]
+            fc += m["false_claims"]
+        out.append(f"| {name} | {calls} | {misses} | {okd} / {failed} | {recovered} | {und} | {fc} |")
+    return "\n".join(out)
+
+
 def ablation_table(rows: list[tuple[str, str]]) -> str:
     out = ["| Variant | full executor C1 (grasp) | skill level C1 | mean time-to-attach (skill, s) | undetected |",
            "|---|---|---|---|---|"]
@@ -100,7 +130,30 @@ def ablation_table(rows: list[tuple[str, str]]) -> str:
     return "\n".join(out)
 
 
+def render() -> str:
+    import contextlib
+    import io
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        _print_tables()
+    return buf.getvalue()
+
+
 def main() -> int:
+    """No args: print the tables. --write: replace the block between the TABLES markers in docs/bonus/RESULTS.md."""
+    if "--write" in sys.argv:
+        doc = ROOT / "docs/bonus/RESULTS.md"
+        text = doc.read_text()
+        a, b = "<!-- TABLES:BEGIN (scripts/bonus/make_results.py --write) -->", "<!-- TABLES:END -->"
+        i, j = text.index(a) + len(a), text.index(b)
+        doc.write_text(text[:i] + "\n" + render() + "\n" + text[j:])
+        print(f"updated {doc}")
+        return 0
+    print(render())
+    return 0
+
+
+def _print_tables() -> None:
     policies = [("scripted", "Scripted skill"), ("act", "ACT"), ("diffusion", "Diffusion Policy"),
                 ("mlp", "BC-MLP")]
     policies = [p for p in policies if any(manip(p[0], c) or skill(p[0], c) for c in CELLS)]
@@ -108,6 +161,8 @@ def main() -> int:
     print(main_table(policies))
     print("\n### Full executor: task success (object placed in the region, oracle)\n")
     print(task_table(policies))
+    print("\n### Full executor: learned-grasp failures and the unchanged post-condition\n")
+    print(detection_table(policies))
     print("\n### Skill level: grasp success and mean time-to-attach, 30 episodes/cell\n")
     print(skill_table(policies))
     abl = [("act_nas10", "ACT n_action_steps 10"), ("act", "ACT n_action_steps 25 (trained)"),
@@ -118,7 +173,6 @@ def main() -> int:
     abl = [a for a in abl if manip(a[0], "C1") or skill(a[0], "C1")]
     print("\n### Ablations on C1 (30 episodes each)\n")
     print(ablation_table(abl))
-    return 0
 
 
 if __name__ == "__main__":
