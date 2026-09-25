@@ -23,12 +23,15 @@ geometrically impossible.  Everything after that (lift check, the
 executor's post-conditions) is unchanged.
 
 Selection: ``EE4705_GRASP_POLICY`` in {scripted, act, diffusion, mlp}
-(default scripted) and ``EE4705_GRASP_CKPT`` (default
-``runs/bonus/best/<policy>``); see ``grasp_primitive()``.
+(default scripted), ``EE4705_GRASP_CKPT`` (default
+``runs/bonus/best/<policy>``) and optional ``EE4705_GRASP_KWARGS`` (JSON,
+e.g. ``{"n_action_steps": 10}`` or ``{"num_inference_steps": 50,
+"scheduler": "DDPM"}`` for ablations); see ``grasp_primitive()``.
 """
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import pathlib
@@ -232,7 +235,8 @@ def grasp_primitive() -> Callable:
         raise ValueError(f"EE4705_GRASP_POLICY={kind!r}; expected one of {POLICIES}")
     if kind == "scripted":
         return skills.grasp
-    key = (kind, os.environ.get("EE4705_GRASP_CKPT", ""))
+    key = (kind, os.environ.get("EE4705_GRASP_CKPT", ""), os.environ.get("EE4705_GRASP_KWARGS", ""))
     if key not in _CACHE:
-        _CACHE[key] = LearnedGraspSkill(kind, key[1] or None)
+        kwargs = json.loads(key[2]) if key[2] else {}
+        _CACHE[key] = LearnedGraspSkill(kind, key[1] or None, **kwargs)
     return _CACHE[key]

@@ -98,7 +98,9 @@ def test_executor_grasp_goes_through_the_selected_policy(standard_world, env, or
     assert skills.approach(env, stone).success
     stub = StubPolicy(q_goal=_grasp_goal_q(standard_world, stone))
     monkeypatch.setenv("EE4705_GRASP_POLICY", "act")
-    monkeypatch.setitem(learned_grasp._CACHE, ("act", ""), LearnedGraspSkill(stub))
+    monkeypatch.delenv("EE4705_GRASP_CKPT", raising=False)
+    monkeypatch.delenv("EE4705_GRASP_KWARGS", raising=False)
+    monkeypatch.setitem(learned_grasp._CACHE, ("act", "", ""), LearnedGraspSkill(stub))
     perception = GTPerception(oracle, mode="omniscient")
     scene = perception.describe(env.get_obs())
     target = next(o for o in scene.objects if o.name == "stone")
