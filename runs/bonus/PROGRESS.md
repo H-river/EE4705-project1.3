@@ -67,3 +67,19 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   → v3: the settle stop only ends the rollout within SETTLE_NEAR = 5 cm of the grasp point; a pause farther away
   runs to the 15 s limit. Tests updated (7 pass). All ACT checkpoints re-scored under v3 (v2 details in
   runs/bonus/eval/curves/act_base/v2trigger/, v2 curve in runs/bonus/curves/act_base_v2trigger.csv).
+- ACT (v3 skill) VAL curve: 5k 18, 10k 18, 15k 20, 20k 19, 25k 19, 30k 19, 35k 18, 40k 19, 45k 20, 50k 20 (/20).
+  Selected: 50k (max VAL, tie → latest step). runs/bonus/best/act → train/act_base/checkpoints/050000.
+  Figure docs/bonus/figs/act_curve.png; data docs/bonus/data/act_base.csv. Stage 3 DONE (21:35).
+
+## Stage 4 — Diffusion Policy (started ~21:15)
+- A first DP launch ran concurrently with ACT: 1.7 it/s, RAM 3 GB free → stopped after ~1k steps (no checkpoint),
+  relaunched alone after ACT: 3.6 it/s (GPU-bound: 2 obs × 224² images × batch 64) → ~4.7 h for 60k.
+- diffusion_base: horizon 32, n_action_steps 8, n_obs_steps 2, DDIM 10 inference steps (100 train timesteps),
+  resnet18 (ImageNet), batch 64, lr 1e-4 (lerobot preset), 60k, seed 1000.
+
+## Stage 6 (started early for ACT while DP trains; JOBS=2 for RAM)
+- EE4705_GRASP_LOG sidecar added (the executor replaces the primitive's info after its lift check, so the
+  learned-skill stop/ticks were not visible in trial records). A bogus EE4705_GRASP_CKPT makes the trial fail →
+  job subprocesses do use the learned policy.
+- ACT C1 (full executor): 29/30, 0 false claims. The one failure (c1_11) is LIMIT_EXCEEDED before any GRASP —
+  identical for scripted, not a grasp failure.

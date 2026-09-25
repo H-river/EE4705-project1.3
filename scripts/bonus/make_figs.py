@@ -44,8 +44,8 @@ def main(argv=None) -> int:
         x, y = load(run)
         c = SERIES[i % len(SERIES)]
         ax.plot(x, y, color=c, lw=2, marker="o", ms=5, mec=SURF, mew=1.5, label=lab, zorder=3)
-        best = max(range(len(y)), key=lambda k: (y[k], -x[k]))
-        ax.annotate(f"{lab}: best {y[best]:.0f} % @ {x[best] // 1000}k", (x[-1], y[-1]), xytext=(6, 0),
+        best = max(range(len(y)), key=lambda k: (y[k], x[k]))  # tie -> latest step (selection rule)
+        ax.annotate(f"{lab}: selected {x[best] // 1000}k ({y[best]:.0f} %)", (x[-1], y[-1]), xytext=(6, 0),
                     textcoords="offset points", va="center", fontsize=8, color=INK2)
     if args.scripted_val is not None:
         ax.axhline(args.scripted_val, color=INK2, lw=1.2, ls="--", zorder=2)

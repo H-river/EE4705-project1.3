@@ -217,7 +217,12 @@ class LearnedGraspSkill:
                 "rollout_s": env.sim_time() - t0, "ee_error": float(np.linalg.norm(env.get_ee_pos() - grasp_pt)),
                 "min_ee_error": min_dist}
         handle = env.try_attach_near_ee()
+        info["attached"] = handle is not None
         self.last_info = info
+        log = os.environ.get("EE4705_GRASP_LOG")
+        if log:  # optional sidecar (the executor replaces primitive info after its lift check)
+            with open(log, "a") as f:
+                f.write(json.dumps({**info, "sim_time": env.sim_time()}) + "\n")
         if handle is None:
             return SkillResult(False, ErrorCode.GRASP_MISSED, info)
         env.step(50)  # let the attachment stabilize (as skills.grasp)
