@@ -45,3 +45,14 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   (observation.image 224², observation.state 10-D, action 7-D), images stored as PNG (no video).
   Split 90/10 by episode (seeded permutation, split.json). `scripts/bonus/check_batch.py` loads a
   batch with a 50-step action chunk (+ action_is_pad).
+- Dataset built (2026-09-25 20:40): runs/bonus/lerobot/grasp_2k = first 2,000 kept episodes, 1,800 train /
+  200 val episodes, 57,402 train frames, 1.9 GB. check_batch OK.
+
+## Stage 3 — ACT (started 20:50)
+- lerobot-train was data-bound: 3 steps/s at batch 32 (data_s 0.29 s vs update 0.07 s) → ~4.6 h per 50k.
+  Aborted at step ~1,300 (no checkpoint yet) and replaced with `scripts/bonus/train_policy.py`: same
+  make_policy / presets / processors / ImageNet image stats / delta indices + pad masks, but batches come from
+  a uint8 memmap of the SAME episodes (runs/bonus/cache/grasp_2k, 9.6 GB; `--verify`: 30 random frames
+  identical to LeRobotDataset). 12.9 steps/s, GPU 99 %. Loss at step 500: 3.731 (lerobot-train: 3.729).
+- `scripts/bonus/train.sh <name> <kind> <steps> <dataset> [args]` = trainer + watch_ckpts (20 VAL eps / 5k).
+- act_base: chunk 50, n_action_steps 25, resnet18 (ImageNet), batch 32, lr 1e-5 (lerobot default), 50k, seed 1000.
