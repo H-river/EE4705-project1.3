@@ -180,11 +180,11 @@ class Recorder:
                 self.sample()
 
 
-def run_episode(world, env, i: int, seed: int, with_image=True) -> dict:
+def run_episode(world, env, i: int, seed: int, with_image=True, classes=("stone", "cube")) -> dict:
     from core import skills
 
     rng = np.random.default_rng([seed, i])
-    cls, objs, robot = sample_scene(rng)
+    cls, objs, robot = sample_scene(rng, classes=tuple(classes))
     t0 = time.perf_counter()
     target = setup_post_approach(world, env, cls, objs, robot, rng)
     meta = {"episode": i, "seed": [seed, i], "class": cls, "objects": objs, "robot_init": robot,
@@ -224,14 +224,14 @@ _W = {}
 
 
 def _worker(args):
-    i, seed, out, with_image = args
+    i, seed, out, with_image, classes = args
     if "world" not in _W:
         from core.env import RobotEnv
         from core.world import SimWorld
         _W["world"] = SimWorld()
         _W["env"] = RobotEnv(_W["world"])
     path = out / f"ep_{i:05d}.h5"
-    ep = run_episode(_W["world"], _W["env"], i, seed, with_image)
+    ep = run_episode(_W["world"], _W["env"], i, seed, with_image, classes)
     if ep["success"]:
         save_h5(path, ep)
     return {k: v for k, v in ep.items() if k != "rows"}
@@ -245,6 +245,7 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--no-image", action="store_true")
+    ap.add_argument("--classes", default="stone,cube", help="target classes (8.2: bottle)")
     args = ap.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     log_path = args.out / "episodes.jsonl"
@@ -263,7 +264,8 @@ def main(argv=None) -> int:
         while kept < args.n_keep:
             while len(pending) < args.workers * 2:
                 i = next(todo)
-                pending.append(pool.apply_async(_worker, ((i, args.seed, args.out, not args.no_image),)))
+                pending.append(pool.apply_async(_worker, ((i, args.seed, args.out, not args.no_image,
+                                                                   tuple(args.classes.split(","))),)))
             r = pending.pop(0).get()
             log.write(json.dumps(r) + "\n")
             log.flush()
@@ -289,7 +291,7 @@ def write_manifest(out: pathlib.Path, seed: int) -> dict:
     m = {"seed": seed, "hz": HZ, "image": IMG, "tried": len(eps), "kept": len(kept),
          "expert_success_rate": len(kept) / max(1, len(eps)), "outcomes": reasons,
          "wrong_object": sum(e.get("wrong_object", False) for e in eps),
-         "by_class": {c: sum(e["class"] == c for e in kept) for c in ("stone", "cube")},
+         "by_class": {c: sum(e["class"] == c for e in kept) for c in ("stone", "cube", "bottle")},
          "with_distractor": sum(e["distractor"] for e in kept),
          "length_steps": {"mean": float(lens.mean()), "std": float(lens.std()), "min": int(lens.min()),
                           "max": int(lens.max()), "p50": float(np.median(lens))}}

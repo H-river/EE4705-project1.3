@@ -95,3 +95,4 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - ACT ablation C1 (n_action_steps): 10 → full 29/30, skill 27/30 (3.23 s); 25 → 29/30, 30/30 (3.18 s);
   50 → 29/30, 29/30 (2.71 s).
 - Videos (existing Recorder via eval.runner --video): docs/bonus/videos/act_{success_c1_00,failure_c2_04,ood_c3_00}.mp4
+- 22:25 paused 5k/bottle collection (RAM: DP eval workers ~2.5 GB each); 5k log at ~2,700 tried; resume after DP.
