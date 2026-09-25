@@ -181,6 +181,25 @@ python scripts/bonus/make_results.py --write
 
 ## Stage 8 — continued improvements
 
+### 8.1 More data: ACT trained on 500 / 1k / 2k / 5k demonstrations
+
+The recipe is the same for every size (50k steps, checkpoint picked on VAL). Datasets are the first N kept episodes,
+so they are nested; the 5k set is 5,005 kept of 5,033 tried (expert 99.4 %).
+
+| Demos | Selected (VAL) | Full executor C1 | Skill C1 (t̄ s) | Skill C2 ±20 cm |
+|---|---|---|---|---|
+| 500 | 35k (20/20) | 29/30 | 29/30 (2.86) | 25/30 |
+| 1k | 40k (20/20) | 29/30 | 29/30 (2.52) | 25/30 |
+| 2k | 50k (20/20) | 29/30 | 30/30 (3.18) | 26/30 |
+| 5k | 50k (20/20) | 29/30 | 30/30 (2.84) | 26/30 |
+
+![data size](figs/datasize.png)
+
+**The curve is flat.** 500 demonstrations already saturate the in-distribution task; C1 cannot separate the sizes
+(the full-executor miss is c1_11, which never reaches GRASP). The position-shift cell C2 moves by one episode
+between 1k and 2k and not at all to 5k. More data from the *same* ±10 cm distribution does not teach the policy
+positions outside it. Coverage matters, not volume.
+
 ### 8.4 All 50 `final50` trials, manipulation mode (GT perception + RulePlanner + StudentCExecutor, 0 API)
 
 Runner score: the expected outcome, whether success, reject or clarify, was reached.
