@@ -1,5 +1,5 @@
-# BONUS STATUS (updated 2026-09-26 04:18 +08)
-Stage: 7/8 DONE — docs/bonus/RESULTS.md + BONUS_SECTION.md pushed; starting stage 8
+# BONUS STATUS (updated 2026-09-26 04:45 +08)
+Stage: 8 — 8.4 done (final50: scripted 48, ACT 38, DP 38; losses = bottle); 8.1 ACT-5k training
 Full executor, grasp success /30 (C1 C2 C3 C4):
   scripted 29 30 29 30 | ACT 29 26 0 30 | DP 29 27 0 30
   WRONG_OBJECT 0, undetected 0, false claims 0 for all policies

@@ -178,3 +178,20 @@ scripts/bonus/run_stage6.sh act act runs/bonus/best/act          # + scripted, d
 python scripts/bonus/eval_grasp.py --policy act --ckpt runs/bonus/best/act --cell C1 --n 30 --out ...
 python scripts/bonus/make_results.py --write
 ```
+
+## Stage 8 — continued improvements
+
+### 8.4 All 50 `final50` trials, manipulation mode (GT perception + RulePlanner + StudentCExecutor, 0 API)
+
+Runner score: the expected outcome, whether success, reject or clarify, was reached.
+
+| Grasp | Score | Manipulation trials correct | False claims |
+|---|---|---|---|
+| Scripted | 48/50 | 45/47 | 0 |
+| ACT (2k demos) | 38/50 | 35/47 | 0 |
+| Diffusion Policy (2k demos) | 38/50 | 35/47 | 0 |
+
+The 10 trials that only the learned grasps lose are **9 bottle trials** (the OOD object) plus f20, whose target
+(stone2 at (0.60, 0.20)) lies ~20 cm outside the training range, as in C2. f41 (bottle) and f43 (a paraphrase that
+the rule planner refuses) fail for every grasp. Every learned-grasp failure ended as FAILED or SEARCH_EXHAUSTED,
+never as a claimed success. Raw data: `runs/bonus/final50/<policy>/rows.json`.
