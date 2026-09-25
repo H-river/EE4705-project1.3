@@ -114,6 +114,19 @@ class RobotEnv:
             raise ValueError(f"pos_world must be a finite 3-vector, got {pos_world!r}")
         self._world.set_arm_target(p)
 
+    def get_arm_q(self) -> np.ndarray:
+        """Measured right-arm joint positions (7, rad); proprioception only."""
+        return self._world.arm_q()
+
+    def set_arm_joint_target(self, q: np.ndarray) -> None:
+        """Non-blocking joint-space setpoint for the right arm (7, rad),
+        clamped to the joint limits; cancels any Cartesian target.  Used by
+        the learned grasp skill (executor/learned_grasp.py)."""
+        q = np.asarray(q, dtype=float)
+        if q.shape != (7,) or not np.all(np.isfinite(q)):
+            raise ValueError(f"q must be a finite 7-vector, got {q!r}")
+        self._world.set_arm_joint_target(q)
+
     def set_gripper(self, side: str, opening: float) -> None:
         """Non-blocking gripper target: ``side`` in {"left", "right"},
         ``opening`` 0.0 = closed .. 1.0 = fully open.  The measured opening

@@ -2,7 +2,12 @@
 __pycache__/
 *.pyc
 *.egg-info/
-runs/
+runs/*
+!runs/bonus/
+runs/bonus/*
+!runs/bonus/*.md
+!runs/bonus/*.csv
+!runs/bonus/*.json
 .pytest_cache/
 # Upstream MuJoCo Menagerie checkout (fetched by scripts/fetch_menagerie.sh
 # at the revision pinned in assets/menagerie_revision.txt).
