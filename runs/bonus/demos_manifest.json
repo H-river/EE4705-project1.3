@@ -1,0 +1,26 @@
+{
+  "seed": 0,
+  "hz": 10.0,
+  "image": 224,
+  "tried": 2030,
+  "kept": 2019,
+  "expert_success_rate": 0.9945812807881773,
+  "outcomes": {
+    "attached": 2019,
+    "TIMEOUT": 8,
+    "GRASP_MISSED": 3
+  },
+  "wrong_object": 0,
+  "by_class": {
+    "stone": 1037,
+    "cube": 982
+  },
+  "with_distractor": 1003,
+  "length_steps": {
+    "mean": 31.867261020307083,
+    "std": 8.988089250070475,
+    "min": 22,
+    "max": 129,
+    "p50": 28.0
+  }
+}
