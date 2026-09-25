@@ -111,6 +111,8 @@ trial files**, i.e. the same seeds and layouts:
 | DP DDIM 10 steps (trained) | 29/30 | 30/30 | 3.20 | 0 |
 | DP DDIM 50 steps | 29/30 | 30/30 | 3.28 | 0 |
 | DP DDPM 50 steps | 29/30 | 30/30 | 3.30 | 0 |
+| ACT state-only | 29/30 | 26/30 | 2.23 | 0 |
+| DP state-only | 29/30 | 30/30 | 2.68 | 0 |
 
 <!-- TABLES:END -->
 
@@ -142,9 +144,17 @@ Notes on reading the tables:
 * ACT n_action_steps {10, 25, 50} and DP samplers {DDIM 5, DDIM 10, DDIM 50, DDPM 50} give 29/30 on C1 at
   full-executor level. Skill level separates them a little: ACT 27, 30 and 29/30; DP 30/30 for every sampler, so
   5 DDIM steps are enough here. More open-loop steps (ACT 50) make the grasp faster at no cost on C1.
-* Image vs state-only: see the ablation table (`ACT/DP state-only`, trained at the retry-ladder lengths of 25k and
-  30k steps). At the post-APPROACH pose the head camera sees the target only at the image edge and the hand barely
-  at all, so the state carries the information.
+* **Image vs state-only.** lerobot's ACT and DP refuse robot-state-only input, so the state-only variants feed q as
+  `observation.state` and the target position as `observation.environment_state` (the same numbers, split). They
+  were trained at the retry-ladder lengths (ACT 25k, DP 30k steps). The head camera sees the target only at the
+  lower image edge from the parking pose, yet **ACT needs it**: state-only ACT peaks at 16/20 on VAL (image ACT
+  18–20/20 from 5k on) and drops to 26/30 at skill level on C1. The executor's retry hides the gap at full-executor
+  level (29/30). **DP does not need it**: state-only DP reaches 20/20 on VAL from 15k, 30/30 at skill level, and
+  attaches faster (2.68 s against 3.20 s). A plausible reading: ACT's transformer has only two non-visual tokens
+  without the image and is less stable to train on them (its VAL curve dips to 12/20 at 10k), whereas DP's
+  FiLM-conditioned U-Net uses low-dimensional conditioning directly.
+
+![image ablation](figs/curves_image_ablation.png)
 
 ## Videos
 

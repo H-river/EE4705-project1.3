@@ -195,7 +195,12 @@ def run_episode(world, env, i: int, seed: int, with_image=True, classes=("stone"
     res = skills.grasp(rec, target)
     ok = env.is_attached() and world.attached_body_name() == cls
     if ok:
-        env.set_arm_target(env.get_ee_pos() + np.array([0.0, 0.0, LIFT_M]))
+        for lift in (LIFT_M, LIFT_M / 2):  # the bottle's taller grasp point can make the 10 cm lift infeasible
+            try:
+                env.set_arm_target(env.get_ee_pos() + np.array([0.0, 0.0, lift]))
+                break
+            except ValueError:
+                continue
         rec.step(int(round(LIFT_S / world.timestep)))
     meta.update(success=bool(ok), reason=res.error_code.value if not ok else "attached",
                 wrong_object=bool(env.is_attached() and not ok),
@@ -231,7 +236,11 @@ def _worker(args):
         _W["world"] = SimWorld()
         _W["env"] = RobotEnv(_W["world"])
     path = out / f"ep_{i:05d}.h5"
-    ep = run_episode(_W["world"], _W["env"], i, seed, with_image, classes)
+    try:
+        ep = run_episode(_W["world"], _W["env"], i, seed, with_image, classes)
+    except Exception as exc:  # noqa: BLE001 - one bad episode must not kill the pool
+        return {"episode": i, "seed": [seed, i], "class": "?", "distractor": False, "success": False,
+                "reason": f"exception:{type(exc).__name__}", "n_steps": 0}
     if ep["success"]:
         save_h5(path, ep)
     return {k: v for k, v in ep.items() if k != "rows"}

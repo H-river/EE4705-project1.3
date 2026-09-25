@@ -40,22 +40,31 @@ def main(argv=None) -> int:
     fig, ax = plt.subplots(figsize=(7.2, 4.0), dpi=150)
     fig.patch.set_facecolor(SURF)
     ax.set_facecolor(SURF)
-    lows = []
+    lows, ends = [], []
     for i, (run, lab) in enumerate(zip(args.runs, labels)):
         x, y = load(run)
         lows.append(min(y))
         c = SERIES[i % len(SERIES)]
         ax.plot(x, y, color=c, lw=2, marker="o", ms=5, mec=SURF, mew=1.5, label=lab, zorder=3)
         best = max(range(len(y)), key=lambda k: (y[k], x[k]))  # tie -> latest step (selection rule)
-        ax.annotate(f"{lab}: selected {x[best] // 1000}k ({y[best]:.0f} %)", (x[-1], y[-1]), xytext=(6, 0),
-                    textcoords="offset points", va="center", fontsize=8, color=INK2,
-                    bbox=dict(boxstyle="square,pad=0.15", fc=SURF, ec="none"))
+        ends.append([y[-1], f"{lab}: selected {x[best] // 1000}k ({y[best]:.0f} %)", x[-1], y[-1]])
     if args.scripted_val is not None:
         ax.axhline(args.scripted_val, color=INK2, lw=1.2, ls="--", zorder=2)
         ax.text(ax.get_xlim()[0], args.scripted_val + 0.6, f"scripted {args.scripted_val:.0f} %", fontsize=8,
                 color=INK2)
     lo = min(lows + ([args.scripted_val] if args.scripted_val is not None else []))
-    ax.set_ylim(max(0, (int(lo) // 10) * 10 - 10), 103)  # line chart: axis may start above 0
+    ymin = max(0, (int(lo) // 10) * 10 - 10)
+    ax.set_ylim(ymin, 103)  # line chart: axis may start above 0
+    # direct end labels at the right edge, nudged apart so equal end values do not collide
+    xmax = max(e[2] for e in ends)
+    gap = 0.05 * (103 - ymin)
+    ends.sort(key=lambda e: -e[0])
+    for k in range(1, len(ends)):
+        ends[k][0] = min(ends[k][0], ends[k - 1][0] - gap)
+    for ly, text, ex, ey in ends:
+        ax.annotate(text, (ex, ey), xytext=(xmax + 0.03 * xmax, ly), textcoords="data", va="center", fontsize=8,
+                    color=INK2, annotation_clip=False,
+                    arrowprops=dict(arrowstyle="-", color=GRID, lw=0.8) if (ex != xmax or abs(ly - ey) > 0.1) else None)
     ax.set_xlabel("training step", color=INK2, fontsize=9)
     ax.set_ylabel("grasp success (%)", color=INK2, fontsize=9)
     ax.set_title(args.title, color=INK, fontsize=10, loc="left")
