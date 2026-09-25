@@ -6,11 +6,20 @@ return type as ``core.skills.grasp(env, pos_world)``.  From the current
 (post-APPROACH) pose it runs the policy closed-loop at 10 Hz for at most
 15 s of sim time; each tick it reads proprioception (arm q), the target
 position in the base frame and, for image policies, the head camera, and
-commands the next arm joint setpoint.  The rollout ends when the TCP is
-within ``skills.EE_POS_TOL`` of the scripted grasp point (the same
-tolerance the scripted REACH uses), when the commanded motion has settled,
-or at the time limit; then ``env.try_attach_near_ee()`` is called ONCE,
-exactly as the script does.  Everything after that (lift check, the
+commands the next arm joint setpoint.  The rollout ends when the TCP comes
+within ``ATTACH_TOL`` of the scripted grasp point (checked every 20 ms, so a
+policy that passes through the point without stopping is caught), when the
+commanded motion has settled, or at the time limit; then
+``env.try_attach_near_ee()`` is called ONCE, exactly as the script does.
+
+ATTACH_TOL (v2, 2026-09-25): v1 used ``skills.EE_POS_TOL`` (1.2 cm), the
+scripted REACH tolerance.  The script converges onto the point; the learned
+policies (like the demos they imitate) descend, pause briefly and lift, and
+at ACT 5k 10/12 VAL misses came within 1.3-2 cm and then lifted away.  2.5 cm
+from the grasp point (2 cm above the object centre) keeps the TCP within
+4.5 cm of the centre, i.e. inside the 5 cm ATTACH_RADIUS used by
+try_attach_near_ee, so the trigger never fires where attaching is
+geometrically impossible.  Everything after that (lift check, the
 executor's post-conditions) is unchanged.
 
 Selection: ``EE4705_GRASP_POLICY`` in {scripted, act, diffusion, mlp}
@@ -37,6 +46,8 @@ IMG = 224
 SETTLE_RAD = 0.01  # max |Δq_cmd| per tick counted as "settled"
 SETTLE_TICKS = 5  # 0.5 s
 MIN_TICKS = 10  # never stop on "settled" in the first second
+ATTACH_TOL = 0.025  # m from the grasp point (see module docstring, v2)
+SUBSTEPS = 10  # physics steps between proximity checks (20 ms)
 POLICIES = ("scripted", "act", "diffusion", "mlp")
 
 
@@ -171,11 +182,17 @@ class LearnedGraspSkill:
             if cmd.shape != (7,) or not np.all(np.isfinite(cmd)):
                 return SkillResult(False, ErrorCode.UNREACHABLE, {"primitive": "grasp", "detail": "invalid policy action"})
             env.set_arm_joint_target(cmd)
-            env.step(every)
-            dist = float(np.linalg.norm(env.get_ee_pos() - grasp_pt))
-            min_dist = min(min_dist, dist)
-            if dist < skills.EE_POS_TOL:
-                stop = "reached"
+            done = 0
+            while done < every:
+                k = min(SUBSTEPS, every - done)
+                env.step(k)
+                done += k
+                dist = float(np.linalg.norm(env.get_ee_pos() - grasp_pt))
+                min_dist = min(min_dist, dist)
+                if dist < ATTACH_TOL:
+                    stop = "reached"
+                    break
+            if stop == "reached":
                 break
             if prev_cmd is not None and float(np.max(np.abs(cmd - prev_cmd))) < SETTLE_RAD:
                 settled += 1

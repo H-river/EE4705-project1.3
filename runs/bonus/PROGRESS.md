@@ -56,3 +56,8 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   identical to LeRobotDataset). 12.9 steps/s, GPU 99 %. Loss at step 500: 3.731 (lerobot-train: 3.729).
 - `scripts/bonus/train.sh <name> <kind> <steps> <dataset> [args]` = trainer + watch_ckpts (20 VAL eps / 5k).
 - act_base: chunk 50, n_action_steps 25, resnet18 (ImageNet), batch 32, lr 1e-5 (lerobot default), 50k, seed 1000.
+- ACT 5k with the v1 skill trigger (attach when TCP within 1.2 cm = skills.EE_POS_TOL): 8/20. 10 of 12 misses came
+  within 1.3–2 cm of the grasp point, then the policy lifted away (the demos descend, pause ~0.1 s, lift).
+  → LearnedGraspSkill v2 trigger: ATTACH_TOL 2.5 cm from the grasp point, checked every 20 ms (TCP then ≤ 4.5 cm
+  from the object centre, inside ATTACH_RADIUS 5 cm). Post-conditions unchanged; scripted unaffected.
+  Same 5k checkpoint re-scored: 16/20. All curve points from here on use v2 (v1 detail kept as 005000_v1trigger.jsonl).
