@@ -2,6 +2,8 @@
 
 Your job is to tell B and C what the robot can see and where it is.
 
+A working interface is now in perception/student_a.py. It sends RGB only to Qwen-VL. The model returns object names, image boxes and a text answer. Python uses depth and camera parameters to estimate 3D positions and assigns stable IDs. Missing objects are not copied from an old frame into a new scene.
+
 **Current status:** the interface is implemented, live-tested against the real
 Qwen-VL API, and merged into the full `e2e` branch alongside Student B and C's
 work (22 tracked commits across `perception/`, `executor/`, and the shared
