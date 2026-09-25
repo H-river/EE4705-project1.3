@@ -11,6 +11,7 @@ from core.types import (CONTENT_FILTERED_NOTE, ErrorCode, ExecutionResult, Groun
 from executor import closed_loop
 from executor.closed_loop import ClosedLoopExecutor
 from core.verification import verify_placement
+from executor.learned_grasp import grasp_primitive
 from core.scene_geometry import table_aabb, table_center_xy
 from core.types import IMAGE_HEIGHT, IMAGE_WIDTH
 
@@ -527,7 +528,7 @@ class StudentCExecutor(ClosedLoopExecutor):
                                         {"detail": "Gripper did not open before grasp"})
                 break
 
-            primitive = skills.grasp(env, pos)  # reaches + attempts weld attachment
+            primitive = grasp_primitive()(env, pos)  # reaches + attempts weld attachment (EE4705_GRASP_POLICY)
 
             attempts.append({
                 "attempt": attempt + 1,

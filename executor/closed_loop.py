@@ -6,6 +6,7 @@ from core.action_targets import TargetResolutionError, resolve_action_position
 from core.interfaces import Executor
 from core.types import ErrorCode, ExecutionResult, GroundStatus, Skill, SkillResult
 from core.verification import verify_placement
+from executor.learned_grasp import grasp_primitive
 
 
 class ClosedLoopExecutor(Executor):
@@ -172,7 +173,7 @@ class ClosedLoopExecutor(Executor):
             if not self._open(env):
                 primitive = SkillResult(False, ErrorCode.TIMEOUT, {"detail": "Gripper did not open before grasp"})
                 break
-            primitive = skills.grasp(env, pos)
+            primitive = grasp_primitive()(env, pos)  # EE4705_GRASP_POLICY (default: skills.grasp)
             attempts.append({"attempt": attempt+1, "frame_id": scene.frame_id,
                              "target_pos": pos.tolist(), "error_code": primitive.error_code.value,
                              "attach_reason": env.get_robot_state().last_attach_reason})
