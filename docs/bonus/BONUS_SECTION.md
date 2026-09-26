@@ -2,30 +2,22 @@
 
 ## Setup
 
-Can a learned visuomotor policy replace the scripted grasp without touching the rest of the system? We trained
-**ACT** and **Diffusion Policy (DP)** with lerobot 0.6.1 and put each one behind the existing grasp interface:
-`LearnedGraspSkill(policy, ckpt)(env, pos)` has the same call as `skills.grasp(env, pos)`, and the executor selects
-it with `EE4705_GRASP_POLICY`. From the post-APPROACH pose the policy runs at 10 Hz for at most 15 s. It observes the
-arm joints, the target position in the base frame and the head camera, and outputs the next arm joint setpoint. It
-then calls `try_attach_near_ee()` once, exactly as the script does. The executor's lift check, the planner, the
-verification and the evaluator are unchanged. Perception is ground truth and the planner is the rule planner, so
-every experiment costs 0 API calls.
+Can a learned policy replace the scripted grasp without touching the rest of the system? We trained **ACT** and
+**Diffusion Policy (DP)** with lerobot 0.6.1 and put each behind the existing interface: `LearnedGraspSkill(policy,
+ckpt)(env, pos)` takes the same call as `skills.grasp`, selected by `EE4705_GRASP_POLICY`. From the post-APPROACH
+pose the policy reads the arm joints, the target position in the base frame and the head camera at 10 Hz, commands
+the next joint setpoint for at most 15 s, then calls `try_attach_near_ee()` once, as the script does. The planner,
+the executor's post-conditions and the evaluator are unchanged. Perception is ground truth and the planner is rule
+based: 0 API calls.
 
-## Data
+## Data and policies
 
-The expert is the scripted APPROACH→REACH→GRASP pipeline. Each episode runs from the post-APPROACH pose (parking
-perturbed by ±3 cm and ±5°) to 0.5 s into the lift. The target is a stone or a cube within ±10 cm of its nominal
-pose, at any yaw, with a distractor in half of the scenes. The bottle is held out as the OOD object. The expert
-succeeded in 99.5 % of 2,030 attempts. We kept 2,000 episodes (about 28 steps each) as a LeRobotDataset: 224² head
-image, 10-D state, 7-D joint-target action, split 90/10 by episode.
-
-## Policies
-
-ACT: chunk 50, 25 executed steps, ResNet-18, 50k steps. DP: horizon 32, 8 executed steps, 2 observation steps,
-DDIM with 10 steps, 60k steps. We kept lerobot's architectures and presets and replaced only the data loader:
-`lerobot-train` was data-bound at 3 it/s, and a memmap of the same episodes runs at 13 it/s. Scoring each 5k
-checkpoint on 20 closed-loop validation episodes selected ACT at 50k and DP at 35k, both 20/20. Neither needed the
-fallback ladder.
+We collected 2,000 scripted demonstrations (expert 99.5 %) from the post-APPROACH pose to 0.5 s into the lift. The
+target is a stone or a cube within ±10 cm, at any yaw, with a distractor in half of the scenes; the bottle is held
+out. ACT used chunk 50 with 25 executed steps; DP used horizon 32, 8 executed steps and DDIM with 10 steps. Both
+use a ResNet-18, lerobot's architectures and presets, and a memmap copy of the same LeRobotDataset (13 it/s against
+`lerobot-train`'s data-bound 3 it/s). Each 5k checkpoint was scored on 20 closed-loop validation episodes: ACT
+peaked at 50k and DP at 35k, both 20/20.
 
 ## Results
 
