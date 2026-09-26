@@ -1,0 +1,26 @@
+{
+  "seed": 4,
+  "hz": 10.0,
+  "image": 224,
+  "tried": 1023,
+  "kept": 1011,
+  "expert_success_rate": 0.9882697947214076,
+  "outcomes": {
+    "placed": 1011,
+    "place_calls=0": 12
+  },
+  "wrong_object": 0,
+  "by_class": {
+    "stone": 520,
+    "cube": 491,
+    "bottle": 0
+  },
+  "with_distractor": 520,
+  "length_steps": {
+    "mean": 7.401582591493571,
+    "std": 1.1971601196088226,
+    "min": 7,
+    "max": 13,
+    "p50": 7.0
+  }
+}

@@ -35,7 +35,7 @@ INSTRUCTION = {"stone": "Move the gray stone to the red area.", "cube": "Move th
 _W: dict = {}
 
 
-def run_episode(i: int, seed: int) -> dict:
+def run_episode(i: int, seed: int, pos_range: float = 0.10) -> dict:
     from core import skills
     from core.mocks import GTPerception, RulePlanner, ScriptedClarifier
     from core.obs_store import ObservationStore
@@ -45,7 +45,7 @@ def run_episode(i: int, seed: int) -> dict:
 
     world, env, oracle = _W["world"], _W["env"], _W["oracle"]
     rng = np.random.default_rng([seed, i])
-    cls, objs, robot = cg.sample_scene(rng)
+    cls, objs, robot = cg.sample_scene(rng, pos_range=pos_range)
     world.reset(SceneConfig(seed=seed * 100000 + i, objects=[SceneObjectSpec(n, p, y) for n, p, y in objs],
                             robot_init=robot))
     world.step(int(round(1.0 / world.timestep)))
@@ -87,7 +87,7 @@ def run_episode(i: int, seed: int) -> dict:
 
 
 def _worker(args):
-    i, seed, out = args
+    i, seed, out, pos_range = args
     if "world" not in _W:
         from core.env import RobotEnv
         from core.oracle import EvalOracle
@@ -95,7 +95,7 @@ def _worker(args):
         _W["world"] = SimWorld()
         _W["env"] = RobotEnv(_W["world"])
         _W["oracle"] = EvalOracle(_W["world"])
-    ep = run_episode(i, seed)
+    ep = run_episode(i, seed, pos_range)
     if ep["success"]:
         cg.save_h5(out / f"ep_{i:05d}.h5", ep)
     return {k: v for k, v in ep.items() if k != "rows"}
@@ -107,6 +107,7 @@ def main(argv=None) -> int:
     ap.add_argument("--n-keep", type=int, default=2000)
     ap.add_argument("--seed", type=int, default=2)
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--pos-range", type=float, default=0.10, help="± target range (m); 0.20 = far layouts")
     args = ap.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     log_path = args.out / "episodes.jsonl"
@@ -122,7 +123,7 @@ def main(argv=None) -> int:
         pending = []
         while kept < args.n_keep:
             while len(pending) < args.workers * 2:
-                pending.append(pool.apply_async(_worker, ((next(todo), args.seed, args.out),)))
+                pending.append(pool.apply_async(_worker, ((next(todo), args.seed, args.out, args.pos_range),)))
             r = pending.pop(0).get()
             log.write(json.dumps(r) + "\n")
             log.flush()
