@@ -180,11 +180,11 @@ class Recorder:
                 self.sample()
 
 
-def run_episode(world, env, i: int, seed: int, with_image=True, classes=("stone", "cube")) -> dict:
+def run_episode(world, env, i: int, seed: int, with_image=True, classes=("stone", "cube"), pos_range=0.10) -> dict:
     from core import skills
 
     rng = np.random.default_rng([seed, i])
-    cls, objs, robot = sample_scene(rng, classes=tuple(classes))
+    cls, objs, robot = sample_scene(rng, classes=tuple(classes), pos_range=pos_range)
     t0 = time.perf_counter()
     target = setup_post_approach(world, env, cls, objs, robot, rng)
     meta = {"episode": i, "seed": [seed, i], "class": cls, "objects": objs, "robot_init": robot,
@@ -229,7 +229,7 @@ _W = {}
 
 
 def _worker(args):
-    i, seed, out, with_image, classes = args
+    i, seed, out, with_image, classes, pos_range = args
     if "world" not in _W:
         from core.env import RobotEnv
         from core.world import SimWorld
@@ -237,7 +237,7 @@ def _worker(args):
         _W["env"] = RobotEnv(_W["world"])
     path = out / f"ep_{i:05d}.h5"
     try:
-        ep = run_episode(_W["world"], _W["env"], i, seed, with_image, classes)
+        ep = run_episode(_W["world"], _W["env"], i, seed, with_image, classes, pos_range)
     except Exception as exc:  # noqa: BLE001 - one bad episode must not kill the pool
         return {"episode": i, "seed": [seed, i], "class": "?", "distractor": False, "success": False,
                 "reason": f"exception:{type(exc).__name__}", "n_steps": 0}
@@ -255,6 +255,7 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--no-image", action="store_true")
     ap.add_argument("--classes", default="stone,cube", help="target classes (8.2: bottle)")
+    ap.add_argument("--pos-range", type=float, default=0.10, help="± target position range (m); 0.20 = C2 coverage")
     args = ap.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     log_path = args.out / "episodes.jsonl"
@@ -274,7 +275,7 @@ def main(argv=None) -> int:
             while len(pending) < args.workers * 2:
                 i = next(todo)
                 pending.append(pool.apply_async(_worker, ((i, args.seed, args.out, not args.no_image,
-                                                                   tuple(args.classes.split(","))),)))
+                                                                   tuple(args.classes.split(",")), args.pos_range),)))
             r = pending.pop(0).get()
             log.write(json.dumps(r) + "\n")
             log.flush()
