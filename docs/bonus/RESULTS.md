@@ -280,6 +280,7 @@ Runner score: the expected outcome, whether success, reject or clarify, was reac
 | Diffusion Policy (2k demos) | 38/50 | 35/47 | 0 |
 | **ACT, 2k + bottle demos (8.2)** | **47/50** | **44/47** | 0 |
 | ACT, 2k + bottle + ±20 cm (8.6) | 44/50 | 41/47 | 0 |
+| ACT 2k + bottle grasp **and** learned PLACE (8.3b) | 43/50 | 40/47 | 0 |
 
 The 10 trials that only the learned grasps lose are **9 bottle trials** (the OOD object) plus f20, whose target
 (stone2 at (0.60, 0.20)) lies ~20 cm outside the training range, as in C2. f41 (bottle) and f43 (a paraphrase that
@@ -288,3 +289,8 @@ never as a claimed success. Raw data: `runs/bonus/final50/<policy>/rows.json`.
 
 **After 8.2** the bottle-trained ACT recovers all 9 bottle trials: 47/50 against the script's 48/50. The only
 remaining difference is f20, the target 20 cm outside the trained position range.
+
+**Both skills learned** (grasp ACT 2k + bottle, place ACT with ±20 cm place demos): 43/50, again with 0 false
+claims. The learned PLACE adds four losses, all coverage gaps and all reported as PLACE failures. Three carry a
+bottle (f14, f25, f31), which never appeared in the place demos. The fourth, f04, is a SEARCH trial in which the
+robot starts facing away, so it reaches the region from an unseen pose.
