@@ -205,3 +205,8 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - 8.3c: 1,000 diverse place demos (stone/cube/bottle, ±20 cm, any start heading; seed 5) collecting.
 - act_seed1002: VAL 17,19,20,20,19,20,20,20,20,20 → 50k. Full C1 29, C2 26/28; skill C1 29, C2 26, C4 29. Three seeds agree (15:26).
 - 8.3c diverse place demos: 1,006 kept of 1,266 (79.5 %; stone 355, cube 358, bottle 293), dataset place_4k_div (4,000). Training place_act_div from 15:40.
+- 8.3c place_act_div (4k: + bottle, any heading): VAL 20/20 → 50k. Scripted grasp + learned place: C1 29, C2 30, C3 28
+  (script 29/30/29). Both learned on final50: 38/50 (0 false claims); carry settles 1.6–2.3 cm short after a learned grasp
+  → executor UNREACHABLE. Not adopted; 8.3b stays best (43/50).
+
+## RUN STOPPED (2026-09-26 16:59) at the owner's request after this iteration.

@@ -55,7 +55,10 @@ C2 episode. **Coverage** did. Adding 503 bottle demos lifted the bottle cell fro
 loss, and full `final50` in manipulation mode rose from 38 to 47/50 (script: 48). Adding ±20 cm demos then fixed the
 position shift (C2 skill 26 → 28/30) but diluted the bottle share and cost bottle trials (net 44/50), so it was
 not adopted. The same recipe learned PLACE's carry: 29/30 on C1, as good as the script and slightly closer to the
-region centre (0.33 vs 0.45 cm), failing again only on far layouts. None of these variants produced a false claim.
+region centre (0.33 vs 0.45 cm); with far-layout demos it also matches the script on C2 (29/30). With both skills
+learned, `final50` reaches 43/50, and a place policy that is better in isolation (C2 30/30, bottle 28/30) dropped to
+38/50 end to end: after a learned grasp its carry stopped 1.6–2.3 cm short, and the executor's unchanged 1.2 cm check
+rejected it. Seed variance was ±1–2 episodes across three ACT seeds. None of these variants produced a false claim.
 
 ## Limitations
 

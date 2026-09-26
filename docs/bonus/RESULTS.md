@@ -250,6 +250,15 @@ With the far layouts covered, the learned carry is within one episode of the scr
 to the region centre than the scripted `move_to`, whose target is the centre but which stops anywhere inside its
 1.2 cm tolerance. Adopted as the best learned PLACE.
 
+**8.3c: diverse place demos (last item of the run).** 1,006 more place demos with bottle targets, any robot start
+heading and ±20 cm (seed 5; 79.5 % expert) gave a 4,000-episode set. Retrained (VAL 20/20, 50k) with the grasp still
+scripted, the policy scores C1 29/30, **C2 30/30**, **C3 (bottle) 28/30**: on par with the script (29/30/29). But
+combined with the *learned* grasp on `final50` it scores only **38/50**. The carry settles 1.6–2.3 cm from the release
+pose after a learned grasp (the held pose differs), and the executor's unchanged 1.2 cm check rejects it as
+UNREACHABLE, 0 false claims. It is therefore **not adopted** for the combined pipeline, where 8.3b stays best (43/50).
+The obvious next step, not run: collect place demos *after a learned grasp* so the carry sees the poses it will
+actually start from.
+
 ### 8.6 (extra) Position coverage: + 1,000 demos at ±20 cm
 
 Following 8.1, where volume did not help and coverage did: 1,000 scripted demos at ±20 cm (seed 3; 1,007 kept of
@@ -292,6 +301,7 @@ Runner score: the expected outcome, whether success, reject or clarify, was reac
 | **ACT, 2k + bottle demos (8.2)** | **47/50** | **44/47** | 0 |
 | ACT, 2k + bottle + ±20 cm (8.6) | 44/50 | 41/47 | 0 |
 | ACT 2k + bottle grasp **and** learned PLACE (8.3b) | 43/50 | 40/47 | 0 |
+| ACT 2k + bottle grasp **and** learned PLACE, diverse demos (8.3c) | 38/50 | 35/47 | 0 |
 
 The 10 trials that only the learned grasps lose are **9 bottle trials** (the OOD object) plus f20, whose target
 (stone2 at (0.60, 0.20)) lies ~20 cm outside the training range, as in C2. f41 (bottle) and f43 (a paraphrase that
