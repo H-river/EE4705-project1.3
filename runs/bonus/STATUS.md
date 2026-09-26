@@ -1,4 +1,4 @@
-# BONUS STATUS (updated 2026-09-26 11:53 +08)
+# BONUS STATUS (updated 2026-09-26 12:31 +08)
 Stage: 8 — 8.1–8.4 + extra 8.6 done; docs refreshed (docs/bonus/)
 Grasp /30 (C1 C2 C3 C4): scripted 29 30 29 30 | ACT 29 26 0 30 | DP 29 27 0 30
 Best learned grasp: ACT 2k + bottle — final50 47/50 (scripted 48), C3 26/30
