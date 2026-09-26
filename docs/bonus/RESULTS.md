@@ -217,6 +217,26 @@ Coverage fixes what volume could not (compare 8.1): C3 goes from 0 to 26/30 task
 5 first-grasp misses into successes. There is no in-distribution regression. False claims and undetected failures
 stay at 0.
 
+### 8.3 Learned PLACE (ACT, same recipe)
+
+`LearnedPlaceSkill` replaces only PLACE's carry: `skills.move_to(env, release_pos)` from the post-MOVE_TO pose down to
+the release pose, selected with `EE4705_PLACE_POLICY`. Opening the gripper, the release (`skills.place`), the retreat
+and the vision placement check are unchanged; the executor still rejects a carry that ends more than 1.2 cm from the
+release pose. The grasp stays scripted. Demos come from 2,007 full scripted pick-and-place episodes (99.9 %),
+recording only the PLACE carry: 7 steps each, 0.4 s of motion plus 0.3 s of holding. Checkpoint VAL is 20 full
+episodes (seed 500): 20/20 at every checkpoint, so 50k was selected.
+
+| PLACE carry | C1 task | C2 task | C4 task | final object offset from region centre, mean / p90 (C1) | TCP error at release (C1) |
+|---|---|---|---|---|---|
+| Scripted (`skills.move_to`) | 29/30 | 30/30 | 30/30 | 0.45 / 0.85 cm | < 1.2 cm by construction |
+| Learned (ACT) | 29/30 | 26/30 | 30/30 | 0.33 / 0.65 cm | 1.07 cm mean |
+
+The offset is measured by the executor's own placement check with GT perception, over successful episodes. On
+in-distribution layouts the learned carry matches the script and places slightly closer to the centre (C4 is
+similar: 0.35 cm against 0.71 cm). On the far C2 layouts it fails 4/30: the arm arrives at post-MOVE_TO poses the
+demos never covered, the carry times out (mean release error 10 cm over those 66 calls), and the executor reports
+PLACE:TIMEOUT. Again **0 false claims**: every failed carry was caught by the unchanged post-conditions.
+
 ### 8.4 All 50 `final50` trials, manipulation mode (GT perception + RulePlanner + StudentCExecutor, 0 API)
 
 Runner score: the expected outcome, whether success, reject or clarify, was reached.

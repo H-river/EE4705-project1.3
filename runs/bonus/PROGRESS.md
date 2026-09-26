@@ -171,3 +171,14 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   503): 5k 15, 10k 14, 15k 13, 20k 10, 25k 8, 30k 13, 35k 12, 40k 12, 45k 13, 50k 13. Selected 10k (combined 34/40).
 - C3: full 26/30 tasks (first grasp 21), skill 23/30 (was 0/0). C1: full 29/30, skill 29/30. 0 false claims.
 - 8.4 refresh: final50 with act_2k_bottle = 47/50 (44/47 manip), scripted 48; only f20 (far target) differs.
+
+### 8.3 learned PLACE (DONE 10:23)
+- place_act VAL (20 full episodes): 20/20 at every checkpoint (offset 0.25–0.37 cm) → 50k.
+- C1 29/30 (scripted 29), offset 0.33 cm (scripted 0.45); C4 30/30 (0.35 vs 0.71 cm); C2 26/30 (scripted 30) —
+  c2_03/04/16/20 far layouts: learned carry times out (release error ~10 cm), PLACE:TIMEOUT, 0 false claims.
+- 10:15 OOM: the 8.6 queue started training + 3 watchers (6 CPU eval workers) while the place C2 eval ran → killed
+  c2_20 and the act_wide trainer (at 5k, checkpoint kept). Place C2 re-run cleanly (same 26/30). act_wide resumed with
+  one watcher; VAL2/VAL3 are scored after training (scripts/bonus/queue_wide2.sh).
+
+### 8.6 (extra) position coverage: + 1,000 demos at ±20 cm (seed 3; 1,007 kept of 1,037, 97.1 %)
+- dataset grasp_2k_bottle_wide (3,503 eps). VAL2 = ±20 cm stone/cube seed 502 (never a test cell).

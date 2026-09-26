@@ -41,9 +41,10 @@ CELLS = {
     "C2": dict(classes=("stone", "cube"), pos_range=0.20),
     "C3": dict(classes=("bottle",), pos_range=0.10),
     "C4": dict(classes=("stone", "cube"), pos_range=0.10, distractor_p=1.0, gap=(0.003, 0.03)),
+    "VAL2": dict(classes=("stone", "cube"), pos_range=0.20),  # 8.6 ±20 cm checkpoint selection (never a test cell)
     "VAL3": dict(classes=("bottle",), pos_range=0.10),  # 8.2 bottle checkpoint selection (never a test cell)
 }
-DEFAULT_SEED = {"VAL": 500, "VAL3": 503, "C1": 1001, "C2": 1002, "C3": 1003, "C4": 1004}
+DEFAULT_SEED = {"VAL": 500, "VAL2": 502, "VAL3": 503, "C1": 1001, "C2": 1002, "C3": 1003, "C4": 1004}
 
 _W: dict = {}
 
