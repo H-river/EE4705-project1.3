@@ -53,7 +53,8 @@ def main(argv=None) -> int:
     ap.add_argument("--policy", required=True)
     ap.add_argument("--name", default=None)
     ap.add_argument("--n", type=int, default=20)
-    ap.add_argument("--seed", type=int, default=500)
+    ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--cell", default="VAL", help="VAL (default) or VAL3 (bottle, 8.2)")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--last-step", type=int, required=True)
     ap.add_argument("--train-pid", type=int, default=None)
@@ -62,6 +63,8 @@ def main(argv=None) -> int:
                     help="place: full-executor episodes on eval/trials/bonus_val (20), score = task success")
     args = ap.parse_args(argv)
     import eval_grasp
+    if args.seed is None:
+        args.seed = eval_grasp.DEFAULT_SEED[args.cell]
     name = args.name or args.run.name
     out = ROOT / "runs/bonus/curves" / f"{name}.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +80,7 @@ def main(argv=None) -> int:
             if args.task == "place":
                 s, rows = place_val(args, p / "pretrained_model", step, name)
             else:
-                rows = eval_grasp.run(args.policy, str(p / "pretrained_model"), "VAL", args.n, args.seed, args.workers,
+                rows = eval_grasp.run(args.policy, str(p / "pretrained_model"), args.cell, args.n, args.seed, args.workers,
                                       {"device": args.device} if args.device else None)
                 s = eval_grasp.summarize(rows)
             with (detail / f"{step:06d}.jsonl").open("w") as f:

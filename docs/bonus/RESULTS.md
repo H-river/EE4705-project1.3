@@ -200,6 +200,23 @@ so they are nested; the 5k set is 5,005 kept of 5,033 tried (expert 99.4 %).
 between 1k and 2k and not at all to 5k. More data from the *same* ±10 cm distribution does not teach the policy
 positions outside it. Coverage matters, not volume.
 
+### 8.2 Bottle demonstrations in training (ACT, 2k stone/cube + 503 bottle demos)
+
+503 scripted bottle demos (583 tried; the expert itself succeeds only 86 % on bottles) were added to the 2k set.
+Recipe unchanged, 50k steps. The checkpoint was chosen on VAL (stone/cube, seed 500) + **VAL3** (bottle, seed 503,
+disjoint from the C3 test seed 1003); the best combined score was 10k with 20/20 + 14/20. VAL3 fluctuates between
+8 and 15/20 across checkpoints, so bottle grasping is learned but noisier.
+
+| ACT | C3 bottle, full executor (first grasp / task) | C3 skill level | C1 full executor | C1 skill level |
+|---|---|---|---|---|
+| 2k demos (before) | 0/30 / 0/30 | 0/30 | 29/30 | 30/30 |
+| 2k + 503 bottle (after) | 21/30 / 26/30 | 23/30 (3.26 s) | 29/30 | 29/30 (2.75 s) |
+| Scripted (reference) | 29/30 / 29/30 | 27/30 | 29/30 | 30/30 |
+
+Coverage fixes what volume could not (compare 8.1): C3 goes from 0 to 26/30 tasks, and the executor's retry turns
+5 first-grasp misses into successes. There is no in-distribution regression. False claims and undetected failures
+stay at 0.
+
 ### 8.4 All 50 `final50` trials, manipulation mode (GT perception + RulePlanner + StudentCExecutor, 0 API)
 
 Runner score: the expected outcome, whether success, reject or clarify, was reached.
@@ -209,8 +226,12 @@ Runner score: the expected outcome, whether success, reject or clarify, was reac
 | Scripted | 48/50 | 45/47 | 0 |
 | ACT (2k demos) | 38/50 | 35/47 | 0 |
 | Diffusion Policy (2k demos) | 38/50 | 35/47 | 0 |
+| **ACT, 2k + bottle demos (8.2)** | **47/50** | **44/47** | 0 |
 
 The 10 trials that only the learned grasps lose are **9 bottle trials** (the OOD object) plus f20, whose target
 (stone2 at (0.60, 0.20)) lies ~20 cm outside the training range, as in C2. f41 (bottle) and f43 (a paraphrase that
 the rule planner refuses) fail for every grasp. Every learned-grasp failure ended as FAILED or SEARCH_EXHAUSTED,
 never as a claimed success. Raw data: `runs/bonus/final50/<policy>/rows.json`.
+
+**After 8.2** the bottle-trained ACT recovers all 9 bottle trials: 47/50 against the script's 48/50. The only
+remaining difference is f20, the target 20 cm outside the trained position range.

@@ -165,3 +165,9 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - act_1k VAL: 5k 16, 10k 18, 15k 19, 20k 19, 25k–40k 20, 45k 19, 50k 18 → 40k. C1 full 29/30, skill C1 29/30 (2.52 s), C2 25/30.
 - act_500 VAL: 5k 18, 10k 19, 15k 20, 20k 20, 25k 19, 30k 19, 35k 20, 40k 19, 45k 19, 50k 19 → 35k. C1 full 29/30, skill C1
   29/30 (2.86 s), C2 25/30. 8.1 DONE (07:52): flat curve (docs/bonus/figs/datasize.png, docs/bonus/data/datasize.csv).
+
+### 8.2 bottle (DONE 09:12)
+- act_2k_bottle (2,503 eps: 2k + 503 bottle). VAL (stone/cube): 5k 18, then 20/20 at every checkpoint; VAL3 (bottle, seed
+  503): 5k 15, 10k 14, 15k 13, 20k 10, 25k 8, 30k 13, 35k 12, 40k 12, 45k 13, 50k 13. Selected 10k (combined 34/40).
+- C3: full 26/30 tasks (first grasp 21), skill 23/30 (was 0/0). C1: full 29/30, skill 29/30. 0 false claims.
+- 8.4 refresh: final50 with act_2k_bottle = 47/50 (44/47 manip), scripted 48; only f20 (far target) differs.
