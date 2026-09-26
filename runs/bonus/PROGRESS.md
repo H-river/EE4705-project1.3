@@ -194,3 +194,5 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - Queue: scripts/bonus/queue_seed_place.sh (act_seed1001 → place_act_wide → act_seed1002), started 11:53.
 - act_seed1001 (ACT 2k recipe, seed 1001): VAL 19,19,19,20×7 → 50k. Full C1 29/30, C2 26 first grasp / 28 tasks (seed 1000:
   26/28 — identical); skill C1 30/30, C2 26/30 (same), C4 28/30 (seed 1000: 30/30). Seed spread ≈ ±2 episodes per 30.
+- 8.3b place_act_wide (2k + 1k ±20 cm place demos): VAL 20/20 everywhere → 50k. C2 29/30 (was 26; scripted 30),
+  C1 29/30, offsets C1 0.21 cm / C2 0.37 cm. ADOPTED as best learned PLACE. (14:13)

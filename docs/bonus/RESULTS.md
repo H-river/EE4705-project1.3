@@ -237,6 +237,19 @@ similar: 0.35 cm against 0.71 cm). On the far C2 layouts it fails 4/30: the arm 
 demos never covered, the carry times out (mean release error 10 cm over those 66 calls), and the executor reports
 PLACE:TIMEOUT. Again **0 false claims**: every failed carry was caught by the unchanged post-conditions.
 
+**8.3b: coverage for PLACE too.** 1,011 extra place demos from ±20 cm scenes (seed 4; 98.9 %) were added
+(3,000 episodes) and the same recipe retrained, selecting 50k (VAL 20/20):
+
+| PLACE carry | C1 task | C2 task | C1 offset mean / p90 | C2 offset mean |
+|---|---|---|---|---|
+| Scripted | 29/30 | 30/30 | 0.45 / 0.85 cm | 0.87 cm |
+| Learned, 2k in-range demos | 29/30 | 26/30 | 0.33 / 0.65 cm | 0.35 cm |
+| **Learned, + 1k ±20 cm demos** | **29/30** | **29/30** | **0.21 / 0.59 cm** | 0.37 cm |
+
+With the far layouts covered, the learned carry is within one episode of the script on C2. It still places closer
+to the region centre than the scripted `move_to`, whose target is the centre but which stops anywhere inside its
+1.2 cm tolerance. Adopted as the best learned PLACE.
+
 ### 8.6 (extra) Position coverage: + 1,000 demos at ±20 cm
 
 Following 8.1, where volume did not help and coverage did: 1,000 scripted demos at ±20 cm (seed 3; 1,007 kept of
