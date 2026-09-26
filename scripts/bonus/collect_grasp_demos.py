@@ -55,7 +55,7 @@ def in_region(xy, margin=0.05) -> bool:
 
 
 def sample_scene(rng: np.random.Generator, classes=("stone", "cube"), pos_range=0.10,
-                 distractor_p=0.5, distractor_dist=(0.10, None), gap=None):
+                 distractor_p=0.5, distractor_dist=(0.10, None), gap=None, robot_yaw=0.2):
     """Returns (target_name, objects[list of (name,pos,yaw)], robot_init).
     ``distractor_dist`` bounds the centre distance (None = anywhere on the
     table); ``gap`` = (lo, hi) instead samples the SURFACE gap between the
@@ -90,7 +90,7 @@ def sample_scene(rng: np.random.Generator, classes=("stone", "cube"), pos_range=
                 objs.append((name, (float(dxy[0]), float(dxy[1]), Z[name]), float(rng.uniform(-math.pi, math.pi))))
                 break
     robot = {"x": float(rng.uniform(-0.18, 0.02)), "y": float(rng.uniform(-0.08, 0.08)),
-             "yaw": float(rng.uniform(-0.2, 0.2))}
+             "yaw": float(rng.uniform(-robot_yaw, robot_yaw))}
     return cls, objs, robot
 
 

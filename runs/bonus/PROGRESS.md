@@ -196,3 +196,10 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   26/28 — identical); skill C1 30/30, C2 26/30 (same), C4 28/30 (seed 1000: 30/30). Seed spread ≈ ±2 episodes per 30.
 - 8.3b place_act_wide (2k + 1k ±20 cm place demos): VAL 20/20 everywhere → 50k. C2 29/30 (was 26; scripted 30),
   C1 29/30, offsets C1 0.21 cm / C2 0.37 cm. ADOPTED as best learned PLACE. (14:13)
+- Both learned (grasp act_2k_bottle + place place_act_wide), final50 manipulation mode: 43/50, 0 false claims (grasp-only 47,
+  scripted 48). Extra losses: f04 (SEARCH start facing away → unseen post-MOVE_TO pose) and bottle carries f14 f25 f31
+  (no bottle in place demos). All caught as PLACE failures.
+- Place collector bug (collector only): ObservationStore() without persist_dir raised after evicting marked frames in
+  long episodes → executor INTERNAL_ERROR after the carry (demos_place 131/2010, demos_place_wide 77/1023 outcomes).
+  Kept demos are unaffected (carry recorded before; kept only if the oracle confirms placement). Fixed: capacity 100k.
+- 8.3c: 1,000 diverse place demos (stone/cube/bottle, ±20 cm, any start heading; seed 5) collecting.
