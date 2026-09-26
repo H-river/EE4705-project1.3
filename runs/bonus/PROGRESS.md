@@ -192,3 +192,5 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 - 8.3b: 1,011 place demos at ±20 cm (seed 4; 1,023 tried, 98.9 %) → dataset place_2k_wide (2,000 + 1,000).
 - Seed variance: ACT 2k recipe retrained with seeds 1001 and 1002 (R5: are 1–2-episode differences noise?).
 - Queue: scripts/bonus/queue_seed_place.sh (act_seed1001 → place_act_wide → act_seed1002), started 11:53.
+- act_seed1001 (ACT 2k recipe, seed 1001): VAL 19,19,19,20×7 → 50k. Full C1 29/30, C2 26 first grasp / 28 tasks (seed 1000:
+  26/28 — identical); skill C1 30/30, C2 26/30 (same), C4 28/30 (seed 1000: 30/30). Seed spread ≈ ±2 episodes per 30.
