@@ -237,6 +237,25 @@ similar: 0.35 cm against 0.71 cm). On the far C2 layouts it fails 4/30: the arm 
 demos never covered, the carry times out (mean release error 10 cm over those 66 calls), and the executor reports
 PLACE:TIMEOUT. Again **0 false claims**: every failed carry was caught by the unchanged post-conditions.
 
+### 8.6 (extra) Position coverage: + 1,000 demos at ±20 cm
+
+Following 8.1, where volume did not help and coverage did: 1,000 scripted demos at ±20 cm (seed 3; 1,007 kept of
+1,037, 97.1 %) were added to the 8.2 set, giving 3,503 episodes, and ACT was retrained with the same recipe. The
+checkpoint was chosen on VAL + VAL2 (±20 cm, seed 502) + VAL3 (bottle, seed 503): 30k scored 20 + 19 + 13 of 60.
+
+| ACT | C1 full / skill | C2 full (first grasp / task) / skill | C3 full (first grasp / task) / skill | final50 |
+|---|---|---|---|---|
+| 2k | 29 / 30 | 26 / 28 / 26 | 0 / 0 / 0 | 38/50 |
+| 2k + bottle (8.2) | 29 / 29 | — | 21 / 26 / 23 | **47/50** |
+| 2k + bottle + ±20 cm (8.6) | 29 / 30 | **28 / 29 / 28** | 17 / 15 / 22 | 44/50 |
+| Scripted | 29 / 30 | 30 / 30 / 29 | 29 / 29 / 27 | 48/50 |
+
+**Mixed.** The wider positions fix C2 (skill 26 → 28/30) and the far final50 target f20, but full-executor bottle
+performance drops (C3 tasks 26 → 15/30; 4 final50 bottle trials lost). The bottle share of the data fell from
+20 % to 14 %. Net on final50: 44 against 47, so under the one-fair-attempt rule this variant is **not adopted**, and
+the best learned grasp remains ACT 2k + bottle. A plausible next step would be to rebalance the classes (upsample
+the bottle demos), but that would be a second attempt at the same item.
+
 ### 8.4 All 50 `final50` trials, manipulation mode (GT perception + RulePlanner + StudentCExecutor, 0 API)
 
 Runner score: the expected outcome, whether success, reject or clarify, was reached.
@@ -247,6 +266,7 @@ Runner score: the expected outcome, whether success, reject or clarify, was reac
 | ACT (2k demos) | 38/50 | 35/47 | 0 |
 | Diffusion Policy (2k demos) | 38/50 | 35/47 | 0 |
 | **ACT, 2k + bottle demos (8.2)** | **47/50** | **44/47** | 0 |
+| ACT, 2k + bottle + ±20 cm (8.6) | 44/50 | 41/47 | 0 |
 
 The 10 trials that only the learned grasps lose are **9 bottle trials** (the OOD object) plus f20, whose target
 (stone2 at (0.60, 0.20)) lies ~20 cm outside the training range, as in C2. f41 (bottle) and f43 (a paraphrase that

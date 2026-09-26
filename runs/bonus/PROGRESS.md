@@ -182,3 +182,8 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
 
 ### 8.6 (extra) position coverage: + 1,000 demos at ±20 cm (seed 3; 1,007 kept of 1,037, 97.1 %)
 - dataset grasp_2k_bottle_wide (3,503 eps). VAL2 = ±20 cm stone/cube seed 502 (never a test cell).
+- act_wide VAL / VAL2 / VAL3 per 5k: 18/16/9, 19/17/12, 19/18/13, 20/18/11, 19/15/11, 20/19/13, 20/18/13, 20/18/12, 20/18/12, 20/19/12
+  → 30k (52/60). C1 29 full / 30 skill; C2 29 tasks (28 first grasp) / 28 skill (was 28/26); C3 15 tasks (17) / 22 skill
+  (was 26/23); final50 44/50 (fixes f20, loses f24 f25 f28 f34 bottle). Mixed → NOT adopted (one fair attempt).
+  Best learned grasp remains act_2k_bottle. (DONE 11:40)
+- 8.5: RESULTS.md (8.1–8.4, 8.6) and BONUS_SECTION.md (follow-ups paragraph) refreshed.

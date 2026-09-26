@@ -56,12 +56,22 @@ intended object (0 undetected failures in 240 episodes). The post-condition that
 then a lift check) reported every learned miss as GRASP_MISSED. The executor then retried, recovering 3 episodes,
 or gave up honestly: **0 false task claims**. The verification never needed to know that a network drove the arm.
 
+## Follow-ups: data, coverage and a learned PLACE
+
+**More data** did not help: ACT trained on 500, 1k, 2k and 5k demos is flat on C1 (29–30/30) and gains only one
+C2 episode. **Coverage** did. Adding 503 bottle demos lifted the bottle cell from 0 to 26/30 with no in-distribution
+loss, and full `final50` in manipulation mode rose from 38 to 47/50 (script: 48). Adding ±20 cm demos then fixed the
+position shift (C2 skill 26 → 28/30) but diluted the bottle share and cost bottle trials (net 44/50), so it was
+not adopted. The same recipe learned PLACE's carry: 29/30 on C1, as good as the script and slightly closer to the
+region centre (0.33 vs 0.45 cm), failing again only on far layouts. None of these variants produced a false claim.
+
 ## Limitations
 
 The policies receive the ground-truth target position, so they learn the reach, not perception. "Attach" is the
 platform's 5 cm weld, not force closure. The rollout stop rule (within 2.5 cm of the scripted grasp point, or
 settled within 5 cm) was tuned on validation episodes. Episodes last about 3 s, so chunking is nearly open-loop.
-Twenty validation episodes cannot rank checkpoints at 95–100 %. The OOD failure is structural.
+Twenty validation episodes cannot rank checkpoints at 95–100 %. What the policies generalise to is exactly what
+the demos cover.
 
 ## What the interface made possible
 
