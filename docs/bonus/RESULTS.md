@@ -269,6 +269,17 @@ performance drops (C3 tasks 26 → 15/30; 4 final50 bottle trials lost). The bot
 the best learned grasp remains ACT 2k + bottle. A plausible next step would be to rebalance the classes (upsample
 the bottle demos), but that would be a second attempt at the same item.
 
+### Seed variance (ACT, 2k recipe, three training seeds)
+
+| Seed | Full C1 | Full C2 (first grasp / task) | Skill C1 | Skill C2 | Skill C4 |
+|---|---|---|---|---|---|
+| 1000 (reported) | 29/30 | 26 / 28 | 30/30 | 26/30 | 30/30 |
+| 1001 | 29/30 | 26 / 28 | 30/30 | 26/30 | 28/30 |
+| 1002 | 29/30 | 26 / 28 | 29/30 | 26/30 | 29/30 |
+
+The headline numbers do not depend on the seed. Differences of 1–2 episodes per 30 between variants elsewhere in
+this report are within seed noise; the C3 (0 → 26) and C2 (26 → 28–29) coverage effects are not.
+
 ### 8.4 All 50 `final50` trials, manipulation mode (GT perception + RulePlanner + StudentCExecutor, 0 API)
 
 Runner score: the expected outcome, whether success, reject or clarify, was reached.

@@ -203,3 +203,4 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   long episodes → executor INTERNAL_ERROR after the carry (demos_place 131/2010, demos_place_wide 77/1023 outcomes).
   Kept demos are unaffected (carry recorded before; kept only if the oracle confirms placement). Fixed: capacity 100k.
 - 8.3c: 1,000 diverse place demos (stone/cube/bottle, ±20 cm, any start heading; seed 5) collecting.
+- act_seed1002: VAL 17,19,20,20,19,20,20,20,20,20 → 50k. Full C1 29, C2 26/28; skill C1 29, C2 26, C4 29. Three seeds agree (15:26).
