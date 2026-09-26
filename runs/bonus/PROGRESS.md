@@ -204,3 +204,4 @@ Branch `learned-grasp` (from e2e 0a2e871). 0 live API calls throughout.
   Kept demos are unaffected (carry recorded before; kept only if the oracle confirms placement). Fixed: capacity 100k.
 - 8.3c: 1,000 diverse place demos (stone/cube/bottle, ±20 cm, any start heading; seed 5) collecting.
 - act_seed1002: VAL 17,19,20,20,19,20,20,20,20,20 → 50k. Full C1 29, C2 26/28; skill C1 29, C2 26, C4 29. Three seeds agree (15:26).
+- 8.3c diverse place demos: 1,006 kept of 1,266 (79.5 %; stone 355, cube 358, bottle 293), dataset place_4k_div (4,000). Training place_act_div from 15:40.

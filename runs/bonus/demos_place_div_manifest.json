@@ -1,0 +1,29 @@
+{
+  "seed": 5,
+  "hz": 10.0,
+  "image": 224,
+  "tried": 1266,
+  "kept": 1006,
+  "expert_success_rate": 0.7946287519747235,
+  "outcomes": {
+    "place_calls=0": 180,
+    "placed": 1006,
+    "place_calls=2": 62,
+    "place_calls=3": 16,
+    "not_placed": 2
+  },
+  "wrong_object": 0,
+  "by_class": {
+    "stone": 355,
+    "cube": 358,
+    "bottle": 293
+  },
+  "with_distractor": 499,
+  "length_steps": {
+    "mean": 8.300198807157058,
+    "std": 3.5566055868532778,
+    "min": 7,
+    "max": 43,
+    "p50": 7.0
+  }
+}
