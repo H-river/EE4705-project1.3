@@ -341,7 +341,8 @@ def _run_and_record(trial, record, orch, spy, clarifier, world, oracle, store, e
         recorder.stage = "EVALUATOR / CHECK"
         recorder.message = "Independent truth check: object identity, destination, release, and 2 s stability"
         recorder.event("eval.start", expected, hold=.6)
-        recorder.stage = "DONE / " + ("PASS" if episode.claimed_success and actual.actual_success else "FAIL")
+        from demo.recording import end_banner
+        recorder.stage = end_banner(episode.claimed_success, actual.actual_success, bool(actual.refusal_correct))
         recorder.message = (f"Visual claim: {episode.claimed_success} | Independent actual success: "
                             f"{actual.actual_success} | {actual.checks.get('stability_detail', '')}")
         recorder.event("eval.result", actual, hold=1.5)

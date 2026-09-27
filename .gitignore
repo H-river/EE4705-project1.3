@@ -8,6 +8,9 @@ runs/bonus/*
 !runs/bonus/*.md
 !runs/bonus/*.csv
 !runs/bonus/*.json
+!runs/final/
+runs/final/*
+!runs/final/STATUS.md
 .pytest_cache/
 # Upstream MuJoCo Menagerie checkout (fetched by scripts/fetch_menagerie.sh
 # at the revision pinned in assets/menagerie_revision.txt).

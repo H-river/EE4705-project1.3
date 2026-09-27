@@ -11,7 +11,7 @@ from core.oracle import EvalOracle
 from core.orchestrator import Orchestrator, OrchestratorConfig
 from core.types import SceneConfig, SceneObjectSpec
 from demo.components import ObservedExecutor, ObservedPerception, ObservedPlanner, load_components
-from demo.recording import RecordedWorld, Recorder
+from demo.recording import RecordedWorld, Recorder, end_banner
 from eval.criteria import evaluate_actual
 from eval.runner import GraspSpyExecutor
 
@@ -78,7 +78,7 @@ def run_episode(out, scenario="success", instruction="Move the stone to the red 
         # the model's plan and never passed to the student modules.
         actual = evaluate_actual(oracle, expected, result.outcome,
                                  spy.grasp_records, result.clarifications)
-        recorder.stage = "DONE / " + ("PASS" if result.claimed_success and actual.actual_success else "FAIL")
+        recorder.stage = end_banner(result.claimed_success, actual.actual_success, bool(actual.refusal_correct))
         recorder.message = f"Visual claim: {result.claimed_success} | Independent actual success: {actual.actual_success} | {actual.checks.get('stability_detail', '')}"
         recorder.event("eval.result", actual, hold=1.5)
         recorder.capture(snapshot="final.png")

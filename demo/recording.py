@@ -14,6 +14,16 @@ from core.world import SimWorld
 from eval.logger import to_json_safe
 
 
+
+def end_banner(claimed_success: bool, actual_success: bool, refusal_correct: bool = False) -> str:
+    """Final video banner.  A correct refusal of an infeasible request is a
+    correct outcome, not a failure; FAIL is kept for genuine failures."""
+    if claimed_success and actual_success:
+        return "DONE / PASS"
+    if refusal_correct:
+        return "DONE / REFUSED (correct)"
+    return "DONE / FAIL"
+
 class RecordedWorld(SimWorld):
     def __init__(self):
         self.recorder = None
