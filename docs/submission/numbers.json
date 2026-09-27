@@ -1,0 +1,205 @@
+{
+ "run": "runs/final2/full_final",
+ "tag": "final2-44",
+ "commit": "8e1dd23",
+ "score": {
+  "n": 50,
+  "correct": 44,
+  "false_claims": 0,
+  "manipulation_correct": 41,
+  "manipulation_n": 47,
+  "reject_clarify_correct": 3,
+  "reject_clarify_n": 3,
+  "calls": 809,
+  "line": "SCORE 44/50 false_claims=0"
+ },
+ "confusion": {
+  "claimed_and_actual": 43,
+  "claimed_not_actual": 0,
+  "actual_not_claimed": 2,
+  "neither": 4,
+  "correct_refusal": 1,
+  "clarification_then_success": 2
+ },
+ "sim_task_time_success_s": {
+  "n": 43,
+  "mean": 12.401348837209515,
+  "median": 10.93000000000032
+ },
+ "wall_s_per_trial": {
+  "mean": 61.140350609919935,
+  "median": 34.35088860650012,
+  "mean_successful": 40.68737359920923
+ },
+ "calls_per_trial": {
+  "A_mean": 14.06,
+  "B_mean": 2.12,
+  "total_mean": 16.18,
+  "A_total": 703,
+  "B_total": 106
+ },
+ "tokens_final_run": {
+  "A_prompt": 447659,
+  "A_completion": 117207,
+  "B_prompt": 342516,
+  "B_completion": 43033,
+  "A_latency_s": 2255.345642669003,
+  "B_latency_s": 561.957778783998
+ },
+ "groups": {
+  "standard_c_layouts": {
+   "n": 20,
+   "correct": 19,
+   "ids": [
+    "f06",
+    "f07",
+    "f08",
+    "f09",
+    "f10",
+    "f11",
+    "f12",
+    "f13",
+    "f14",
+    "f15",
+    "f16",
+    "f17",
+    "f18",
+    "f19",
+    "f20",
+    "f21",
+    "f22",
+    "f23",
+    "f24",
+    "f25"
+   ]
+  },
+  "scene_variation": {
+   "n": 17,
+   "correct": 13,
+   "ids": [
+    "f02",
+    "f26",
+    "f27",
+    "f28",
+    "f29",
+    "f30",
+    "f31",
+    "f32",
+    "f33",
+    "f34",
+    "f35",
+    "f36",
+    "f37",
+    "f38",
+    "f39",
+    "f40",
+    "f41"
+   ]
+  },
+  "instruction_variation": {
+   "n": 6,
+   "correct": 5,
+   "ids": [
+    "f03",
+    "f42",
+    "f43",
+    "f44",
+    "f45",
+    "f46"
+   ]
+  },
+  "search": {
+   "n": 1,
+   "correct": 1,
+   "ids": [
+    "f04"
+   ]
+  },
+  "two_stone_colour": {
+   "n": 2,
+   "correct": 2,
+   "ids": [
+    "f47",
+    "f48"
+   ]
+  },
+  "clarification_or_infeasible": {
+   "n": 3,
+   "correct": 3,
+   "ids": [
+    "f05",
+    "f49",
+    "f50"
+   ]
+  },
+  "smoke_standard": {
+   "n": 1,
+   "correct": 1,
+   "ids": [
+    "f01"
+   ]
+  }
+ },
+ "per_object": {
+  "cube": {
+   "n": 13,
+   "correct": 13
+  },
+  "stone": {
+   "n": 26,
+   "correct": 25
+  },
+  "bottle": {
+   "n": 10,
+   "correct": 5
+  },
+  "none (reject)": {
+   "n": 1,
+   "correct": 1
+  }
+ },
+ "failures": [
+  {
+   "trial": "f20_c_2_05_stone",
+   "outcome": "SEARCH_EXHAUSTED",
+   "module": "A",
+   "cause": "placed correctly but verification never passed",
+   "failed_actions": "GRASP:TIMEOUT,GRASP:TARGET_LOST,GRASP:TARGET_LOST,SEARCH:SEARCH_NOT_FOUND,SEARCH:SEARCH_NOT_FOUND"
+  },
+  {
+   "trial": "f31_c_eval_06_bottle",
+   "outcome": "LIMIT_EXCEEDED",
+   "module": "A",
+   "cause": "placed correctly but verification never passed",
+   "failed_actions": "PLACE:PLACE_FAILED,SEARCH:SEARCH_NOT_FOUND,GRASP:TARGET_LOST,GRASP:UNREACHABLE,GRASP:UNREACHABLE"
+  },
+  {
+   "trial": "f34_c_eval_09_bottle",
+   "outcome": "SEARCH_EXHAUSTED",
+   "module": "A/C",
+   "cause": "search exhausted (TARGET_LOST,SEARCH_NOT_FOUND)",
+   "failed_actions": "GRASP:TARGET_LOST,SEARCH:SEARCH_NOT_FOUND,SEARCH:SEARCH_NOT_FOUND"
+  },
+  {
+   "trial": "f38_scene_var_503_bottle",
+   "outcome": "SEARCH_EXHAUSTED",
+   "module": "A/C",
+   "cause": "search exhausted (TARGET_LOST,TIMEOUT,SEARCH_NOT_FOUND,UNREACHABLE)",
+   "failed_actions": "SEARCH:TIMEOUT,SEARCH:SEARCH_NOT_FOUND,GRASP:UNREACHABLE,GRASP:UNREACHABLE,SEARCH:SEARCH_NOT_FOUND"
+  },
+  {
+   "trial": "f41_scene_var_506_bottle",
+   "outcome": "LIMIT_EXCEEDED",
+   "module": "C",
+   "cause": "execution failures TARGET_LOST +contact",
+   "failed_actions": "GRASP:TARGET_LOST,GRASP:TARGET_LOST,GRASP:UNREACHABLE,GRASP:TARGET_LOST"
+  },
+  {
+   "trial": "f45_paraphrase_4_bottle",
+   "outcome": "SEARCH_EXHAUSTED",
+   "module": "A/C",
+   "cause": "search exhausted (UNREACHABLE,TARGET_LOST,SEARCH_NOT_FOUND,TIMEOUT)",
+   "failed_actions": "GRASP:UNREACHABLE,GRASP:TARGET_LOST,SEARCH:SEARCH_NOT_FOUND,SEARCH:TIMEOUT,SEARCH:SEARCH_NOT_FOUND"
+  }
+ ]
+}
