@@ -326,8 +326,22 @@ def place_primitive() -> Callable:
     return _CACHE[key]
 
 
+def resolve_ckpt(ckpt: str | os.PathLike) -> pathlib.Path:
+    """Local directory as is; ``hf://<user>/<repo>/<subdir>`` is downloaded from the Hugging Face Hub
+    (only that subdirectory) into runs/hf/ and the local path returned."""
+    s = str(ckpt)
+    if not s.startswith("hf://"):
+        return pathlib.Path(s)
+    parts = s[len("hf://"):].strip("/").split("/")
+    repo_id, sub = "/".join(parts[:2]), "/".join(parts[2:])
+    from huggingface_hub import snapshot_download
+    local = ROOT / "runs/hf" / repo_id.replace("/", "__")
+    snapshot_download(repo_id, local_dir=local, allow_patterns=[f"{sub}/*"] if sub else None)
+    return local / sub if sub else local
+
+
 def load_policy(kind: str, ckpt: Optional[str | os.PathLike] = None, **kwargs) -> ArmPolicy:
-    ckpt = pathlib.Path(ckpt) if ckpt else ROOT / "runs/bonus/best" / kind
+    ckpt = resolve_ckpt(ckpt) if ckpt else ROOT / "runs/bonus/best" / kind
     if kind in ("act", "diffusion"):
         return LeRobotPolicy(kind, ckpt, **kwargs)
     if kind == "mlp":

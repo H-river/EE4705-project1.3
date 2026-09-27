@@ -174,7 +174,9 @@ scripts/final2_run.sh final ALL 4
 # render an episode video from a finished trial directory (0 API calls)
 .venv/bin/python scripts/render_episode.py <trial_dir> <out.mp4>
 
-# bonus: train and evaluate the learned grasp (EE4705_GRASP_POLICY=act|diffusion|scripted)
+# bonus: train and evaluate the learned grasp (EE4705_GRASP_POLICY=act|diffusion|scripted);
+# trained checkpoints: https://huggingface.co/jiamo0912/ee4705-learned-grasp
+EE4705_GRASP_POLICY=act EE4705_GRASP_CKPT=hf://jiamo0912/ee4705-learned-grasp/act_bottle_best .venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/student_c_v2
 scripts/bonus/train.sh act_base act 50000 runs/bonus/lerobot/grasp_2k
 EE4705_GRASP_POLICY=act EE4705_GRASP_CKPT=runs/bonus/best/act .venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/bonus_c1 --out runs/bonus/manip/act_C1
 ```
