@@ -1,5 +1,7 @@
 # Demo video notes
 
+Video link: [video link]  (upload `docs/submission/EE4705_demo.mp4` as an unlisted YouTube / Google Drive video and paste the URL here)
+
 File: `docs/submission/EE4705_demo.mp4` (3 min 46 s, 1440×900, 3.5 MB). Built by `scripts/make_demo_video.py`
 from the clips in `docs/submission/episodes/`.
 
