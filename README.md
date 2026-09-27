@@ -2,15 +2,11 @@
 
 Owner: backbone (ALL)
 
-Shared infrastructure for the language-instructed tabletop manipulation
-project: frozen data contracts, MuJoCo simulation environment, plan
-validation, orchestration, ground-truth mocks, evaluation/logging, and an
-LLM/VLM client. Student C now has a working closed-loop simulation executor:
-10/10 development trials and 9/10 additional frozen layouts completed, with
-retries and failures reported separately.
-Student A has a Qwen-VL adapter and offline tests; live visual accuracy remains
-unverified. Student B's earlier live Qwen evaluation passed 32/32 predefined
-planning cases. These are separate component results, not a full ABC score.
+All three student modules are integrated. Final 50-trial end-to-end run: 44/50 correct, 0 false
+claims (run final2-44, commit 8e1dd23). Planning 32/32 + 20/20; manipulation 10/10 + 10/10 with
+ground-truth perception; learned grasp/place policies (ACT, Diffusion Policy) available behind the
+same executor interface. Full results: docs/submission/, docs/night_run/REPORT.md,
+docs/bonus/RESULTS.md.
 
 Start with the [A guide](docs/STUDENT_A_README.md), [B guide](docs/STUDENT_B_README.md),
 [C guide](docs/STUDENT_C_README.md), and [C/A refinement report](docs/validation/AC_REFINEMENT.md).
@@ -171,7 +167,19 @@ contract reconciliation, images and remaining limitations.
 
 # experimental contact-grasp evaluation (30 attempts, CSV and failure images)
 .venv/bin/python scripts/grasp_test.py
+
+# final 50-trial end-to-end run (live API; <name> ALL <jobs>)
+scripts/final2_run.sh final ALL 4
+
+# render an episode video from a finished trial directory (0 API calls)
+.venv/bin/python scripts/render_episode.py <trial_dir> <out.mp4>
+
+# bonus: train and evaluate the learned grasp (EE4705_GRASP_POLICY=act|diffusion|scripted)
+scripts/bonus/train.sh act_base act 50000 runs/bonus/lerobot/grasp_2k
+EE4705_GRASP_POLICY=act EE4705_GRASP_CKPT=runs/bonus/best/act .venv/bin/python -m eval.runner --mode manipulation --trials eval/trials/bonus_c1 --out runs/bonus/manip/act_C1
 ```
+
+Scene/world files: assets/, eval/trials/**; demo video: docs/submission/EE4705_demo.mp4
 
 Physical arm control is validated by `tests/test_g1_control.py` and
 `scripts/ik_reach_test.py` — NOT by the smoke trials, which use the
