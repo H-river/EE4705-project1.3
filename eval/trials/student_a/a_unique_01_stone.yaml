@@ -1,0 +1,38 @@
+id: a_unique_01_stone
+category: a_unique
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 700
+  objects:
+  - name: stone
+    pos:
+    - 0.38
+    - -0.13
+    - 0.88
+  - name: cube
+    pos:
+    - 0.43
+    - 0.09
+    - 0.88
+  - name: bottle
+    pos:
+    - 0.54
+    - -0.28
+    - 0.915
+  robot_init:
+    x: -0.12
+    y: 0.0
+    yaw: -0.15
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  search_required: false
+  clarification_required: false
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP
+  claimed_success: true
