@@ -1,0 +1,32 @@
+id: c3_04
+category: bonus_C3
+instruction: Move the green bottle to the red area.
+scene:
+  seed: 100304
+  objects:
+  - name: bottle
+    pos:
+    - 0.5891
+    - -0.3437
+    - 0.915
+    yaw: -0.6462
+  - name: stone2
+    pos:
+    - 0.5976
+    - 0.163
+    - 0.88
+    yaw: 0.1263
+  robot_init:
+    x: -0.0289
+    y: 0.023
+    yaw: 0.1691
+clarification_responses: []
+expected:
+  target: bottle
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP

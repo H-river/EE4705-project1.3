@@ -1,0 +1,32 @@
+id: c2_26
+category: bonus_C2
+instruction: Move the blue cube to the red area.
+scene:
+  seed: 100226
+  objects:
+  - name: cube
+    pos:
+    - 0.4964
+    - 0.0559
+    - 0.88
+    yaw: -1.2792
+  - name: stone
+    pos:
+    - 0.4189
+    - -0.4153
+    - 0.88
+    yaw: -1.2109
+  robot_init:
+    x: -0.0025
+    y: 0.0089
+    yaw: -0.1555
+clarification_responses: []
+expected:
+  target: cube
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP

@@ -225,6 +225,17 @@ class SimWorld:
                     raise ValueError("position-only IK intersects robot or scene geometry; re-park the base")
             return self.robot.set_arm_target(pos_world, rot_world)
 
+    def arm_q(self) -> np.ndarray:
+        """Measured right-arm joint positions (7)."""
+        with self.lock:
+            return self.robot.arm_q()
+
+    def set_arm_joint_target(self, q: np.ndarray) -> None:
+        """Joint-space right-arm setpoint (clamped to limits); cancels any
+        Cartesian command.  Used by learned grasp policies (docs/bonus)."""
+        with self.lock:
+            self.robot.set_arm_joint_target(np.asarray(q, dtype=float))
+
     def set_waist_target(self, yaw: float, roll: float, pitch: float) -> None:
         self.robot.set_waist_target(yaw, roll, pitch)
 

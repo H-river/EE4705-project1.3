@@ -1,0 +1,26 @@
+id: val_06
+category: bonus_VAL
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 50006
+  objects:
+  - name: stone
+    pos:
+    - 0.4683
+    - -0.1671
+    - 0.88
+    yaw: 2.6159
+  robot_init:
+    x: -0.104
+    y: -0.0298
+    yaw: -0.1523
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP

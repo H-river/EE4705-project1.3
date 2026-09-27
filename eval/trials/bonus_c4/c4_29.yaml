@@ -1,0 +1,32 @@
+id: c4_29
+category: bonus_C4
+instruction: Move the gray stone to the red area.
+scene:
+  seed: 100429
+  objects:
+  - name: stone
+    pos:
+    - 0.3575
+    - -0.2352
+    - 0.88
+    yaw: -0.1717
+  - name: cube
+    pos:
+    - 0.4417
+    - -0.2372
+    - 0.88
+    yaw: 1.3637
+  robot_init:
+    x: -0.074
+    y: 0.053
+    yaw: -0.1201
+clarification_responses: []
+expected:
+  target: stone
+  region: red_region
+  feasible: true
+  events_required:
+  - GRASP
+  - MOVE_TO
+  - PLACE
+  - STOP
